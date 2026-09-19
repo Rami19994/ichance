@@ -741,14 +741,37 @@ async function handleApi(req, res, url) {
     if (route === '/api/admin/overview' && req.method === 'GET') {
       const ledger = store.ledgerSummary();
       const rounds = game.adminHistory(60);
+      // جلب اللاعبين الحقيقيين من قاعدة البيانات (Supabase أو محلي)
+      const realAccounts = await accounts.allPlayers({ limit: 200 }).catch(() => []);
+      // دمج بيانات اللعب مع بيانات الحسابات
+      const gamePlayersMap = {};
+      for (const p of store.allPlayers()) gamePlayersMap[p.id] = p;
+      const mergedPlayers = realAccounts.map((acc) => {
+        const gp = gamePlayersMap[acc.id] || gamePlayersMap[acc.display_id] || {};
+        return {
+          id: acc.display_id || acc.id,
+          balance: Number(acc.balance || 0),
+          rounds: gp.rounds || 0,
+          wagered: gp.wagered || 0,
+          won: gp.won || 0,
+          houseNet: gp.houseNet || 0,
+          username: acc.username,
+          country: acc.country
+        };
+      });
+      // أضف أي لاعبين في الجلسة غير موجودين في Supabase (ضيوف)
+      const realIds = new Set(realAccounts.map((a) => a.id).concat(realAccounts.map((a) => a.display_id)));
+      for (const p of store.allPlayers()) {
+        if (!realIds.has(p.id)) mergedPlayers.push(p);
+      }
       return sendJson(res, 200, {
         ledger,
         tank: tankGame.difficultyReport(store.tankDifficultyLedger()),
         economics: buildEconomics(rounds, ledger),
         live: game.adminSnapshot(),
         rounds,
-        players: store.allPlayers(),
-        playerCount: store.playerCount(),
+        players: mergedPlayers,
+        playerCount: Math.max(mergedPlayers.length, store.playerCount()),
         online: countHumanViewers(),
         settings: {
           theoreticalRtp: Number((check.rtp * 100).toFixed(2)),
@@ -773,6 +796,7 @@ async function handleApi(req, res, url) {
           }))
         }
       });
+
     }
 
     return sendJson(res, 404, { error: 'مسار إدارة غير معروف' });

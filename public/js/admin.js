@@ -1171,6 +1171,39 @@ function openPasswordModal(c) {
   });
 }
 
+/* ─────────────── إنشاء كاشير جديد ─────────────── */
+el('newCashierForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = el('ncBtn');
+  const out = el('ncOut');
+  btn.disabled = true;
+  out.hidden = true;
+
+  const username = el('ncUser').value.trim();
+  const email    = el('ncEmail').value.trim();
+  const password = el('ncPass').value;
+  const country  = el('ncCountry').value;
+  const startingFloat = Number(el('ncFloat').value) || 0;
+  const unlimited = el('ncUnlimited').checked;
+
+  try {
+    await adminPost('/api/admin/cashier', { username, email, password, country, startingFloat, unlimited });
+    out.hidden = false;
+    out.className = 'newplayer__out ok';
+    out.innerHTML = `✅ تم إنشاء الكاشير <b>${escapeHtml(username)}</b> بنجاح.`;
+    el('newCashierForm').reset();
+    toast('تم إنشاء الكاشير', 'win');
+    await loadOwner();
+  } catch (err) {
+    out.hidden = false;
+    out.className = 'newplayer__out err';
+    out.innerHTML = `<b>خطأ:</b> ${escapeHtml(err.message)}`;
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 el('cashiersBody').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-ca]');
   if (!b) return;

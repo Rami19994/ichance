@@ -16,7 +16,9 @@ const { SERVER } = require('./config');
  *    (تشفير scrypt، عهدة الكاشير، سجل العمليات، التحقق من الصلاحيات).
  */
 
-const DATA_DIR = path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'ichance_data')
+  : path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 
 const EMAIL_DOMAIN = '@gmail.com';
@@ -127,8 +129,11 @@ function saveLocal() {
   }
 }
 
-// فحص جاهزية Supabase
-let supabaseReady = false;
+// فحص وجاهزية Supabase
+let supabaseReady = sb.configured();
+let pingChecked = false;
+let pingPromise = null;
+
 async function checkSupabase() {
   if (!sb.configured()) {
     supabaseReady = false;
@@ -139,10 +144,30 @@ async function checkSupabase() {
   return supabaseReady;
 }
 
-checkSupabase().then((ok) => {
-  if (ok) console.log('[accounts] متصل بـ Supabase بنجاح');
-  else console.log('[accounts] استخدام محرك التخزين المحلي (data/accounts.json)');
-});
+async function ensureSupabase() {
+  if (!sb.configured()) {
+    supabaseReady = false;
+    return false;
+  }
+  if (pingChecked) return supabaseReady;
+  if (!pingPromise) {
+    pingPromise = sb.ping().then((res) => {
+      pingChecked = true;
+      supabaseReady = res.ok;
+      if (res.ok) console.log('[accounts] متصل بـ Supabase بنجاح');
+      else console.warn('[accounts] تعذّر الاتصال بـ Supabase:', res.error);
+      return supabaseReady;
+    }).catch((err) => {
+      pingChecked = true;
+      supabaseReady = false;
+      return false;
+    });
+  }
+  return pingPromise;
+}
+
+// فحص أولي سريع في الخلفية
+ensureSupabase();
 
 function strip(row) {
   if (!row) return null;
@@ -162,6 +187,7 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
 
   const { hash, salt } = hashPassword(p.value);
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const rows = await sb.insert('accounts', {
@@ -187,8 +213,12 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
       }
       return { ok: true, cashier: strip(row) };
     } catch (err) {
-      console.warn('[accounts] تعذّر الإنشاء على Supabase، التبديل للمحلي:', err.message);
-      supabaseReady = false;
+      console.warn('[accounts] تعذّر الإنشاء على Supabase:', err.message);
+      if (err.raw && (err.raw.includes('accounts_username_uniq') || err.raw.includes('duplicate key') || err.code === '23505')) {
+        if (err.raw.includes('accounts_email_uniq')) return { ok: false, error: 'هذا الإيميل مستخدم بالفعل' };
+        return { ok: false, error: 'اسم المستخدم محجوز مسبقاً' };
+      }
+      return { ok: false, error: err.message || 'تعذّر إنشاء الكاشير' };
     }
   }
 
@@ -249,6 +279,7 @@ async function createPlayer({ cashierId, username, email, password, createdBy })
 
   const { hash, salt } = hashPassword(p.value);
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const rows = await sb.insert('accounts', {
@@ -264,8 +295,12 @@ async function createPlayer({ cashierId, username, email, password, createdBy })
       });
       return { ok: true, player: strip(rows[0]) };
     } catch (err) {
-      console.warn('[accounts] تعذّر إنشاء اللاعب على Supabase، التبديل للمحلي:', err.message);
-      supabaseReady = false;
+      console.warn('[accounts] تعذّر إنشاء اللاعب على Supabase:', err.message);
+      if (err.raw && (err.raw.includes('accounts_username_uniq') || err.raw.includes('duplicate key') || err.code === '23505')) {
+        if (err.raw.includes('accounts_email_uniq')) return { ok: false, error: 'هذا الإيميل مستخدم بالفعل' };
+        return { ok: false, error: 'اسم المستخدم محجوز مسبقاً' };
+      }
+      return { ok: false, error: err.message || 'تعذّر إنشاء اللاعب' };
     }
   }
 
@@ -309,6 +344,7 @@ async function login(identifier, password, { expectRole } = {}) {
   const id = String(identifier || '').trim().toLowerCase();
   if (!id || !password) return { ok: false, error: 'أدخل اسم المستخدم وكلمة المرور' };
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const q = id.includes('@')
@@ -327,8 +363,7 @@ async function login(identifier, password, { expectRole } = {}) {
       }
       return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
     } catch (err) {
-      console.warn('[accounts] تعذّر الدخول عبر Supabase، محاولة المحلي:', err.message);
-      supabaseReady = false;
+      console.warn('[accounts] خطأ الدخول عبر Supabase:', err.message);
     }
   }
 
@@ -355,6 +390,7 @@ async function byToken(token) {
   const t = String(token || '').trim();
   if (!t) return null;
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const row = await sb.selectOne('accounts', `select=*&play_token=eq.${sb.enc(t)}`);
@@ -369,6 +405,7 @@ async function byToken(token) {
 
 async function byId(id) {
   if (!id) return null;
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const row = await sb.selectOne('accounts', `select=*&id=eq.${sb.enc(String(id))}`);
@@ -465,6 +502,7 @@ async function setActive({ accountId, active, ownerId }) {
 async function deposit({ cashierId, playerId, amount, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const out = await sb.rpc('cashier_deposit', {
@@ -518,6 +556,7 @@ async function deposit({ cashierId, playerId, amount, note }) {
 async function withdraw({ cashierId, playerId, amount, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const out = await sb.rpc('cashier_withdraw', {
@@ -571,6 +610,7 @@ async function withdraw({ cashierId, playerId, amount, note }) {
 async function adjustCashierFloat({ cashierId, amount, topup, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
 
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const out = await sb.rpc('admin_adjust_cashier', {
@@ -610,6 +650,7 @@ async function adjustCashierFloat({ cashierId, amount, topup, note }) {
 
 // ----------------------------------------------------------------- التقارير
 async function cashierPlayers(cashierId) {
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       return await sb.select('player_summary', `select=*&cashier_id=eq.${sb.enc(cashierId)}&order=created_at.desc`);
@@ -623,6 +664,7 @@ async function cashierPlayers(cashierId) {
 }
 
 async function cashierSelf(cashierId) {
+  await ensureSupabase();
   let row = null;
   if (supabaseReady) {
     try {
@@ -652,6 +694,7 @@ async function cashierSelf(cashierId) {
 }
 
 async function allCashiers() {
+  await ensureSupabase();
   let list = null;
   if (supabaseReady) {
     try {
@@ -709,6 +752,7 @@ async function allCashiers() {
 }
 
 async function allPlayers({ limit = 200 } = {}) {
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       return await sb.select('player_summary', `select=*&order=created_at.desc&limit=${Number(limit) || 200}`);
@@ -722,6 +766,7 @@ async function allPlayers({ limit = 200 } = {}) {
 }
 
 async function transactions({ cashierId, playerId, limit = 100 } = {}) {
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       const parts = ['select=*', 'order=created_at.desc', `limit=${Math.min(Number(limit) || 100, 500)}`];
@@ -790,6 +835,7 @@ async function flushPlayer(accountId) {
 
 async function setCashierCountry(cashierId, country) {
   const c = countries.resolve(country); if (!c.ok) return c;
+  await ensureSupabase();
   if (supabaseReady) {
     try {
       await sb.update('accounts', `id=eq.${sb.enc(String(cashierId))}`,
