@@ -1,0 +1,14 @@
+{
+  "name": "ichance-casino",
+  "version": "1.0.0",
+  "description": "iCHANCE - منصة ألعاب رهان بعملة افتراضية. اللعبة الأولى: كروت الحظ (12 كرت مضاعفات).",
+  "private": true,
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {}
+}

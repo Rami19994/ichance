@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تسجيل دخول اللاعبين — iCHANCE</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=25">
+<link rel="stylesheet" href="/css/auth.css?v=25">
+<style>
+  .auth__wrap {
+    width: min(440px, 100%);
+    position: relative;
+  }
+  .auth__glow {
+    position: absolute;
+    inset: -20px;
+    background: radial-gradient(circle, rgba(247, 201, 72, .12) 0%, transparent 70%);
+    filter: blur(25px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .auth__box {
+    position: relative;
+    z-index: 1;
+    background: linear-gradient(165deg, #131924, #0b1017);
+    border: 1px solid rgba(247, 201, 72, .2);
+    border-radius: 22px;
+    padding: 36px 30px 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.7);
+    text-align: center;
+  }
+  .auth__logo {
+    width: 62px; height: 62px;
+    margin: 0 auto 18px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, #ffeaa7, #f7c948 45%, #d99a0b);
+    display: grid; place-items: center;
+    font-weight: 900; font-size: 25px; color: #1a1202;
+    box-shadow: 0 10px 25px rgba(247, 201, 72, .3);
+  }
+  .auth__title {
+    margin: 0 0 8px;
+    font-size: 24px; font-weight: 900;
+    color: #fff;
+    letter-spacing: -.3px;
+  }
+  .auth__desc {
+    margin: 0 0 24px;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.8;
+  }
+  .input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .input-group input {
+    width: 100%;
+    padding-left: 42px;
+  }
+  .pw-toggle {
+    position: absolute;
+    left: 10px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px;
+    font-size: 16px;
+    line-height: 1;
+    transition: color .2s;
+  }
+  .pw-toggle:hover {
+    color: var(--txt);
+  }
+  .auth__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(247, 201, 72, .08);
+    border: 1px solid rgba(247, 201, 72, .2);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="auth">
+  <div class="auth__wrap">
+    <div class="auth__glow"></div>
+    <form class="auth__box" id="loginForm">
+      <div class="auth__logo">iC</div>
+      <span class="auth__badge">بوابة دخول اللاعبين</span>
+      <h1 class="auth__title">تسجيل الدخول</h1>
+      <p class="auth__desc">ادخل باسم المستخدم أو الإيميل وكلمة المرور للبدء باللعب.</p>
+
+      <div class="field">
+        <label for="identifier">اسم المستخدم أو الإيميل</label>
+        <input id="identifier" type="text" autocomplete="username" spellcheck="false"
+               placeholder="ahmad أو ahmad@gmail.com" required autofocus>
+      </div>
+
+      <div class="field">
+        <label for="password">كلمة المرور</label>
+        <div class="input-group">
+          <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+          <button type="button" class="pw-toggle" id="togglePw" title="إظهار/إخفاء كلمة المرور">👁️</button>
+        </div>
+      </div>
+
+      <button class="btn btn--gold btn--block btn--lg" type="submit" id="submitBtn">
+        <span>دخول إلى الألعاب</span>
+      </button>
+
+      <div class="auth__error" id="error" hidden></div>
+
+      <div class="auth__note">
+        <span>ليس لديك حساب؟ يرجى التواصل مع الدعم أو المعتمد المالي الخاص بك لتفعيل حسابك وشحنه فوراً.</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js?v=25"></script>
+<script>
+'use strict';
+const el = (id) => document.getElementById(id);
+
+// زر إظهار/إخفاء كلمة المرور
+el('togglePw').addEventListener('click', () => {
+  const p = el('password');
+  const isPw = p.type === 'password';
+  p.type = isPw ? 'text' : 'password';
+  el('togglePw').textContent = isPw ? '🙈' : '👁️';
+});
+
+el('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const box = el('error');
+  box.hidden = true;
+  const btn = el('submitBtn');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'جارٍ التحقق…';
+
+  try {
+    const data = await API.post('/api/auth/login', {
+      identifier: el('identifier').value,
+      password: el('password').value
+    });
+    try { localStorage.setItem('ichance.token', data.token); } catch (e) {}
+    const next = new URLSearchParams(location.search).get('next');
+    location.href = (next && next.startsWith('/') && !next.startsWith('/login') && !next.startsWith('/cashier')) ? next : '/';
+  } catch (err) {
+    box.hidden = false;
+    box.textContent = err.message || 'اسم المستخدم أو كلمة المرور غير صحيحة';
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'دخول إلى الألعاب';
+  }
+});
+</script>
+</body>
+</html>

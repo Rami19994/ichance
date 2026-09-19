@@ -1,0 +1,311 @@
+/* ==========================================================================
+   iCHANCE — معركة الدبابات
+   ========================================================================== */
+
+.tank-wrap {
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: "arena bet" "info info";
+  align-items: start;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.arena-box { grid-area: arena; min-width: 0; }
+.betbox    { grid-area: bet; }
+.infobox   { grid-area: info; }
+
+/* ------------------------------ شريط المعلومات ------------------------------ */
+.hud {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.hud__cell {
+  flex: 1 1 96px;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hud__label { color: var(--muted); font-size: 11px; }
+.hud__val { font-size: 17px; font-weight: 800; }
+.hud__cell--win .hud__val { color: var(--gold-2); }
+.hud__cell--time .hud__val { color: var(--cyan); }
+.hud__cell--time.is-low .hud__val { color: var(--red); animation: hudPulse .7s infinite; }
+@keyframes hudPulse { 50% { opacity: .35; } }
+
+.armor { display: flex; gap: 4px; align-items: center; height: 22px; }
+.armor i {
+  width: 13px; height: 17px;
+  border-radius: 3px 3px 5px 5px;
+  background: linear-gradient(180deg, #7ef3c0, #17a06a);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .28);
+}
+.armor i.is-gone { background: #2a3444; box-shadow: none; }
+
+/* --------------------------------- الساحة --------------------------------- */
+.arena {
+  position: relative;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0a0f16;
+  box-shadow: var(--shadow-lg, 0 18px 44px rgba(0, 0, 0, .5));
+}
+.arena canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* فنّ بكسلي: التنعيم يذيب الحوافّ ويفقده طابعه */
+  image-rendering: pixelated;
+  touch-action: none;
+}
+.arena.is-shaking { animation: shake .28s; }
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-4px, 2px); }
+  50% { transform: translate(3px, -3px); }
+  75% { transform: translate(-2px, -1px); }
+}
+
+/* -------------------------------- الستارة -------------------------------- */
+.curtain {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: radial-gradient(120% 90% at 50% 40%, rgba(8, 12, 19, .82) 0%, rgba(5, 8, 13, .96) 100%);
+  backdrop-filter: blur(3px);
+  z-index: 3;
+}
+.curtain[hidden] { display: none; }
+.curtain__box {
+  width: min(460px, 100%);
+  text-align: center;
+  background: var(--grad-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 26px 24px 22px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .55);
+}
+.curtain__badge {
+  display: inline-block;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: rgba(247, 201, 72, .12);
+  border: 1px solid rgba(247, 201, 72, .3);
+  color: var(--gold-2);
+  font-size: 11.5px; font-weight: 700;
+  margin-bottom: 12px;
+}
+.curtain__box.is-win .curtain__badge { background: var(--green-dim); border-color: rgba(41,217,140,.4); color: var(--green); }
+.curtain__box.is-lose .curtain__badge { background: var(--red-dim); border-color: rgba(255,91,115,.4); color: var(--red); }
+.curtain__title { margin: 0 0 8px; font-size: 25px; }
+.curtain__box.is-win .curtain__title { color: var(--green); }
+.curtain__box.is-lose .curtain__title { color: var(--red); }
+.curtain__text { margin: 0 0 16px; color: var(--txt-2); font-size: 13.5px; line-height: 1.85; }
+.curtain__stats {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  margin-bottom: 16px;
+}
+.curtain__stats span {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--txt-2);
+}
+.curtain__stats b { color: var(--txt); }
+.curtain__hint { margin-top: 14px; color: var(--muted); font-size: 11.5px; line-height: 1.8; }
+.curtain__hint b { color: var(--txt-2); }
+
+
+/* ------------------------------ أزرار اللمس ------------------------------ */
+.touch { display: none; }
+.touch[hidden] { display: none !important; }
+.dpad {
+  position: relative;
+  width: 148px; height: 148px;
+  flex: 0 0 auto;
+}
+.dbtn {
+  position: absolute;
+  width: 50px; height: 50px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.dbtn::after {
+  content: '';
+  position: absolute; inset: 0;
+  margin: auto;
+  width: 0; height: 0;
+  border: 8px solid transparent;
+}
+.dbtn:active, .dbtn.is-on { background: var(--gold-3); }
+.dbtn--up    { top: 0; left: 49px; }
+.dbtn--down  { bottom: 0; left: 49px; }
+.dbtn--left  { left: 0; top: 49px; }
+.dbtn--right { right: 0; top: 49px; }
+.dbtn--up::after    { border-bottom-color: var(--txt); margin-top: 14px; }
+.dbtn--down::after  { border-top-color: var(--txt); margin-bottom: 14px; }
+.dbtn--left::after  { border-right-color: var(--txt); margin-right: 14px; }
+.dbtn--right::after { border-left-color: var(--txt); margin-left: 14px; }
+
+.fire-btn {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  border: 2px solid var(--gold-3);
+  background: radial-gradient(circle at 40% 35%, #ffd873, #b9790a);
+  color: #2a1c02;
+  font-family: inherit; font-weight: 900; font-size: 15px;
+  cursor: pointer;
+}
+.fire-btn:active { transform: scale(.94); }
+
+/* ------------------------------ لوحة الرهان ------------------------------ */
+.betbox__head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.betbox__head h2 { margin: 0; font-size: 17px; }
+.betbox__note { color: var(--muted); font-size: 11.5px; }
+
+.betbox .field { margin-bottom: 14px; }
+.betbox .field > label {
+  display: block; margin-bottom: 7px;
+  color: var(--txt-2); font-size: 12.5px; font-weight: 700;
+}
+
+.stakes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stakes button {
+  padding: 9px 4px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--txt-2);
+  border-radius: var(--r-sm);
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  cursor: pointer;
+  min-width: 0;
+}
+.stakes button.is-on { background: var(--grad-gold); color: #241a03; border-color: transparent; }
+.stakes button:disabled { opacity: .35; cursor: not-allowed; }
+
+.diffs { display: grid; gap: 6px; }
+.diffs button {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: start;
+  color: var(--txt-2);
+}
+.diffs button.is-on { border-color: var(--gold-2); background: rgba(247, 201, 72, .09); }
+.diffs button:disabled { opacity: .4; cursor: not-allowed; }
+.diffs .d-name { font-weight: 800; color: var(--txt); font-size: 13.5px; }
+.diffs .d-meta { font-size: 11px; color: var(--muted); }
+.diffs .d-mult {
+  margin-inline-start: auto;
+  font-weight: 900; font-size: 15px; color: var(--gold-2);
+  /* مضاعف لاتيني في سطر عربي — العزل يمنع قلبه إلى 1.70× */
+  direction: ltr; unicode-bidi: isolate;
+}
+
+.payout-line {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 13px;
+  background: var(--green-dim);
+  border: 1px solid rgba(41, 217, 140, .26);
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.payout-line b { color: var(--green); font-size: 17px; }
+
+.mystats {
+  margin-top: 14px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+}
+.mystats div {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  min-width: 0;
+}
+.mystats span { display: block; color: var(--muted); font-size: 10.5px; }
+.mystats b { font-size: 14px; }
+
+/* -------------------------------- الشرح -------------------------------- */
+.infobox__head { margin-bottom: 14px; }
+.infobox__head h2 { margin: 0; font-size: 17px; }
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.info-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 13px 14px;
+  min-width: 0;
+}
+.info-card__icon { font-size: 19px; }
+.info-card h3 { margin: 6px 0 6px; font-size: 13.5px; }
+.info-card p { margin: 0; color: var(--txt-2); font-size: 12px; line-height: 1.8; }
+
+.fairbox {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px;
+}
+.fairbox__row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 6px 0;
+  font-size: 12.5px; color: var(--txt-2);
+}
+.fairbox__row code {
+  font-size: 11px; color: var(--gold-2);
+  background: rgba(0, 0, 0, .3);
+  padding: 4px 8px; border-radius: 6px;
+  max-width: 62%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  direction: ltr; unicode-bidi: isolate;
+}
+.fairbox__note { margin: 10px 0 12px; color: var(--muted); font-size: 11.5px; line-height: 1.8; }
+
+/* ------------------------------- الاستجابة ------------------------------- */
+@media (max-width: 1040px) {
+  .tank-wrap {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "arena" "bet" "info";
+  }
+}
+@media (max-width: 760px) {
+  .tank-wrap { padding: 12px; }
+  .hud__cell { flex-basis: 72px; padding: 7px 9px; }
+  .hud__val { font-size: 15px; }
+  /* على الجوال لا لوحة مفاتيح: الأزرار هي الطريقة الوحيدة للعب */
+  .touch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 0 4px;
+  }
+  .stakes { grid-template-columns: repeat(4, 1fr); }
+}

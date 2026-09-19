@@ -1,0 +1,42 @@
+# Dependency directories
+node_modules/
+package-lock.json
+
+# Environment and sensitive secrets
+.env
+.env.local
+.env.*.local
+
+# Sensitive persistent data and credentials
+data/admin-gate.json
+data/admin-gate.txt
+data/admin.json
+data/admin-key.txt
+data/admin-supabase.json
+data/accounts.json
+data/players.json
+data/site.json
+
+# Preserve data directory structure
+!data/.gitkeep
+
+# Backup archives and large binaries
+*.rar
+*.zip
+*.tar.gz
+*.7z
+webgame_ichance.rar
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor & OS files
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

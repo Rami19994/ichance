@@ -1,0 +1,72 @@
+/* ==========================================================================
+   iCHANCE — شاشات الدخول (اللاعب والكاشير)
+   ========================================================================== */
+
+.auth {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(247, 201, 72, .07) 0%, transparent 60%),
+    var(--bg);
+}
+
+.auth__box {
+  width: min(420px, 100%);
+  background: var(--grad-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 30px 26px 24px;
+  text-align: center;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, .5);
+}
+
+.auth__logo {
+  width: 58px; height: 58px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: var(--grad-gold);
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 23px; color: #16110a;
+  box-shadow: var(--shadow-gold);
+}
+.auth__box h1 { margin: 0 0 7px; font-size: 22px; }
+.auth__box > p { margin: 0 0 22px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+
+.auth .field { text-align: start; margin-bottom: 14px; }
+.auth .field label {
+  display: block; margin-bottom: 6px;
+  color: var(--txt-2); font-size: 12.5px; font-weight: 700;
+}
+.auth .field input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 11px 13px;
+  color: var(--txt);
+  font-family: inherit; font-size: 14px;
+}
+.auth .field input:focus { outline: none; border-color: var(--gold-2); }
+.auth .field input::placeholder { color: #55617a; }
+
+.auth__error {
+  margin-top: 14px;
+  background: var(--red-dim);
+  border: 1px solid rgba(255, 91, 115, .35);
+  color: #ffc0cb;
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.auth__error[hidden] { display: none; }
+
+.auth__note {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.85;
+}
+.auth__note a { color: var(--gold-2); }

@@ -1,0 +1,977 @@
+'use strict';
+
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { URL } = require('url');
+
+const config = require('./config');
+const store = require('./store');
+const game = require('./luckyCards');
+const BotDirector = require('./bots');
+const slots = require('./slots');
+const slotSession = require('./slotSession');
+const adminAuth = require('./adminAuth');
+const tankGame = require('./tankGame');
+const supabase = require('./supabase');
+const accounts = require('./accounts');
+const siteConfig = require('./siteConfig');
+const adminGate = require('./adminGate');
+const countries = require('./countries');
+
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+// ---------------------------------------------------------------------------
+// فحص الإعدادات قبل الإقلاع — أفضل من اكتشاف خطأ توازن اللعبة بعد النشر
+// ---------------------------------------------------------------------------
+const check = config.selfCheck();
+
+// ---------------------------------------------------------------------------
+// خدمة الملفات الثابتة
+// ---------------------------------------------------------------------------
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2'
+};
+
+function sendStatic(req, res, pathname) {
+  let rel = decodeURIComponent(pathname);
+  if (rel.endsWith('/')) rel += 'index.html';
+  const full = path.join(PUBLIC_DIR, path.normalize(rel));
+
+  // حماية من الخروج خارج مجلد public
+  if (!full.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'ممنوع' });
+
+  fs.stat(full, (err, stat) => {
+    if (err || !stat.isFile()) {
+      // صفحات غير موجودة -> صفحة 404 بسيطة
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<meta charset="utf-8"><body style="background:#080a0f;color:#e8edf6;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1 style="font-size:64px;margin:0;color:#f5c542">404</h1><p>الصفحة غير موجودة</p><a href="/" style="color:#f5c542">العودة للرئيسية</a></div></body>');
+      return;
+    }
+    const ext = path.extname(full).toLowerCase();
+    const etag = `W/"${stat.size.toString(16)}-${stat.mtimeMs.toString(36)}"`;
+
+    // no-cache = المتصفح يحتفظ بالنسخة لكنه يسأل الخادم أولاً.
+    // هكذا لا نخدم CSS/JS قديماً بعد أي تعديل، وفي نفس الوقت لا نعيد الإرسال بلا داعٍ.
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache' });
+      return res.end();
+    }
+
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Cache-Control': 'no-cache',
+      ETag: etag,
+      'Last-Modified': new Date(stat.mtimeMs).toUTCString(),
+      'X-Content-Type-Options': 'nosniff'
+    });
+    if (req.method === 'HEAD') return res.end();
+    fs.createReadStream(full).pipe(res);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// أدوات مساعدة
+// ---------------------------------------------------------------------------
+function sendJson(res, status, body) {
+  const payload = JSON.stringify(body);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store'
+  });
+  res.end(payload);
+}
+
+function readBody(req, limit = 8 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) { reject(new Error('الطلب كبير جداً')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      if (!chunks.length) return resolve({});
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
+      catch { reject(new Error('صيغة JSON غير صالحة')); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function tokenFrom(req, url) {
+  return req.headers['x-player-token'] || url.searchParams.get('token') || null;
+}
+
+// حدّ بسيط لمعدل الطلبات لمنع الضغط الآلي
+const buckets = new Map();
+function rateLimit(key, max = 30, windowMs = 10_000) {
+  const now = Date.now();
+  let b = buckets.get(key);
+  if (!b || now > b.reset) { b = { count: 0, reset: now + windowMs }; buckets.set(key, b); }
+  b.count += 1;
+  return b.count <= max;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of buckets) if (now > b.reset) buckets.delete(k);
+}, 30_000).unref?.();
+
+// ---------------------------------------------------------------------------
+// البث اللحظي (Server-Sent Events)
+// ---------------------------------------------------------------------------
+/** @type {Set<{res: import('http').ServerResponse, playerId: string|null}>} */
+const clients = new Set();
+const bots = new BotDirector(game);
+
+function pushTo(client, event, data) {
+  try {
+    client.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  } catch {
+    clients.delete(client);
+  }
+}
+
+function broadcastState() {
+  for (const client of clients) pushTo(client, 'state', game.stateFor(client.playerId));
+  bots.setViewers(countHumanViewers());
+}
+
+function countHumanViewers() {
+  const ids = new Set();
+  let anon = 0;
+  for (const c of clients) { if (c.playerId) ids.add(c.playerId); else anon += 1; }
+  return ids.size + Math.min(anon, 3);
+}
+
+let broadcastQueued = false;
+game.on('update', () => {
+  // تجميع التحديثات المتقاربة في إطار واحد
+  if (broadcastQueued) return;
+  broadcastQueued = true;
+  setTimeout(() => { broadcastQueued = false; broadcastState(); }, 40);
+});
+
+game.on('round-end', (summary) => {
+  for (const client of clients) {
+    const mine = summary.seats.find((s) => s.id === client.playerId);
+    pushTo(client, 'round-end', {
+      roundId: summary.roundId,
+      templateName: summary.templateName,
+      serverSeed: summary.serverSeed,
+      seedHash: summary.seedHash,
+      cards: summary.cards,
+      you: mine || null,
+      seats: summary.seats
+    });
+  }
+});
+
+// مزامنة احتياطية + نبضة تبقي الاتصال مفتوحاً
+setInterval(() => {
+  for (const client of clients) {
+    client.res.write(': ping\n\n');
+    pushTo(client, 'state', game.stateFor(client.playerId));
+  }
+  bots.setViewers(countHumanViewers());
+}, 5_000).unref?.();
+
+// ---------------------------------------------------------------------------
+// المسارات
+// ---------------------------------------------------------------------------
+/**
+ * يحوّل رمز الجلسة إلى لاعب.
+ *
+ * الذاكرة أولاً (الطريق السريع لكل طلب)، وعند عدم وجوده نسأل قاعدة البيانات
+ * مرة واحدة ثم نثبّته في الذاكرة. بلا هذا التخزين كان كل طلب لعب سيدفع
+ * ~450 مللي ثانية للوصول إلى Supabase.
+ */
+async function resolvePlayer(token) {
+  if (!token) return null;
+  const cached = store.byToken(token);
+  if (cached) return cached;
+  const row = await accounts.byToken(token);
+  if (!row || row.role !== 'player') return null;
+  return store.attachAccount(row);
+}
+
+/** رمز الكاشير منفصل عن رمز اللاعب: حسابان مختلفان قد يعملان على جهاز واحد. */
+async function resolveCashier(req, url) {
+  const token = String(req.headers['x-cashier-token'] || url.searchParams.get('ctoken') || '').trim();
+  if (!token) return null;
+  const row = await accounts.byToken(token);
+  return row && row.role === 'cashier' && row.active ? row : null;
+}
+
+/**
+ * التحقق من صلاحية الوصول إلى مسارات الإدارة:
+ * 1. إذا كان الطلب قادماً من دومين الإدارة المخصص (adminDomain).
+ * 2. أو إذا كان يحمل برهان البوابة السرية (query ?gate=... أو cookie أو header).
+ * 3. أو إذا كان يحمل مفتاح إدارة صحيح ومصادقاً.
+ */
+function isAdminAllowed(req, url) {
+  const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
+  const adminDomain = siteConfig.getAdminDomain();
+  if (adminDomain && host === adminDomain) return true;
+
+  const gateProof = url.searchParams.get('gate') ||
+                    (req.headers['x-gate'] || '') ||
+                    (req.headers['cookie'] || '').match(/ichance_admin_gate=([A-Za-z0-9_-]+)/)?.[1];
+  if (gateProof && adminGate.matches('/' + gateProof)) return true;
+
+  const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
+  if (key && adminAuth.verify(key)) return true;
+
+  return false;
+}
+
+/**
+ * اللعبة الموقوفة تُمنع في الخادم لا في الواجهة فقط.
+ * إخفاء البطاقة من الردهة وحده لا يمنع من يعرف المسار من الاستمرار باللعب.
+ */
+const ROUTE_GAME = {
+  '/api/join': 'cards', '/api/pick': 'cards',
+  '/api/slot/spin': 'slots', '/api/slot/buy': 'slots',
+  '/api/tank/start': 'tank'
+};
+
+async function handleApi(req, res, url) {
+  const route = url.pathname;
+  const token = tokenFrom(req, url);
+  const player = await resolvePlayer(token);
+  const ip = req.socket.remoteAddress || 'unknown';
+
+  const gatedGame = ROUTE_GAME[route];
+  if (gatedGame && !siteConfig.gameEnabled(gatedGame)) {
+    return sendJson(res, 403, { error: 'هذه اللعبة متوقفة مؤقتاً', gameDisabled: gatedGame });
+  }
+
+  // ---- إعدادات عامة
+  if (route === '/api/config' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      stakes: config.STAKES,
+      grid: config.GRID,
+      cardCount: config.CARD_COUNT,
+      maxPlayers: config.MAX_PLAYERS,
+      timing: config.TIMING,
+      rtp: Number((check.rtp * 100).toFixed(2)),
+      houseEdge: Number((check.houseEdge * 100).toFixed(2)),
+      winnersPerRound: config.RULES.winnersPerRound,
+      highStake: {
+        threshold: config.HIGH_STAKE_THRESHOLD,
+        maxMultiplier: config.HIGH_STAKE_MAX_MULTIPLIER
+      },
+      // جدول الأنماط منشور عمداً: بدونه لا يستطيع اللاعب التحقق من عدالة الجولة
+      templates: config.TEMPLATES.map((t) => ({ key: t.key, name: t.name, weight: t.weight, cards: t.cards })),
+      botsEnabled: config.BOTS.enabled,
+      games: siteConfig.publicGames(),
+      faucet: { amount: config.WALLET.faucetAmount, threshold: config.WALLET.faucetThreshold }
+    });
+  }
+
+  // ---- جلسة اللاعب
+  if (route === '/api/session' && req.method === 'POST') {
+    if (!rateLimit(`sess:${ip}`, 20, 10_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    if (player) {
+      return sendJson(res, 200, { token: player.token, player: store.publicProfile(player) });
+    }
+    // لا يوجد لعب مجهول — الدخول إلزامي عبر حساب ينشئه الكاشير
+    return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+  }
+
+  // ---- دخول اللاعب
+  if (route === '/api/auth/login' && req.method === 'POST') {
+    if (!rateLimit(`login:${ip}`, 12, 60_000)) {
+      return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
+    }
+    const body = await readBody(req);
+    const out = await accounts.login(body.identifier, body.password, { expectRole: 'player' });
+    if (!out.ok) return sendJson(res, 401, { error: out.error });
+    const row = await accounts.byToken(out.token);
+    const p = store.attachAccount(row);
+    return sendJson(res, 200, { token: out.token, player: store.publicProfile(p) });
+  }
+
+  if (route === '/api/auth/logout' && req.method === 'POST') {
+    await accounts.logout(token);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  // ═══════════════════════════════ الكاشير ═══════════════════════════════
+  if (route === '/api/cashier/login' && req.method === 'POST') {
+    if (!rateLimit(`clogin:${ip}`, 12, 60_000)) {
+      return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
+    }
+    const body = await readBody(req);
+    const out = await accounts.login(body.identifier, body.password, { expectRole: 'cashier' });
+    if (!out.ok) return sendJson(res, 401, { error: out.error });
+    return sendJson(res, 200, { token: out.token, cashier: out.account });
+  }
+
+  if (route.startsWith('/api/cashier/')) {
+    const cashier = await resolveCashier(req, url);
+    if (!cashier) return sendJson(res, 401, { error: 'جلسة الكاشير منتهية — سجّل الدخول' });
+
+    if (route === '/api/cashier/overview' && req.method === 'GET') {
+      const [self, list] = await Promise.all([
+        accounts.cashierSelf(cashier.id),
+        accounts.cashierPlayers(cashier.id)
+      ]);
+      return sendJson(res, 200, { cashier: self, players: list });
+    }
+
+    if (route === '/api/cashier/transactions' && req.method === 'GET') {
+      const playerId = url.searchParams.get('player') || null;
+      const rows = await accounts.transactions({
+        cashierId: cashier.id, playerId, limit: url.searchParams.get('limit')
+      });
+      return sendJson(res, 200, { transactions: rows });
+    }
+
+    if (route === '/api/cashier/player' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.createPlayer({
+        cashierId: cashier.id,
+        username: body.username, email: body.email, password: body.password,
+        createdBy: cashier.id
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if ((route === '/api/cashier/deposit' || route === '/api/cashier/withdraw') && req.method === 'POST') {
+      const body = await readBody(req);
+      const target = await accounts.byId(body.playerId);
+      if (!target) return sendJson(res, 400, { error: 'اللاعب غير موجود' });
+
+      // نكتب فروق اللعب المعلّقة أولاً: بدونها قد تُحسب التعبئة على رصيد قديم
+      await accounts.flushPlayer(target.id);
+
+      const fn = route.endsWith('deposit') ? accounts.deposit : accounts.withdraw;
+      const out = await fn({
+        cashierId: cashier.id, playerId: body.playerId,
+        amount: body.amount, note: body.note
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+
+      // الذاكرة تتبع قاعدة البيانات فوراً كي يرى اللاعب رصيده الجديد
+      const fresh = await accounts.byId(body.playerId);
+      if (fresh) store.attachAccount(fresh);
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/cashier/password' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setPlayerPassword({
+        playerId: body.playerId, newPassword: body.password, ownerId: cashier.id
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/cashier/toggle' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setActive({
+        accountId: body.playerId, active: !!body.active, ownerId: cashier.id
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    return sendJson(res, 404, { error: 'مسار كاشير غير معروف' });
+  }
+
+  // كل ما يلي يحتاج لاعباً معروفاً
+  const needsPlayer = ['/api/me', '/api/join', '/api/leave', '/api/pick', '/api/faucet'];
+  if (needsPlayer.includes(route) && !player) {
+    return sendJson(res, 401, { error: 'جلسة غير معروفة، حدّث الصفحة' });
+  }
+
+  if (route === '/api/me' && req.method === 'GET') {
+    return sendJson(res, 200, { player: store.publicProfile(player) });
+  }
+
+  if (route === '/api/state' && req.method === 'GET') {
+    return sendJson(res, 200, game.stateFor(player ? player.id : null));
+  }
+
+  if (route === '/api/join' && req.method === 'POST') {
+    if (!rateLimit(`act:${player.id}`, 40, 10_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    const body = await readBody(req);
+    const result = game.join(player.id, Number(body.stake));
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
+  }
+
+  if (route === '/api/leave' && req.method === 'POST') {
+    if (!rateLimit(`act:${player.id}`, 40, 10_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    const result = game.leave(player.id);
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
+  }
+
+  if (route === '/api/pick' && req.method === 'POST') {
+    if (!rateLimit(`act:${player.id}`, 40, 10_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    const body = await readBody(req);
+    const result = game.pick(player.id, Number(body.cardIndex));
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/faucet' && req.method === 'POST') {
+    if (!rateLimit(`faucet:${player.id}`, 5, 60_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    const result = store.useFaucet(player);
+    if (!result.ok) return sendJson(res, 400, { error: result.reason });
+    return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
+  }
+
+  if (route === '/api/history' && req.method === 'GET') {
+    return sendJson(res, 200, { rounds: game.recentHistory(12) });
+  }
+
+  if (route === '/api/leaderboard' && req.method === 'GET') {
+    return sendJson(res, 200, { top: store.leaderboard(10) });
+  }
+
+  // ------------------------------------------------------------------ السلوتس
+  if (route === '/api/slot/config' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      name: 'صيّاد الجوائز',
+      reels: slots.REELS,
+      rows: slots.ROWS,
+      ways: slots.WAYS,
+      stakes: slotSession.SLOT_STAKES,
+      maxStake: slots.MAX_STAKE,
+      symbols: slots.SYMBOLS,
+      paytable: slots.PAYTABLE,
+      multiplierLadder: slots.MULTIPLIER_LADDER,
+      multiplierResetsOnLoss: slots.MULTIPLIER_RESETS_ON_LOSS,
+      freeSpins: slots.FREE_SPINS,
+      featureBuyCost: slots.FEATURE_BUY_COST,
+      maxWinMultiplier: slots.MAX_WIN_MULTIPLIER,
+      maxSessionMultiplier: slots.MAX_SESSION_MULTIPLIER,
+      rtp: 80.5,
+      hitRate: 53.0,
+      featureOdds: 207,
+      minReelsToWin: slots.MIN_REELS_TO_WIN,
+      // الأشرطة منشورة: بدونها لا يستطيع اللاعب التحقق من أي دورة
+      strips: { base: slots.STRIPS, free: slots.FREE_STRIPS }
+    });
+  }
+
+  const slotRoutes = ['/api/slot/state', '/api/slot/spin', '/api/slot/buy', '/api/slot/rotate'];
+  if (slotRoutes.includes(route) && !player) {
+    return sendJson(res, 401, { error: 'جلسة غير معروفة، حدّث الصفحة' });
+  }
+
+  if (route === '/api/slot/state' && req.method === 'GET') {
+    return sendJson(res, 200, slotSession.stateFor(player));
+  }
+
+  if (route === '/api/slot/spin' && req.method === 'POST') {
+    // حدّ أعلى من لعبة الكروت: السلوتس لعبة سريعة بطبعها
+    if (!rateLimit(`slot:${player.id}`, 120, 10_000)) {
+      return sendJson(res, 429, { error: 'دورات كثيرة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = slotSession.spin(player, body.bet);
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/slot/buy' && req.method === 'POST') {
+    if (!rateLimit(`slotbuy:${player.id}`, 20, 10_000)) {
+      return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    }
+    const body = await readBody(req);
+    const result = slotSession.buyFeature(player, Number(body.bet));
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/slot/rotate' && req.method === 'POST') {
+    if (slotSession.activeFeatures.has(player.id)) {
+      return sendJson(res, 400, { error: 'لا يمكن تدوير البذرة أثناء ميزة جارية' });
+    }
+    return sendJson(res, 200, slotSession.rotateSeed(player));
+  }
+
+  // ───────────────────────── بوابة الإدارة السرّية ─────────────────────────
+  // البرهان هنا هو معرفة المسار السرّي، لا مفتاح الإدارة — فهذه البوابة
+  // وُجدت أصلاً لمن فقد المفتاح أو لا يريد حفظه.
+  if (route === '/api/admin/gate' || route === '/api/admin/gate/path') {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'طريقة غير مسموحة' });
+
+    // حدّ صارم: هذا المسار يمنح ملكية اللوحة كاملة
+    if (!rateLimit(`gate:${ip}`, 6, 10 * 60_000)) {
+      return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر قليلاً' });
+    }
+    const proof = String(req.headers['x-gate'] || '').trim();
+    if (!adminGate.matches(`/${proof}`)) {
+      return sendJson(res, 404, { error: 'غير موجود' });
+    }
+
+    if (route === '/api/admin/gate') {
+      const out = adminAuth.rotate();
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      console.log('[gate] وُلّد مفتاح إدارة جديد من البوابة');
+      return sendJson(res, 200, { ok: true, key: out.key });
+    }
+
+    const moved = adminGate.rotatePath();
+    if (!moved.ok) return sendJson(res, 400, { error: moved.error });
+    return sendJson(res, 200, { ok: true, path: moved.path });
+  }
+
+  // ------------------------------------------------------ معركة الدبابات
+  if (route === '/api/tank/config' && req.method === 'GET') {
+    return sendJson(res, 200, tankGame.publicConfig());
+  }
+
+  const tankRoutes = ['/api/tank/state', '/api/tank/start', '/api/tank/finish', '/api/tank/rotate'];
+  if (tankRoutes.includes(route) && !player) {
+    return sendJson(res, 401, { error: 'جلسة غير معروفة، حدّث الصفحة' });
+  }
+
+  if (route === '/api/tank/state' && req.method === 'GET') {
+    return sendJson(res, 200, tankGame.stateFor(player));
+  }
+
+  if (route === '/api/tank/start' && req.method === 'POST') {
+    if (!rateLimit(`tank:${player.id}`, 20, 30_000)) {
+      return sendJson(res, 429, { error: 'معارك كثيرة بسرعة — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = tankGame.start(player, {
+      bet: body.bet, difficulty: body.difficulty, clientSeed: body.clientSeed
+    });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/tank/finish' && req.method === 'POST') {
+    // سجلّ الضغطات أكبر بكثير من أي طلب آخر: 2400 نبضة قد تحمل تغيّراً في كلٍّ
+    // منها. الحدّ الافتراضي 8 كيلوبايت يقطع المعارك الطويلة، فنرفعه هنا وحده.
+    const body = await readBody(req, 96 * 1024);
+    const result = tankGame.finish(player, { inputs: body.inputs });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/tank/rotate' && req.method === 'POST') {
+    const state = tankGame.stateFor(player);
+    if (state.active) return sendJson(res, 400, { error: 'لا يمكن تدوير البذرة أثناء معركة' });
+    return sendJson(res, 200, tankGame.rotateSeed(player));
+  }
+
+  // ------------------------------------------------------------------ الإدارة
+  if (route.startsWith('/api/admin/')) {
+    // حالة المفتاح: تُقرأ بلا مصادقة لأن الصفحة تحتاجها قبل الدخول لتعرف
+    // أي شاشة تعرض. لا تكشف أي سرّ — انظر adminAuth.publicStatus().
+    if (route === '/api/admin/status' && req.method === 'GET') {
+      return sendJson(res, 200, adminAuth.publicStatus());
+    }
+
+    // إنشاء المفتاح أول مرة من المتصفح. بلا مصادقة بالضرورة (لا مفتاح بعد)،
+    // لذا تحميه نافذة زمنية في adminAuth + حدّ صارم للمحاولات هنا.
+    if (route === '/api/admin/claim' && req.method === 'POST') {
+      if (!rateLimit(`claim:${ip}`, 5, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
+      const body = await readBody(req);
+      const result = adminAuth.claim(body.key);
+      if (!result.ok) return sendJson(res, 400, { error: result.error });
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // فحص عزل دومين الإدارة أو برهان البوابة السرية
+    if (!isAdminAllowed(req, url)) {
+      return sendJson(res, 404, { error: 'الصفحة غير موجودة' });
+    }
+
+    const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
+    if (!adminAuth.verify(key)) {
+      if (!rateLimit(`admin:${ip}`, 10, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
+      return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح' });
+    }
+
+    // إعدادات دومين الإدارة المخصص
+    if (route === '/api/admin/domain' && req.method === 'GET') {
+      return sendJson(res, 200, {
+        adminDomain: siteConfig.getAdminDomain(),
+        currentHost: req.headers.host || null
+      });
+    }
+
+    if (route === '/api/admin/domain' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = siteConfig.setAdminDomain(body.domain);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/games' && req.method === 'GET') {
+      return sendJson(res, 200, { games: siteConfig.report() });
+    }
+
+    if (route === '/api/admin/games' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = siteConfig.setGame(body.game, body.enabled);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, { games: siteConfig.report() });
+    }
+
+    if (route === '/api/admin/countries' && req.method === 'GET') {
+      return sendJson(res, 200, { countries: countries.list() });
+    }
+
+    if (route === '/api/admin/tiers' && req.method === 'GET') {
+      return sendJson(res, 200, { tiers: await accounts.commissionTiers() });
+    }
+
+    if (route === '/api/admin/tiers' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setCommissionTiers(body.tiers);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, { tiers: await accounts.commissionTiers() });
+    }
+
+    if (route === '/api/admin/cashier/country' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setCashierCountry(body.cashierId, body.country);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/cashiers' && req.method === 'GET') {
+      const [list, tx] = await Promise.all([
+        accounts.allCashiers(),
+        accounts.transactions({ limit: 60 })
+      ]);
+      return sendJson(res, 200, { connected: true, cashiers: list, transactions: tx });
+    }
+
+    if (route === '/api/admin/cashier' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.createCashier({
+        username: body.username,
+        email: body.email,
+        password: body.password,
+        startingFloat: body.startingFloat,
+        unlimited: body.unlimited,
+        country: body.country
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/cashier/float' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.adjustCashierFloat({
+        cashierId: body.cashierId, amount: body.amount,
+        topup: body.topup !== false, note: body.note
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/cashier/toggle' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setActive({ accountId: body.cashierId, active: !!body.active });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/cashier/password' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setCashierPassword({
+        cashierId: body.cashierId,
+        newPassword: body.password
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (route === '/api/admin/database' && req.method === 'GET') {
+      const status = supabase.configured() ? await supabase.ping() : { ok: false, error: 'غير مربوطة' };
+      return sendJson(res, 200, {
+        configured: supabase.configured(),
+        source: supabase.configured() ? supabase.config().source : null,
+        url: supabase.configured() ? supabase.config().url : null,
+        reachable: status.ok,
+        error: status.ok ? null : status.error,
+        pendingDeltas: accounts.pendingCount()
+      });
+    }
+
+    if (route === '/api/admin/database' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = supabase.saveConfig({ url: body.url, key: body.key });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      const ping = await supabase.ping();
+      if (!ping.ok) return sendJson(res, 400, { error: `حُفظت لكن الاتصال فشل: ${ping.error}` });
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // تغيير المفتاح من داخل اللوحة — بلا تيرمنال. بلا `key` يولّد مفتاحاً قوياً.
+    if (route === '/api/admin/rotate' && req.method === 'POST') {
+      const body = await readBody(req);
+      const result = adminAuth.rotate(body.key);
+      if (!result.ok) return sendJson(res, 400, { error: result.error });
+      return sendJson(res, 200, { ok: true, key: result.key, generated: result.generated });
+    }
+
+    if (route === '/api/admin/overview' && req.method === 'GET') {
+      const ledger = store.ledgerSummary();
+      const rounds = game.adminHistory(60);
+      return sendJson(res, 200, {
+        ledger,
+        tank: tankGame.difficultyReport(store.tankDifficultyLedger()),
+        economics: buildEconomics(rounds, ledger),
+        live: game.adminSnapshot(),
+        rounds,
+        players: store.allPlayers(),
+        playerCount: store.playerCount(),
+        online: countHumanViewers(),
+        settings: {
+          theoreticalRtp: Number((check.rtp * 100).toFixed(2)),
+          houseEdge: Number((check.houseEdge * 100).toFixed(2)),
+          winnersPerRound: config.RULES.winnersPerRound,
+          stdDev: Number(check.stdDev.toFixed(4)),
+          timing: config.TIMING,
+          highStakeThreshold: config.HIGH_STAKE_THRESHOLD,
+          highStakeMaxMultiplier: config.HIGH_STAKE_MAX_MULTIPLIER,
+          stakes: config.STAKES,
+          maxPlayers: config.MAX_PLAYERS,
+          botsEnabled: config.BOTS.enabled,
+          templates: config.TEMPLATES.map((t) => ({
+            key: t.key,
+            name: t.name,
+            weight: t.weight,
+            sum: t.cards.reduce((a, b) => a + b, 0),
+            winners: t.cards.filter((m) => m > 1).length,
+            losers: t.cards.filter((m) => m === 0).length,
+            refunds: t.cards.filter((m) => m === 1).length,
+            top: Math.max(...t.cards)
+          }))
+        }
+      });
+    }
+
+    return sendJson(res, 404, { error: 'مسار إدارة غير معروف' });
+  }
+
+  return sendJson(res, 404, { error: 'مسار غير معروف' });
+}
+
+/**
+ * مؤشرات دراسة الجدوى، مقيسة من الجولات الفعلية لا مفترضة.
+ * كل رقم هنا مصدره سجل الجولات، وتُفصل أرقام البوتات عن البشر.
+ */
+function buildEconomics(rounds, ledger) {
+  const played = rounds.filter((r) => r.house?.total?.bets > 0);
+
+  // الدورة النظرية الكاملة. أي جولة تتجاوز ضِعفها لم تكن جولة حقيقية بل توقّفاً
+  // (نوم الجهاز، تعليق العملية)، فاستبعادها أدقّ من إدخالها في الحساب.
+  const nominalCycleMs = config.TIMING.betting + config.TIMING.playing + config.TIMING.results;
+  const cycleCeilingMs = nominalCycleMs * 2;
+
+  const rawDurations = played.map((r) => r.durationMs).filter((d) => Number.isFinite(d) && d > 0);
+  const durations = rawDurations.filter((d) => d <= cycleCeilingMs);
+  const stalled = rawDurations.length - durations.length;
+
+  // الوسيط لا المتوسط: جولة واحدة شاذة تكفي لتحريف المتوسط وتخريب كل التوقعات.
+  const median = (arr) => {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = sorted.length >> 1;
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
+
+  const avgDurationMs = durations.length ? median(durations) : nominalCycleMs;
+
+  const seatsPerRound = played.length
+    ? played.reduce((a, r) => a + r.seats.length, 0) / played.length
+    : 0;
+  const humansPerRound = played.length
+    ? played.reduce((a, r) => a + (r.house.real?.bets || 0), 0) / played.length
+    : 0;
+
+  const roundsPerHour = avgDurationMs > 0 ? 3_600_000 / avgDurationMs : 0;
+  const T = ledger.total;
+  const profitPerRound = played.length
+    ? played.reduce((a, r) => a + (r.house.total?.profit || 0), 0) / played.length
+    : 0;
+
+  // كم جولة نحتاج حتى يصبح الربح شبه مؤكد إحصائياً؟
+  // ربح الموقع لكل رهان: متوسطه = الهامش، وانحرافه = stdDev (بوحدات المبلغ).
+  // نطلب أن يكون المتوسط 3 انحرافات فوق الصفر: edge*n >= 3*sd*sqrt(n)
+  const edge = check.houseEdge;
+  const sd = check.stdDev;
+  const betsForConfidence = edge > 0 ? Math.ceil(Math.pow((3 * sd) / edge, 2)) : null;
+
+  return {
+    sampleRounds: played.length,
+    stalledRounds: stalled,
+    nominalCycleSeconds: Number((nominalCycleMs / 1000).toFixed(1)),
+    avgRoundSeconds: Number((avgDurationMs / 1000).toFixed(1)),
+    roundsPerHour: Number(roundsPerHour.toFixed(1)),
+    avgSeatsPerRound: Number(seatsPerRound.toFixed(2)),
+    avgHumansPerRound: Number(humansPerRound.toFixed(2)),
+    avgBet: Math.round(T.avgBet),
+    profitPerRound: Math.round(profitPerRound),
+    projected: {
+      hour: Math.round(profitPerRound * roundsPerHour),
+      day: Math.round(profitPerRound * roundsPerHour * 24),
+      month: Math.round(profitPerRound * roundsPerHour * 24 * 30)
+    },
+    theoreticalEdge: Number((edge * 100).toFixed(2)),
+    stdDev: Number(sd.toFixed(4)),
+    betsForConfidence,
+    // كم يلزم من الرهانات حتى تغطي عائدات الهامش مبلغاً معيّناً — يحسبه المتصفح
+    note: 'مدة الجولة وسيط لا متوسط، والجولات المتوقّفة مستبعدة. التوقعات تشمل البوتات إن كانت مفعّلة.'
+  };
+}
+
+async function handleStream(req, res, url) {
+  const token = tokenFrom(req, url);
+  const player = await resolvePlayer(token);
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  if (res.flushHeaders) res.flushHeaders();
+  res.write('retry: 3000\n\n');
+
+  const client = { res, playerId: player ? player.id : null };
+  clients.add(client);
+  pushTo(client, 'state', game.stateFor(client.playerId));
+  bots.setViewers(countHumanViewers());
+
+  const close = () => { clients.delete(client); bots.setViewers(countHumanViewers()); };
+  req.on('close', close);
+  req.on('error', close);
+}
+
+const server = http.createServer((req, res) => {
+  let url;
+  try {
+    url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  } catch {
+    return sendJson(res, 400, { error: 'طلب غير صالح' });
+  }
+
+  if (url.pathname === '/api/stream') return handleStream(req, res, url);
+
+  if (url.pathname.startsWith('/api/')) {
+    return handleApi(req, res, url).catch((err) => {
+      console.error('[api]', url.pathname, err.message);
+      if (!res.headersSent) sendJson(res, 500, { error: 'خطأ في الخادم' });
+    });
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return sendJson(res, 405, { error: 'طريقة غير مسموحة' });
+  }
+
+  // عزل دومين الإدارة
+  const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
+  const adminDomain = siteConfig.getAdminDomain();
+  const isDedicatedAdminHost = !!(adminDomain && host === adminDomain);
+
+  if (isDedicatedAdminHost) {
+    if (url.pathname === '/' || url.pathname === '/admin') return sendStatic(req, res, '/admin.html');
+  }
+
+  // مسار البوابة السرية لمالك الموقع
+  if (adminGate.matches(url.pathname)) {
+    return fs.promises.readFile(path.join(__dirname, 'gatePage.html'))
+      .then((buf) => {
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'X-Robots-Tag': 'noindex, nofollow',
+          'Referrer-Policy': 'no-referrer'
+        });
+        res.end(buf);
+      })
+      .catch(() => sendJson(res, 500, { error: 'تعذّر فتح الصفحة' }));
+  }
+
+  // مسار الإدارة — محجوب بالكامل عن الموقع العام بإرجاع 404 إلا لمن يملك الدومين أو الرابط السري
+  if (url.pathname === '/admin') {
+    if (isAdminAllowed(req, url)) {
+      return sendStatic(req, res, '/admin.html');
+    }
+    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end('<meta charset="utf-8"><body style="background:#080a0f;color:#e8edf6;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1 style="font-size:64px;margin:0;color:#f5c542">404</h1><p>الصفحة غير موجودة</p><a href="/" style="color:#f5c542">العودة للرئيسية</a></div></body>');
+  }
+
+  // مسارات الموقع
+  if (url.pathname === '/') return sendStatic(req, res, '/index.html');
+  if (url.pathname === '/lucky-cards') return sendStatic(req, res, '/game.html');
+  if (url.pathname === '/bounty-hunter') return sendStatic(req, res, '/slot.html');
+  if (url.pathname === '/battle-tanks') return sendStatic(req, res, '/tank.html');
+  if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
+  if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
+  return sendStatic(req, res, url.pathname);
+});
+
+server.on('clientError', (err, socket) => {
+  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+});
+
+game.start();
+bots.start();
+
+server.listen(config.SERVER.port, config.SERVER.host, () => {
+  const line = '─'.repeat(52);
+  console.log(`\n${line}`);
+  console.log('  iCHANCE — منصة ألعاب بعملة افتراضية');
+  console.log(line);
+  console.log(`  الرابط        : http://localhost:${config.SERVER.port}`);
+  console.log(`  اللعبة 1      : كروت الحظ (${config.CARD_COUNT} كرت — ${config.GRID.cols}×${config.GRID.rows})`);
+  console.log(`  اللعبة 2      : صيّاد الجوائز (سلوتس ${slots.REELS}×${slots.ROWS} — ${slots.WAYS} طريقة · عائد 80.5%)`);
+  console.log(`  اللعبة 3      : معركة الدبابات (مهارة · 4 مستويات · عائد 79-80%)`);
+  console.log(`  نسبة العائد   : ${(check.rtp * 100).toFixed(2)}%`);
+  console.log(`  مبالغ المشاركة: ${config.STAKES[0]} ← ${config.STAKES[config.STAKES.length - 1]}`);
+  console.log(`  الحد الأقصى   : ${config.MAX_PLAYERS} مشترك لكل جولة`);
+  console.log(`  اللاعبون الآليون: ${config.BOTS.enabled ? 'مفعّل' : 'متوقف'}`);
+  console.log(`  ملف البيانات  : ${store.DATA_FILE}`);
+  console.log(`  قاعدة البيانات: ${supabase.configured() ? supabase.config().url : 'غير مربوطة — لا حسابات ولا كاشير'}`);
+  if (supabase.configured()) console.log('  لوحة الكاشير  : /cashier');
+  const off = siteConfig.report().filter((g) => !g.enabled);
+  if (off.length) console.log(`  ألعاب موقوفة  : ${off.map((g) => g.name).join(' · ')}`);
+  for (const l of adminAuth.bootLines(config.SERVER.port)) console.log(l);
+  for (const l of adminGate.bootLines()) console.log(l);
+  console.log(`${line}\n`);
+});
+
+// إغلاق نظيف يحفظ الأرصدة
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n[server] إيقاف (${signal})...`);
+  game.stop();
+  bots.stop();
+  for (const c of clients) { try { c.res.end(); } catch { /* تجاهل */ } }
+  // فروق اللعب المعلّقة تُكتب قبل الخروج — وإلا ضاع ما لم يُدفع بعد
+  try { await accounts.flushDeltas(); } catch { /* تجاهل */ }
+  await store.flush();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 2000).unref();
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

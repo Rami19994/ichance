@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة الإدارة — iCHANCE</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=24">
+<link rel="stylesheet" href="/css/admin.css?v=24">
+</head>
+<body>
+
+<!-- ===================== بوابة المفتاح ===================== -->
+<div class="gate" id="gate">
+
+  <!-- أول تشغيل: المالك يختار مفتاحه من المتصفح، بلا تيرمنال -->
+  <form class="gate__box panel" id="claimForm" hidden>
+    <div class="gate__logo">iC</div>
+    <h1>أنشئ مفتاح الإدارة</h1>
+    <p>هذا أول دخول للوحة. اختر مفتاحك الآن — يُحفظ على الخادم ويبقى صالحاً بعد كل إعادة تشغيل.</p>
+    <div class="claim-warn">
+      <span>⏳</span>
+      <span>نافذة الإنشاء مفتوحة <b id="claimLeft">—</b> فقط. أنشئ مفتاحك فوراً بعد رفع الموقع، وإلا أعد تشغيل الخادم لفتحها من جديد.</span>
+    </div>
+    <div class="field">
+      <label for="claimInput">المفتاح الجديد <span class="field__hint">8 خانات فأكثر، بلا مسافات</span></label>
+      <div class="field-row">
+        <input id="claimInput" type="text" autocomplete="off" spellcheck="false" placeholder="اكتبه أو ولّده">
+        <button class="btn btn--dark" type="button" id="claimGenBtn" title="ولّد مفتاحاً قوياً">🎲</button>
+      </div>
+    </div>
+    <button class="btn btn--gold btn--block" type="submit">حفظ المفتاح والدخول</button>
+    <div class="gate__error" id="claimError" hidden></div>
+    <button class="gate__link" type="button" id="haveKeyBtn">عندي مفتاح بالفعل</button>
+  </form>
+
+  <!-- الدخول المعتاد -->
+  <form class="gate__box panel" id="gateForm">
+    <div class="gate__logo">iC</div>
+    <h1>لوحة إدارة iCHANCE</h1>
+    <p>أدخل مفتاح الإدارة.</p>
+    <div class="field">
+      <label for="keyInput">مفتاح الإدارة</label>
+      <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="••••••••••••••••••">
+    </div>
+    <button class="btn btn--gold btn--block" type="submit">دخول</button>
+    <div class="gate__error" id="gateError" hidden></div>
+    <div class="gate__help" id="gateHelp"></div>
+    <a class="gate__back" href="/">العودة للموقع</a>
+  </form>
+</div>
+
+<!-- ===================== اللوحة ===================== -->
+<div class="admin" id="admin" hidden>
+
+  <header class="adminbar">
+    <a class="logo" href="/">
+      <span class="logo__mark">iC</span>
+      <span class="logo__text"><b>iCHANCE</b><span>ADMIN</span></span>
+    </a>
+    <span class="tag tag--live" id="liveTag"><span class="live-dot"></span>مباشر</span>
+    <div class="mode-seg" id="modeSeg">
+      <button type="button" data-mode="total" class="is-active">الإجمالي</button>
+      <button type="button" data-mode="real">حقيقي</button>
+      <button type="button" data-mode="bot">محاكاة</button>
+    </div>
+    <span class="adminbar__spacer"></span>
+    <span class="refresh-note" id="refreshNote">يُحدَّث كل 5 ثوانٍ</span>
+    <button class="btn btn--dark btn--sm" id="refreshBtn">تحديث الآن</button>
+    <button class="btn btn--dark btn--sm" id="logoutBtn">خروج</button>
+  </header>
+
+  <main class="admin__body">
+
+    <!-- ملخص الأرباح -->
+    <div class="mode-note" id="modeNote"></div>
+    <section class="kpis" id="kpis"></section>
+
+    <!-- ربحية كل لعبة -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>ربحية كل لعبة</h2>
+        <span class="card__hint">أموال اللاعبين الحقيقيين فقط · البوتات غير محتسبة هنا</span>
+      </div>
+      <div class="card__body">
+        <div class="games-grid-admin" id="gamesProfit"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ تشغيل وإيقاف الألعاب ═══════════ -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>الألعاب</h2>
+        <span class="card__hint">الإيقاف يمنع اللعب من الخادم، لا من الواجهة فقط</span>
+      </div>
+      <div class="card__body">
+        <div class="games-toggle" id="gamesToggle"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ الكاشيرية ═══════════ -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>الكاشيرية</h2>
+        <span class="card__hint" id="dbStatus"></span>
+      </div>
+      <div class="card__body">
+
+        <form class="newcashier" id="newCashierForm">
+          <div class="field">
+            <label for="ncUser">اسم المستخدم</label>
+            <input id="ncUser" type="text" spellcheck="false" placeholder="cashier1" required>
+          </div>
+          <div class="field">
+            <label for="ncEmail">الإيميل</label>
+            <input id="ncEmail" type="email" spellcheck="false" placeholder="cashier@example.com">
+          </div>
+          <div class="field">
+            <label for="ncPass">كلمة المرور</label>
+            <input id="ncPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر" required>
+          </div>
+          <div class="field">
+            <label for="ncCountry">الدولة</label>
+            <select id="ncCountry" required></select>
+          </div>
+          <div class="field">
+            <label for="ncFloat">العهدة الأولى</label>
+            <input id="ncFloat" type="number" min="0" step="1" placeholder="0">
+          </div>
+          <div class="field field--check">
+            <label><input id="ncUnlimited" type="checkbox"> عهدة مفتوحة</label>
+          </div>
+          <div class="field">
+            <button class="btn btn--gold btn--block" type="submit" id="ncBtn">إنشاء كاشير</button>
+          </div>
+        </form>
+        <div class="newplayer__out" id="ncOut" hidden></div>
+
+        <div class="table-wrap" style="margin-top:16px">
+          <table class="dt">
+            <thead>
+              <tr>
+                <th>الكاشير</th><th>الدولة</th><th>العهدة</th><th>لاعبوه</th>
+                <th>أرصدتهم</th><th>الحرق</th><th>العمولة</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="cashiersBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="cashiersEmpty" hidden>لا كاشيرية بعد.</div>
+      </div>
+    </section>
+
+    <!-- ═══════════ شرائح العمولة ═══════════ -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>شرائح العمولة</h2>
+        <span class="card__hint">العمولة تُحسب على «الحرق» = ما عُبّئ ناقص ما سُحب</span>
+      </div>
+      <div class="card__body">
+        <div class="table-wrap">
+          <table class="dt dt--compact">
+            <thead><tr><th>من مبلغ حرق</th><th>النسبة %</th><th>الوصف</th><th></th></tr></thead>
+            <tbody id="tiersBody"></tbody>
+          </table>
+        </div>
+        <div class="tiers-actions">
+          <button class="btn btn--dark btn--sm" type="button" id="tierAdd">أضف شريحة</button>
+          <button class="btn btn--gold btn--sm" type="button" id="tierSave">احفظ الشرائح</button>
+        </div>
+        <div class="key-err" id="tiersErr" hidden></div>
+      </div>
+    </section>
+
+    <!-- معركة الدبابات: المقيس مقابل الواقع -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>معركة الدبابات — نسبة الفوز</h2>
+        <span class="card__hint" id="tankSample"></span>
+      </div>
+      <div class="card__body">
+        <p class="key-note">
+          لعبة مهارة: عائدها يتبع مستوى اللاعبين لا الحظ وحده. «المقيس» نسبة نجاة بوت قوي
+          بُني عليها المضاعف؛ «الفعلي» ما يحدث على موقعك. الفجوة الكبيرة تعني تعديل المضاعف.
+        </p>
+        <div class="table-wrap">
+          <table class="dt dt--compact">
+            <thead>
+              <tr><th>المستوى</th><th>المضاعف</th><th>الفوز المقيس</th><th>الفوز الفعلي</th><th>معارك</th><th>العائد الفعلي</th><th>المستهدف</th></tr>
+            </thead>
+            <tbody id="tankBody"></tbody>
+          </table>
+        </div>
+        <div class="key-err" id="tankWarn" hidden></div>
+      </div>
+    </section>
+
+    <!-- دراسة الجدوى الاقتصادية -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>دراسة الجدوى الاقتصادية</h2>
+        <span class="card__hint" id="econSample"></span>
+      </div>
+      <div class="card__body">
+        <div class="econ-grid" id="econMeasured"></div>
+
+        <div class="econ-split">
+          <div class="econ-calc">
+            <h3>حاسبة السيناريو</h3>
+            <p class="econ-hint">غيّر الأرقام لترى أثرها على الربح المتوقع. الحساب يستعمل هامش الموقع النظري.</p>
+            <label>متوسط عدد اللاعبين في الجولة <input type="number" id="calcPlayers" min="1" max="12" step="1"></label>
+            <label>متوسط مبلغ المشاركة <input type="number" id="calcBet" min="200" step="100"></label>
+            <label>مدة الجولة (ثانية) <input type="number" id="calcRound" min="10" step="5"></label>
+            <label>ساعات التشغيل يومياً <input type="number" id="calcHours" min="1" max="24" step="1"></label>
+            <label>هامش الموقع (%) <input type="number" id="calcEdge" min="0" max="50" step="0.01"></label>
+          </div>
+          <div class="econ-out" id="econOut"></div>
+        </div>
+
+        <div class="econ-risk" id="econRisk"></div>
+      </div>
+    </section>
+
+    <div class="cols">
+      <!-- ربح الموقع لكل جولة -->
+      <section class="panel card">
+        <div class="card__head">
+          <h2>ربح الموقع في آخر الجولات</h2>
+          <span class="card__hint">الأعمدة فوق الخط = ربح للموقع · تحتها = خسارة</span>
+        </div>
+        <div class="card__body">
+          <div class="profit-chart" id="profitChart"></div>
+        </div>
+      </section>
+
+      <!-- الجولة الحالية -->
+      <section class="panel card">
+        <div class="card__head"><h2>الجولة الجارية</h2></div>
+        <div class="card__body">
+          <div class="live-grid" id="liveGrid"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- سجل الجولات -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>سجل الجولات</h2>
+        <span class="card__hint">اضغط أي صف لعرض تفاصيل اللاعبين · البوتات لا تدخل الحسابات</span>
+      </div>
+      <div class="card__body card__body--flush">
+        <div class="table-wrap">
+          <table class="dt" id="roundsTable">
+            <thead>
+              <tr>
+                <th>الجولة</th>
+                <th>الوقت</th>
+                <th>النمط</th>
+                <th>اللوحة</th>
+                <th>لاعبون</th>
+                <th>الرهانات</th>
+                <th>المدفوع</th>
+                <th>ربح الموقع</th>
+              </tr>
+            </thead>
+            <tbody id="roundsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="cols">
+      <!-- اللاعبون -->
+      <section class="panel card">
+        <div class="card__head">
+          <h2>اللاعبون</h2>
+          <span class="card__hint" id="playersHint"></span>
+        </div>
+        <div class="card__body card__body--flush">
+          <div class="table-wrap table-wrap--tall">
+            <table class="dt">
+              <thead>
+                <tr>
+                  <th>المعرّف</th>
+                  <th>الرصيد</th>
+                  <th>جولات</th>
+                  <th>راهن</th>
+                  <th>ربح</th>
+                  <th>صافي الموقع</th>
+                </tr>
+              </thead>
+              <tbody id="playersBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- القواعد المطبّقة -->
+      <section class="panel card">
+        <div class="card__head"><h2>القواعد المطبّقة الآن</h2></div>
+        <div class="card__body">
+          <div class="rules" id="rulesBox"></div>
+          <div class="table-wrap" style="margin-top:14px">
+            <table class="dt dt--compact">
+              <thead>
+                <tr><th>نمط التوزيع</th><th>احتماله</th><th>رابحة</th><th>استرداد</th><th>خاسرة</th><th>أعلى كرت</th></tr>
+              </thead>
+              <tbody id="templatesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- الأمان: تغيير المفتاح بلا تيرمنال -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>مفتاح الإدارة</h2>
+        <span class="card__hint" id="keySource"></span>
+      </div>
+      <div class="card__body">
+        <p class="key-note">
+          المفتاح محفوظ على الخادم ولا يتغيّر مع إعادة التشغيل. غيّره من هنا في أي وقت —
+          المفتاح القديم يتوقف فوراً على كل الأجهزة.
+        </p>
+        <div class="key-row">
+          <input id="newKeyInput" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="مفتاح جديد (اتركه فارغاً ليولَّد تلقائياً)">
+          <button class="btn btn--dark" type="button" id="genKeyBtn" title="ولّد مفتاحاً قوياً">🎲</button>
+          <button class="btn btn--gold" type="button" id="rotateBtn">تغيير المفتاح</button>
+        </div>
+        <div class="key-result" id="keyResult" hidden>
+          <div class="key-result__label">مفتاحك الجديد — انسخه الآن، لن يُعرض مرة أخرى</div>
+          <div class="key-result__row">
+            <code id="keyValue"></code>
+            <button class="btn btn--dark btn--sm" type="button" id="copyKeyBtn">نسخ</button>
+          </div>
+        </div>
+        <div class="key-err" id="keyError" hidden></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ عزل دومين الإدارة والرابط السري ═══════════ -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>عزل دومين الإدارة والرابط السري</h2>
+        <span class="card__hint" id="domainHint">حماية سرية للمالك</span>
+      </div>
+      <div class="card__body">
+        <p class="key-note">
+          للحفاظ على سرية لوحة الإدارة تماماً، يمكنك تخصيص اسم دومين مستقل خاص باللوحة (مثلاً: <code>admin.mysite.com</code>).
+          عند تعيينه، تصبح صفحة <code>/admin</code> محجوبة وتُرجع <b>404 (غير موجودة)</b> على دومين الموقع الرئيسي.
+        </p>
+        <div class="field" style="margin-bottom:14px">
+          <label for="adminDomainInput">دومين الإدارة المخصص <span class="field__hint">اتركه فارغاً لتعمل اللوحة حصراً عبر الرابط السري</span></label>
+          <div class="field-row">
+            <input id="adminDomainInput" type="text" spellcheck="false" placeholder="admin.mysite.com">
+            <button class="btn btn--gold" type="button" id="saveDomainBtn">حفظ الدومين</button>
+          </div>
+        </div>
+        <div class="key-err" id="domainErr" hidden></div>
+        <div class="key-result" id="domainResult" hidden style="margin-top:12px">
+          <div class="key-result__label" id="domainResultLabel"></div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+          <label style="font-weight:700;display:block;margin-bottom:6px">بوابة الدخول السرية الخاصة بالمالك</label>
+          <p class="key-note" style="margin-bottom:10px">
+            رابط بوابة الإدارة السرية محفوظ في ملف <code>data/admin-gate.txt</code> على الخادم. من يفتح هذا الرابط يمكنه توليد مفتاح الإدارة والدخول فوراً.
+          </p>
+          <div class="key-row">
+            <button class="btn btn--dark" type="button" id="rotateGateBtn">تغيير الرابط السري الآن</button>
+          </div>
+          <div class="key-result" id="gateResult" hidden style="margin-top:10px">
+            <div class="key-result__label">الرابط السري الجديد — احفظه في مكان آمن:</div>
+            <div class="key-result__row">
+              <code id="gateValue"></code>
+              <button class="btn btn--dark btn--sm" type="button" id="copyGateBtn">نسخ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="notice-virtual" style="margin-top:6px">
+      <span>ℹ️</span>
+      <span>كل الأرقام هنا بعملة افتراضية. أرصدة البوتات وهمية ولا تدخل في حسابات الموقع إطلاقاً.</span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ════════════ نافذة تفاعلية لإجراءات الكاشير (إرسال، سحب، الدولة، كلمة المرور، إيقاف/تفعيل) ════════════ -->
+<div class="c-modal-overlay" id="cashierModal" hidden>
+  <div class="c-modal-box" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+    <div class="c-modal-header">
+      <div class="c-modal-title-group">
+        <span class="c-modal-icon" id="cmIcon">💼</span>
+        <div>
+          <h3 class="c-modal-title" id="cmTitle">إجراء كاشير</h3>
+          <p class="c-modal-subtitle" id="cmSubtitle"></p>
+        </div>
+      </div>
+      <button type="button" class="c-modal-close" id="cmCloseBtn" aria-label="إغلاق">✕</button>
+    </div>
+
+    <div class="c-modal-err" id="cmErr" hidden></div>
+
+    <div class="c-modal-body" id="cmBody"></div>
+  </div>
+</div>
+
+<script src="/js/common.js?v=25"></script>
+<script src="/js/admin.js?v=25"></script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>كروت الحظ — iCHANCE</title>
+<meta name="description" content="اقلب كرتاً واحداً من 12 واربح حتى ×10. جولات جماعية كل 30 ثانية بعملة افتراضية.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=24">
+<link rel="stylesheet" href="/css/game.css?v=24">
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="conn-lost" id="connLost" hidden>انقطع الاتصال بالطاولة — جارٍ إعادة المحاولة…</div>
+
+    <main class="game-wrap">
+
+      <!-- ===================== عمود الطاولة ===================== -->
+      <section class="table-col">
+
+        <div class="round-bar panel">
+          <div class="ring" id="ring" data-phase="betting">
+            <svg width="66" height="66" viewBox="0 0 66 66">
+              <circle class="ring__track" cx="33" cy="33" r="27" fill="none" stroke-width="5"></circle>
+              <circle class="ring__fill" id="ringFill" cx="33" cy="33" r="27" fill="none" stroke-width="5"
+                      stroke-dasharray="169.6" stroke-dashoffset="0"></circle>
+            </svg>
+            <span class="ring__num" id="ringNum">30</span>
+          </div>
+
+          <div class="round-info">
+            <b id="phaseTitle">مرحلة المشاركة</b>
+            <span id="roundLabel">—</span>
+          </div>
+
+          <span class="phase-pill" id="phasePill" data-phase="betting">🎴 كروت الحظ</span>
+
+          <span class="round-bar__spacer"></span>
+
+          <div class="seats-meter">
+            <div class="seats-meter__top"><span>المقاعد</span><b id="seatsText">0 / 12</b></div>
+            <div class="seats-meter__bar"><div class="seats-meter__fill" id="seatsFill"></div></div>
+          </div>
+        </div>
+
+        <div class="board-shell">
+          <div class="board" id="board"></div>
+
+          <div class="board-overlay" id="overlay" hidden>
+            <div class="overlay-card" id="overlayCard"></div>
+          </div>
+        </div>
+
+        <div class="stake-bar panel" id="stakeBar">
+          <div class="stake-bar__head">
+            <h4 id="stakeTitle">اختر مبلغ المشاركة</h4>
+            <span class="hint" id="stakeHint">المبلغ يُحجز من رصيدك عند الدخول</span>
+          </div>
+          <div class="stake-grid" id="stakeGrid"></div>
+          <div class="stake-actions">
+            <button class="btn btn--gold" id="joinBtn">ادخل الجولة</button>
+            <button class="btn btn--danger" id="leaveBtn" hidden>انسحاب واسترداد</button>
+            <button class="btn btn--dark" id="topupBtn" hidden>شحن رصيد تجريبي</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===================== العمود الجانبي ===================== -->
+      <aside class="side-col">
+
+        <div class="panel you-card" id="youCard">
+          <div class="you-card__row"><span>حالتك</span><b id="youState">مشاهد</b></div>
+          <div class="you-card__row"><span>مبلغ مشاركتك</span><b id="youStake">—</b></div>
+          <div class="you-card__result pending" id="youResult">
+            <b>—</b>
+            <span>لم تشارك في هذه الجولة بعد</span>
+          </div>
+        </div>
+
+        <div class="panel side-panel">
+          <div class="side-panel__head">
+            <span>اللاعبون على الطاولة</span>
+            <span class="tag" id="seatCountTag">0</span>
+          </div>
+          <div class="seat-list" id="seatList">
+            <div class="seat-empty">لا يوجد مشاركون بعد — كن أول من يدخل الجولة.</div>
+          </div>
+        </div>
+
+        <div class="panel side-panel">
+          <div class="side-panel__head"><span>آخر الجولات</span></div>
+          <div class="side-panel__body">
+            <div class="mini-history" id="miniHistory">
+              <span style="color:var(--muted);font-size:12px">في انتظار أول نتيجة…</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="notice-virtual">
+          <span>ℹ️</span>
+          <span>عملة افتراضية للتسلية فقط — لا مال حقيقي.</span>
+        </div>
+
+      </aside>
+
+    </main>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script src="/js/common.js?v=24"></script>
+<script src="/js/music.js?v=24"></script>
+<script src="/js/game.js?v=24"></script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>صيّاد الجوائز — iCHANCE</title>
+<meta name="description" content="سلوتس 5 بكرات × 4 صفوف · 1024 طريقة للفوز · عدّاد مضاعفات حتى ×1024 · دورات مجانية وشراء الميزة.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=24">
+<link rel="stylesheet" href="/css/slot.css?v=24">
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="slot-wrap">
+
+      <!-- ===================== ماكينة اللعب ===================== -->
+      <section class="machine" id="machine">
+        <div class="machine__backdrop" id="backdrop"></div>
+
+        <!-- لافتة عدّاد المضاعفات -->
+        <div class="multi-sign">
+          <div class="multi-sign__board">
+            <div class="multi-sign__rope multi-sign__rope--r"></div>
+            <div class="multi-sign__rope multi-sign__rope--l"></div>
+            <div class="multi-ladder" id="multiLadder"></div>
+          </div>
+        </div>
+
+        <!-- لوحة البكرات -->
+        <div class="board">
+          <span class="ways-badge ways-badge--r">1024<br><b>طريقة</b></span>
+          <span class="ways-badge ways-badge--l">1024<br><b>طريقة</b></span>
+
+          <div class="reels" id="reels"></div>
+
+          <div class="board__overlay" id="boardOverlay" hidden>
+            <div class="overlay-msg" id="overlayMsg"></div>
+          </div>
+
+          <div class="win-pop" id="winPop" hidden>
+            <span class="win-pop__label" id="winPopLabel">ربح</span>
+            <span class="win-pop__amount" id="winPopAmount">0</span>
+          </div>
+        </div>
+
+        <!-- شريط الميزة -->
+        <div class="feature-bar" id="featureBar" hidden>
+          <span class="feature-bar__tag">دورات مجانية</span>
+          <span class="feature-bar__left"><b id="fsLeft">0</b> متبقية</span>
+          <span class="feature-bar__mult">المضاعف <b id="fsMult">×1</b></span>
+          <span class="feature-bar__total">المجموع <b id="fsTotal">0</b></span>
+        </div>
+
+        <!-- شريط "احصل على وايلد" -->
+        <div class="hint-strip">
+          <span class="hint-strip__wild">وايلد</span>
+          الرموز ذات الإطار الذهبي تعوّض كل الرموز عدا سبائك الذهب
+        </div>
+
+        <button class="buy-plaque" id="buyBtn" type="button">
+          <span>شراء</span>
+          <b>الميزة</b>
+          <em id="buyCost">—</em>
+        </button>
+      </section>
+
+      <!-- ===================== شريط التحكم ===================== -->
+      <section class="controls panel">
+        <div class="controls__side">
+          <button class="ctl-btn" id="paytableBtn" type="button" title="جدول الأرباح">📋</button>
+        </div>
+
+        <div class="bet-box">
+          <button class="bet-step" id="betDown" type="button" aria-label="إنقاص الرهان">−</button>
+          <div class="bet-box__value">
+            <span>الرهان</span>
+            <b id="betValue">200</b>
+          </div>
+          <button class="bet-step" id="betUp" type="button" aria-label="زيادة الرهان">+</button>
+        </div>
+
+        <button class="spin-btn" id="spinBtn" type="button">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" stroke-width="5"
+                    stroke-dasharray="118 45" stroke-linecap="round"/>
+            <path d="M32 6l9 9-9 9z" fill="currentColor"/>
+          </svg>
+          <span id="spinLabel">أدر</span>
+        </button>
+
+        <div class="controls__side">
+          <button class="ctl-btn" id="autoBtn" type="button" title="اللعب التلقائي">↻</button>
+          <button class="ctl-btn" id="turboBtn" type="button" title="وضع سريع">⚡</button>
+          <button class="ctl-btn" id="musicBtn" type="button" title="الموسيقى">♪</button>
+        </div>
+
+        <div class="last-win">
+          <span>آخر ربح</span>
+          <b id="lastWin">0</b>
+        </div>
+      </section>
+
+      <div class="notice-virtual" style="margin-top:12px">
+        <span>ℹ️</span>
+        <span>عملة افتراضية للتسلية فقط — لا مال حقيقي. نسبة العائد المعلنة <b id="rtpNote">—</b>.</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================== جدول الأرباح ===================== -->
+<div class="modal-backdrop" id="paytableModal" hidden>
+  <div class="modal modal--wide">
+    <h3>جدول الأرباح والقواعد</h3>
+    <p>القيم أدناه هي المصروفة فعلاً — لا معامل خفيّ بين المعلن والمدفوع.</p>
+    <div class="pay-grid" id="payGrid"></div>
+    <div class="pay-rules" id="payRules"></div>
+    <button class="btn btn--gold btn--block" data-close="paytableModal">إغلاق</button>
+  </div>
+</div>
+
+
+<canvas id="confetti"></canvas>
+
+<script src="/js/common.js?v=24"></script>
+<script src="/js/music.js?v=24"></script>
+<script src="/js/slotArt.js?v=24"></script>
+<script src="/js/slot.js?v=24"></script>
+</body>
+</html>

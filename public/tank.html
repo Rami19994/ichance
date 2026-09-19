@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>معركة الدبابات — iCHANCE</title>
+<meta name="description" content="لعبة مهارة برهان: اختر المبلغ والصعوبة، أنهِ كل الدبابات المعادية وتربح المضاعف، أو تُدمَّر فتخسر الرهان.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=24">
+<link rel="stylesheet" href="/css/tank.css?v=24">
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="tank-wrap">
+
+      <!-- ===================== ساحة المعركة ===================== -->
+      <section class="arena-box">
+
+        <!-- شريط المعلومات أثناء المعركة -->
+        <div class="hud" id="hud" hidden>
+          <div class="hud__cell">
+            <span class="hud__label">الدرع</span>
+            <span class="armor" id="armor"></span>
+          </div>
+          <div class="hud__cell">
+            <span class="hud__label">الأعداء</span>
+            <b class="hud__val" id="enemiesLeft">0</b>
+          </div>
+          <div class="hud__cell hud__cell--time">
+            <span class="hud__label">الوقت</span>
+            <b class="hud__val" id="timeLeft">0</b>
+          </div>
+          <div class="hud__cell">
+            <span class="hud__label">الرهان</span>
+            <b class="hud__val" id="hudBet">0</b>
+          </div>
+          <div class="hud__cell hud__cell--win">
+            <span class="hud__label">عند الفوز</span>
+            <b class="hud__val" id="hudWin">0</b>
+          </div>
+        </div>
+
+        <div class="arena" id="arena">
+          <canvas id="canvas" width="1280" height="960"></canvas>
+
+          <!-- شاشة الاستعداد / النتيجة -->
+          <div class="curtain" id="curtain">
+            <div class="curtain__box" id="curtainBox">
+              <div class="curtain__badge" id="curtainBadge">معركة الدبابات</div>
+              <h2 class="curtain__title" id="curtainTitle">جهّز دبابتك</h2>
+              <p class="curtain__text" id="curtainText">
+                اختر المبلغ والصعوبة، ثم دمّر كل الدبابات المعادية قبل انتهاء الوقت.
+              </p>
+              <div class="curtain__stats" id="curtainStats" hidden></div>
+              <button class="btn btn--gold btn--lg" id="curtainBtn" type="button">ابدأ المعركة</button>
+              <div class="curtain__hint" id="curtainHint">
+                الحركة: الأسهم أو <b>WASD</b> · الإطلاق: <b>مسافة</b>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- أزرار اللمس للجوال -->
+        <div class="touch" id="touch" hidden>
+          <div class="dpad">
+            <button class="dbtn dbtn--up"    data-dir="0" type="button" aria-label="أعلى"></button>
+            <button class="dbtn dbtn--right" data-dir="1" type="button" aria-label="يمين"></button>
+            <button class="dbtn dbtn--down"  data-dir="2" type="button" aria-label="أسفل"></button>
+            <button class="dbtn dbtn--left"  data-dir="3" type="button" aria-label="يسار"></button>
+          </div>
+          <button class="fire-btn" id="fireBtn" type="button">إطلاق</button>
+        </div>
+      </section>
+
+      <!-- ===================== لوحة الرهان ===================== -->
+      <section class="panel betbox" id="betbox">
+        <div class="betbox__head">
+          <h2>الرهان</h2>
+          <span class="betbox__note">تُخصم عند بدء المعركة · تُضاعَف عند النصر</span>
+        </div>
+
+        <div class="field">
+          <label>المبلغ</label>
+          <div class="stakes" id="stakes"></div>
+        </div>
+
+        <div class="field">
+          <label>الصعوبة</label>
+          <div class="diffs" id="diffs"></div>
+        </div>
+
+        <div class="payout-line">
+          <span>لو انتصرت</span>
+          <b id="payoutPreview">—</b>
+        </div>
+
+        <button class="btn btn--gold btn--block btn--lg" id="startBtn" type="button">ابدأ المعركة</button>
+
+        <div class="mystats" id="mystats"></div>
+      </section>
+
+
+    </main>
+  </div>
+</div>
+
+<script src="/js/common.js?v=24"></script>
+<script src="/js/music.js?v=24"></script>
+<script src="/js/tankSim.js?v=24"></script>
+<script src="/js/tank.js?v=24"></script>
+</body>
+</html>

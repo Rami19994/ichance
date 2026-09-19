@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iCHANCE — كازينو المال الحقيقي والمراهنات الفاخرة</title>
+<meta name="description" content="أفخم منصة ألعاب كازينو ومراهنات بمال حقيقي: سلوتس عالية العائد RTP، طاولات روليت وبلاك جاك مباشرة، ألعاب كراش وصعود، وسحوبات فورية بالعملات المشفرة والفيزا.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=26">
+<link rel="stylesheet" href="/css/lobby.css?v=26">
+</head>
+<body class="ichance-body">
+
+<div class="shell">
+  <!-- القائمة الجانبية (Sidebar) -->
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main">
+    <!-- الشريط العلوي الفاخر (Topbar) بتصميم ichancy.com -->
+    <header class="topbar" id="topbar"></header>
+
+    <main class="lobby">
+      <!-- 1. قسم البانر الترويجي الضخم (HERO SECTION) -->
+      <section class="hero-promo" id="heroSection">
+        <div class="hero-promo__bg" style="background-image: url('/assets/hero_banner.jpg')"></div>
+        <div class="hero-promo__overlay"></div>
+        <div class="hero-promo__content">
+          <div class="hero-badge">
+            <span class="badge-fire">🔥</span>
+            <span class="badge-txt">عرض الإيداع الأول الحصري | WELCOME BONUS</span>
+          </div>
+          <h1 class="hero-title">
+            مكافأة ترحيبية <span class="gold-gradient-text">مضاعفة</span>
+            <span class="neon-gradient-text">+ لفات مجانية</span>
+          </h1>
+          <p class="hero-desc">
+            انضم إلى أفخم صالة كازينو للمحترفين بمال حقيقي. استمتع بأعلى نسب العوائد، طاولات موزع مباشر VIP، ألعاب كراش سريعة، وسحوبات مشفرة فورية.
+          </p>
+          <div class="hero-actions">
+            <button type="button" class="btn btn--neon-glow" id="heroClaimBtn">
+              <span>المطالبة بالبونص الآن</span>
+              <span class="arrow-icon">←</span>
+            </button>
+            <a href="#gamesSection" class="btn btn--glass-gold">
+              <span>استكشاف الألعاب</span>
+            </a>
+            <div class="hero-code-tag">
+              <span class="code-label">كود البونص:</span>
+              <code class="code-val" id="promoCodeVal">ICHANCE</code>
+              <button type="button" class="code-copy-btn" id="copyPromoBtn" title="نسخ الكود">📋</button>
+            </div>
+          </div>
+          <div class="hero-highlights">
+            <div class="h-item">
+              <span class="h-dot green-pulse"></span>
+              <span>سحب فوري بالكريبتو والفيزا</span>
+            </div>
+            <div class="h-item">
+              <span class="h-dot gold-glow"></span>
+              <span>نزاهة مشفرة Provably Fair</span>
+            </div>
+            <div class="h-item">
+              <span class="h-dot blue-glow"></span>
+              <span>دعم VIP متواصل</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. صالة الألعاب وشبكة الفئات المنظمة (GAMES HUB) -->
+      <section class="games-hub" id="gamesSection">
+        <div class="hub-header">
+          <div class="hub-title-group">
+            <h3 class="hub-title">صالة ألعاب المال الحقيقي</h3>
+            <p class="hub-subtitle">اختر فئتك المفضلة، حدد رهانك، والعب لتحقيق أكبر الأرباح</p>
+          </div>
+          <div class="hub-controls">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="gameSearchInput" placeholder="ابحث عن لعبة، سلوتس، روليت...">
+            </div>
+            <div class="provider-filter">
+              <select id="providerSelect">
+                <option value="all">جميع المزوّدين (All Providers)</option>
+                <option value="ichance">iChance Originals</option>
+                <option value="pragmatic">Pragmatic Play</option>
+                <option value="evolution">Evolution Gaming</option>
+                <option value="spribe">Spribe Gaming</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- شريط التبويبات -->
+        <nav class="cats-bar" id="cats"></nav>
+
+        <!-- شبكة بطاقات الألعاب المنظمة -->
+        <div class="games-grid" id="gamesGrid"></div>
+      </section>
+
+      <!-- 3. قسم إشارات الأمان والثقة (TRUST SIGNALS & PAYMENTS) -->
+      <section class="trust-section">
+        <div class="trust-grid">
+          <div class="trust-card">
+            <div class="trust-icon-wrap trust-icon-wrap--green">⚡</div>
+            <h4 class="trust-title">سحوبات فورية سريعة</h4>
+            <p class="trust-desc">معالجة آلية سريعة عبر محافظ الكريبتو وشبكات الدفع العالمية المباشرة بلا تأخير.</p>
+            <span class="trust-tag">Instant Payouts</span>
+          </div>
+          <div class="trust-card">
+            <div class="trust-icon-wrap trust-icon-wrap--gold">🔒</div>
+            <h4 class="trust-title">أمان مصرفي وتشفير SSL</h4>
+            <p class="trust-desc">حماية قصوى لأموالك وبياناتك بتشفير مصرفي كامل End-to-End مطبق بأعلى المعايير العالمية.</p>
+            <span class="trust-tag">Bank-Grade SSL</span>
+          </div>
+          <div class="trust-card">
+            <div class="trust-icon-wrap trust-icon-wrap--blue">⚖️</div>
+            <h4 class="trust-title">نزاهة مثبتة Provably Fair</h4>
+            <p class="trust-desc">مولد أرقام عشوائي معتمد (Certified RNG) لضمان الشفافية الكاملة وحفظ حقوق اللاعبين والموقع.</p>
+            <span class="trust-tag">Certified RNG</span>
+          </div>
+          <div class="trust-card">
+            <div class="trust-icon-wrap trust-icon-wrap--purple">👑</div>
+            <h4 class="trust-title">دعم كبار الشخصيات المباشر</h4>
+            <p class="trust-desc">فريق دعم فني متمرس ومسؤولو حسابات VIP جاهزون للرد الفوري على كل استفساراتك.</p>
+            <span class="trust-tag">VIP Live Support</span>
+          </div>
+        </div>
+
+        <!-- بوابات الدفع والعملات الرقمية -->
+        <div class="payments-strip">
+          <div class="payments-label">طرق الدفع والشحن الفوري المدعومة:</div>
+          <div class="payments-icons">
+            <div class="pay-chip" title="Bitcoin"><span class="pay-sym">₿</span> Bitcoin</div>
+            <div class="pay-chip" title="Tether USDT"><span class="pay-sym pay-sym--tether">₮</span> USDT (TRC20/ERC20)</div>
+            <div class="pay-chip" title="Ethereum"><span class="pay-sym pay-sym--eth">Ξ</span> Ethereum</div>
+            <div class="pay-chip" title="Visa"><span class="pay-sym">💳</span> VISA</div>
+            <div class="pay-chip" title="MasterCard"><span class="pay-sym">💳</span> MasterCard</div>
+            <div class="pay-chip" title="Apple Pay"><span class="pay-sym">🍏</span> Apple Pay</div>
+            <div class="pay-chip" title="TRON"><span class="pay-sym">♦</span> TRON (TRX)</div>
+            <div class="pay-chip" title="Litecoin"><span class="pay-sym">Ł</span> Litecoin</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. قسم نادي كبار الشخصيات (VIP CLUB SHOWCASE) -->
+      <section class="vip-section" id="vipSection">
+        <div class="vip-banner">
+          <div class="vip-badge">💎 VIP CLUB PRESTIGE</div>
+          <h3 class="vip-title">انضم إلى نادي النخبة iCHANCE VIP</h3>
+          <p class="vip-desc">
+            استمتع بامتيازات حصرية للمحترفين: كاش باك أسبوعي دوري، مكافآت ترقية المستوى، هدايا حصرية، وسحوبات فورية بدون حدود، ومدير حساب شخصي متاح لمساعدتك.
+          </p>
+          <div class="vip-tiers-row">
+            <div class="vip-tier-card">
+              <span class="vip-tier-badge">المستوى البرونزي</span>
+              <div class="vip-tier-name">BRONZE</div>
+              <div class="vip-tier-perk">كاش باك أسبوعي</div>
+            </div>
+            <div class="vip-tier-card">
+              <span class="vip-tier-badge">المستوى الفضي</span>
+              <div class="vip-tier-name">SILVER</div>
+              <div class="vip-tier-perk">بونص ترقية الحساب</div>
+            </div>
+            <div class="vip-tier-card is-popular">
+              <span class="vip-tier-badge">المستوى الذهبي</span>
+              <div class="vip-tier-name">GOLD</div>
+              <div class="vip-tier-perk">سحب VIP فوري</div>
+            </div>
+            <div class="vip-tier-card">
+              <span class="vip-tier-badge">المستوى البلاتيني</span>
+              <div class="vip-tier-name">PLATINUM</div>
+              <div class="vip-tier-perk">مدير حساب خاص</div>
+            </div>
+            <div class="vip-tier-card vip-tier--diamond">
+              <span class="vip-tier-badge">المستوى الماسي</span>
+              <div class="vip-tier-name">DIAMOND</div>
+              <div class="vip-tier-perk">مكافآت النخبة الحصرية</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. تذييل الموقع الفاخر (FOOTER) -->
+      <footer class="ichance-footer">
+        <div class="footer-top">
+          <div class="footer-brand">
+            <div class="logo">
+              <span class="logo__mark">iC</span>
+              <span class="logo__text"><b>iCHANCE</b><span>CASINO & SPORTS</span></span>
+            </div>
+            <p class="footer-bio">
+              الوجهة الأولى لألعاب الكازينو النقدية والمراهنات الحية في الشرق الأوسط. بيئة آمنة، ألعاب عادلة ونزيهة، وسحوبات مشفرة فورية.
+            </p>
+            <div class="footer-badges">
+              <span class="f-badge">🔞 18+ العب بمسؤولية</span>
+              <span class="f-badge">🔒 100% SSL مشفر</span>
+              <span class="f-badge">⚖️ RNG Certified</span>
+            </div>
+          </div>
+
+          <div class="footer-links-col">
+            <h5>أقسام الكازينو</h5>
+            <ul>
+              <li><a href="#gamesSection" class="cat-link-trigger" data-cat="slots">سلوتس عالية العائد (Slots)</a></li>
+              <li><a href="#gamesSection" class="cat-link-trigger" data-cat="table">طاولات الروليت المباشرة</a></li>
+              <li><a href="#gamesSection" class="cat-link-trigger" data-cat="table">بلاك جاك وكروت الحظ</a></li>
+              <li><a href="#gamesSection" class="cat-link-trigger" data-cat="crash">ألعاب الكراش والصعود</a></li>
+              <li><a href="#gamesSection" class="cat-link-trigger" data-cat="skill">معارك المهارة والتحدي</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-links-col">
+            <h5>الحساب والشحن</h5>
+            <ul>
+              <li><a href="/login">تسجيل دخول اللاعبين</a></li>
+              <li><a href="#depositModal" id="depositFooterLink">طرق الإيداع الفوري ($)</a></li>
+              <li><a href="#vipSection">نادي كبار الشخصيات VIP</a></li>
+              <li><a href="#heroSection">المكافأة الترحيبية 100%</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-links-col">
+            <h5>الأمان والنزاهة</h5>
+            <ul>
+              <li><a href="#" class="info-link" data-type="provably-fair">النزاهة والعدالة المشفرة</a></li>
+              <li><a href="#" class="info-link" data-type="responsible">اللعب المسؤول 18+</a></li>
+              <li><a href="#" class="info-link" data-type="security">حماية البيانات والأمان المصرفي</a></li>
+              <li><a href="#" class="info-link" data-type="terms">الشروط والأحكام</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <div class="copy-text">© 2026 iCHANCE Casino & Entertainment. جميع الحقوق محفوظة.</div>
+          <div class="footer-tagline">Play Smart. Win Big. Instant Withdrawals.</div>
+        </div>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     النوافذ المنبثقة التفاعلية (MODALS)
+     ========================================================================== -->
+<!-- 1. نافذة تسجيل الدخول / إنشاء حساب السريعة -->
+<div class="modal-backdrop" id="authModal" hidden>
+  <div class="modal-card">
+    <button type="button" class="modal-close" id="closeAuthModal">✕</button>
+    <div class="modal-header">
+      <div class="logo__mark" style="margin: 0 auto 12px">iC</div>
+      <h3 class="modal-title" id="authModalTitle">دخول إلى iCHANCE</h3>
+      <p class="modal-subtitle" id="authModalSubtitle">سجّل دخولك للعب بالمال الحقيقي وسحب أرباحك فوراً</p>
+    </div>
+    
+    <div class="modal-tabs">
+      <button type="button" class="modal-tab is-active" id="tabLogin">تسجيل الدخول</button>
+      <button type="button" class="modal-tab" id="tabRegister">إنشاء حساب جديد</button>
+    </div>
+
+    <!-- نموذج الدخول السريع -->
+    <form id="modalLoginForm" class="modal-form">
+      <div class="field">
+        <label for="mIdentifier">اسم المستخدم أو الإيميل</label>
+        <input type="text" id="mIdentifier" placeholder="اسم المستخدم أو البريد" required>
+      </div>
+      <div class="field">
+        <label for="mPassword">كلمة المرور</label>
+        <input type="password" id="mPassword" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn--gold btn--block btn--lg" id="modalLoginSubmit" style="margin-top:14px">
+        <span>دخول إلى الألعاب</span>
+      </button>
+      <div class="modal-error" id="modalLoginError" hidden></div>
+      <div class="modal-hint">
+        <span>ليس لديك حساب بعد؟ اضغط على تبويب <b>"إنشاء حساب جديد"</b> لتفعيله فوراً.</span>
+      </div>
+    </form>
+
+    <!-- تبويب التسجيل / إنشاء حساب اللاعب -->
+    <div id="modalRegisterBox" class="modal-form" hidden>
+      <div class="register-info-box">
+        <div class="reg-badge">🔒 تفعيل الحساب الفوري</div>
+        <h4>إنشاء حساب لاعب جديد</h4>
+        <p>لحماية خصوصيتك وضمان أعلى درجات الأمان المالي وسرعة السحب الفوري، يتم تفعيل حسابك وشحنه مباشرة عبر خدمة العملاء أو وكيلك المعتمد.</p>
+        <div class="reg-steps">
+          <div class="step"><span>1</span> تواصل مع خدمة العملاء أو وكيلك المالي المعتمد</div>
+          <div class="step"><span>2</span> حدد مبلغ الإيداع بالدولار ($) أو العملات المشفرة</div>
+          <div class="step"><span>3</span> استلم اسم المستخدم ورصيدك الحقيقي فوراً مع بونص 100%</div>
+        </div>
+        <button type="button" class="btn btn--neon-green btn--block btn--lg" id="btnLiveSupportChat" style="margin-top: 18px">
+          <span>💬 تواصل مع الدعم الفوري 24/7</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. نافذة الإيداع وشحن الرصيد السريعة -->
+<div class="modal-backdrop" id="depositModal" hidden>
+  <div class="modal-card">
+    <button type="button" class="modal-close" id="closeDepositModal">✕</button>
+    <div class="modal-header">
+      <div style="font-size:38px; margin-bottom: 8px">💰</div>
+      <h3 class="modal-title">شحن الرصيد الفوري ($)</h3>
+      <p class="modal-subtitle">إيداع وسحب مباشر عبر الوكيل المالي أو العملات المشفرة</p>
+    </div>
+    <div class="deposit-body">
+      <div class="deposit-balance-chip">
+        <span>رصيدك الحالي:</span>
+        <b class="text-gold" id="depositCurrentBalance">$ 0.00</b>
+      </div>
+      <div class="deposit-methods-list">
+        <div class="d-method">
+          <span class="d-icon">💼</span>
+          <div class="d-info">
+            <b>شحن فوري عبر الوكيل المالي المعتمد</b>
+            <p>إيداع فوري بالدولار أو العملات المحلية دون أي اقتطاعات.</p>
+          </div>
+          <span class="badge-crypto" style="color:var(--gold-2); background:rgba(247,201,72,0.1)">فوري</span>
+        </div>
+        <div class="d-method">
+          <span class="d-icon">₮</span>
+          <div class="d-info">
+            <b>USDT (TRC20 / ERC20)</b>
+            <p>إيداع فوري بالدولار الرقمي المستقر خلال دقائق معدودة.</p>
+          </div>
+          <span class="badge-crypto">Instant</span>
+        </div>
+        <div class="d-method">
+          <span class="d-icon">₿</span>
+          <div class="d-info">
+            <b>Bitcoin & Ethereum</b>
+            <p>معالجة سريعة وآمنة عبر شبكات البلوكشين المعتمدة.</p>
+          </div>
+          <span class="badge-crypto">Instant</span>
+        </div>
+      </div>
+      <div class="promo-hint-box">
+        🎁 <b>تذكير:</b> بونص 100% متاح على إيداعك مع كود <code>ICHANCE100</code>!
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. نافذة استعراض الألعاب التفاعلية (Preview Launcher Modal) -->
+<div class="modal-backdrop" id="gameLauncherModal" hidden>
+  <div class="modal-card modal-card--wide">
+    <button type="button" class="modal-close" id="closeLauncherModal">✕</button>
+    <div id="launcherContent"></div>
+  </div>
+</div>
+
+<script src="/js/common.js?v=26"></script>
+<script src="/js/covers.js?v=26"></script>
+<script src="/js/lobby.js?v=26"></script>
+</body>
+</html>
