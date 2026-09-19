@@ -105,7 +105,9 @@ const path = require('path');
 const SERVER = {
   port: Number(process.env.PORT || 3000),
   host: process.env.HOST || '0.0.0.0',
-  dataFile: process.env.ICHANCE_DATA || (process.env.VERCEL ? path.join('/tmp', 'players.json') : null),
+  // على Vercel نقرأ من مجلد data/ الموجود في حزمة النشر (read-only)
+  // وعند الكتابة نستخدم /tmp كاحتياط في نفس الـ invocation فقط
+  dataFile: process.env.ICHANCE_DATA || null,
   historySize: 200
 };
 

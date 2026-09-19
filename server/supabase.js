@@ -26,7 +26,7 @@ const CONF_FILE = path.join(DATA_DIR, 'admin-supabase.json');
 let conf = null;
 
 const DEFAULT_URL = 'https://uhratfdvezypuervthak.supabase.co';
-const DEFAULT_KEY = 'sb_publishable_libVI_Q_kh9oPxATxBRzMw_2k_IyDuP';
+// ⚠ لا نضع مفتاح service_role هنا — يُمرَّر عبر متغير البيئة SUPABASE_SECRET_KEY
 
 function loadConfig() {
   const envUrl = (process.env.SUPABASE_URL || '').trim();
@@ -44,9 +44,15 @@ function loadConfig() {
     console.error('[supabase] ملف الإعدادات تالف:', err.message);
   }
 
-  // في النشر السحابي (Vercel وغيره) نعتمد مشروع Supabase الافتراضي للمنصة
-  return { url: DEFAULT_URL, key: DEFAULT_KEY, source: 'default' };
+  // في بيئة Vercel: بلا متغيرات بيئة ولا ملف إعداد — Supabase غير متاح
+  if (process.env.VERCEL) {
+    console.warn('[supabase] ⚠ لم يُجَد SUPABASE_SECRET_KEY — أضفه كمتغير بيئة على Vercel');
+    return null;
+  }
+
+  return null;
 }
+
 
 function config() {
   if (conf === null) conf = loadConfig();

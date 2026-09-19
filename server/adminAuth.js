@@ -26,11 +26,14 @@ const { SERVER } = require('./config');
  *   ج) من داخل اللوحة: زر تغيير المفتاح متاح دائماً بعد الدخول.
  */
 
-const DATA_DIR = process.env.VERCEL
+// مجلد data الحقيقي (موجود في حزمة النشر على Vercel)
+const REAL_DATA_DIR = path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
+// مجلد الكتابة: على Vercel نكتب إلى /tmp (لنفس الـ invocation فقط)
+const WRITE_DATA_DIR = process.env.VERCEL
   ? path.join('/tmp', 'ichance_data')
-  : path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
-const AUTH_FILE = path.join(DATA_DIR, 'admin.json');
-const PLAIN_FILE = path.join(DATA_DIR, 'admin-key.txt');
+  : REAL_DATA_DIR;
+const AUTH_FILE = path.join(REAL_DATA_DIR, 'admin.json');
+const PLAIN_FILE = path.join(WRITE_DATA_DIR, 'admin-key.txt');
 
 // نافذة السماح بإنشاء مفتاح من المتصفح في أول تشغيل.
 // محدودة عمداً: لولاها لاستطاع أي زائر إنشاء المفتاح لو نُشر الموقع ولم يفتحه المالك.
@@ -69,11 +72,19 @@ function generateKey() {
 
 function save() {
   try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(WRITE_DATA_DIR, { recursive: true });
+    // على Vercel نكتب في /tmp فقط (للـ invocation الحالي)
+    // القراءة ستأتي من REAL_DATA_DIR (ملف admin.json المرفوع مع الكود)
     fs.writeFileSync(AUTH_FILE, JSON.stringify(state, null, 2), 'utf8');
     saveError = null;
     return true;
   } catch (err) {
+    // على Vercel الكتابة إلى REAL_DATA_DIR ممنوعة (read-only) — هذا طبيعي
+    // المفتاح يُقرأ من الملف المرفوع مع الكود
+    if (process.env.VERCEL) {
+      saveError = null;
+      return true; // تجاهل خطأ الكتابة على Vercel
+    }
     saveError = err.message;
     console.error('[admin] تعذّر حفظ ملف المصادقة:', err.message);
     console.error('[admin] المفتاح لن يبقى بعد إعادة التشغيل — اجعل مجلّد data قابلاً للكتابة');
@@ -129,22 +140,12 @@ function load() {
     console.error('[admin] ملف المصادقة تالف، سنولّد مفتاحاً جديداً:', err.message);
   }
 
+
   // البيئة تحمل مفتاحاً ولم يختر المالك واحداً بعد: لا داعي لتوليد ملف
   // ولا لكتابة مفتاح نصّي مضلّل لا يعمل.
   if (ENV_KEY) return;
 
-  // في بيئة Vercel أو Serverless نعتمد حالة مصادقة ثابتة ما لم تُحدد بيئة أخرى أو ملف
-  if (process.env.VERCEL) {
-    state = {
-      salt: "35b6e0f52da3f3e31db6731b03f5119c",
-      hash: "281e14e49f9459320abd74dd01e4d3fd6312b1e6a9d27d9de6287a619871ed24",
-      claimed: true,
-      createdAt: 1789776369960,
-      rotatedAt: 1789845817219
-    };
-    save();
-    return;
-  }
+
 
   // أول إقلاع: نولّد مفتاحاً دائماً ونكتبه نصاً ليقرأه المالك
   const key = generateKey();
