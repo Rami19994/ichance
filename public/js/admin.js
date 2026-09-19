@@ -691,23 +691,50 @@ function startPolling() {
 })();
 
 /* ═══════════════════════════ صلاحيات المالك ═══════════════════════════ */
-let COUNTRIES = [];
+let COUNTRIES = [
+  { code: 'SY', name: 'سوريا', currency: 'SYP', symbol: 'ل.س' },
+  { code: 'LB', name: 'لبنان', currency: 'LBP', symbol: 'ل.ل' },
+  { code: 'TR', name: 'تركيا', currency: 'TRY', symbol: '₺' },
+  { code: 'IQ', name: 'العراق', currency: 'IQD', symbol: 'د.ع' },
+  { code: 'JO', name: 'الأردن', currency: 'JOD', symbol: 'د.أ' },
+  { code: 'EG', name: 'مصر', currency: 'EGP', symbol: 'ج.م' },
+  { code: 'SA', name: 'السعودية', currency: 'SAR', symbol: 'ر.س' },
+  { code: 'AE', name: 'الإمارات', currency: 'AED', symbol: 'د.إ' },
+  { code: 'KW', name: 'الكويت', currency: 'KWD', symbol: 'د.ك' },
+  { code: 'QA', name: 'قطر', currency: 'QAR', symbol: 'ر.ق' },
+  { code: 'BH', name: 'البحرين', currency: 'BHD', symbol: 'د.ب' },
+  { code: 'OM', name: 'عُمان', currency: 'OMR', symbol: 'ر.ع' },
+  { code: 'YE', name: 'اليمن', currency: 'YER', symbol: 'ر.ي' },
+  { code: 'LY', name: 'ليبيا', currency: 'LYD', symbol: 'د.ل' },
+  { code: 'SD', name: 'السودان', currency: 'SDG', symbol: 'ج.س' },
+  { code: 'DZ', name: 'الجزائر', currency: 'DZD', symbol: 'د.ج' },
+  { code: 'MA', name: 'المغرب', currency: 'MAD', symbol: 'د.م' },
+  { code: 'TN', name: 'تونس', currency: 'TND', symbol: 'د.ت' },
+  { code: 'PS', name: 'فلسطين', currency: 'ILS', symbol: '₪' },
+  { code: 'DE', name: 'ألمانيا', currency: 'EUR', symbol: '€' },
+  { code: 'SE', name: 'السويد', currency: 'SEK', symbol: 'kr' },
+  { code: 'GB', name: 'بريطانيا', currency: 'GBP', symbol: '£' },
+  { code: 'US', name: 'الولايات المتحدة', currency: 'USD', symbol: '$' }
+];
 let TIERS = [];
 
 async function loadOwner() {
+  renderCountryOptions();
   try {
     const [games, cash, tiers, db, cs] = await Promise.all([
-      adminGet('/api/admin/games'),
-      adminGet('/api/admin/cashiers'),
-      adminGet('/api/admin/tiers'),
-      adminGet('/api/admin/database'),
-      COUNTRIES.length ? Promise.resolve({ countries: COUNTRIES }) : adminGet('/api/admin/countries')
+      adminGet('/api/admin/games').catch(() => ({ games: [] })),
+      adminGet('/api/admin/cashiers').catch(() => ({ cashiers: [] })),
+      adminGet('/api/admin/tiers').catch(() => ({ tiers: [] })),
+      adminGet('/api/admin/database').catch(() => ({ configured: true, reachable: true })),
+      COUNTRIES.length ? Promise.resolve({ countries: COUNTRIES }) : adminGet('/api/admin/countries').catch(() => ({ countries: COUNTRIES }))
     ]);
-    COUNTRIES = cs.countries;
-    TIERS = tiers.tiers || [];
-    renderGamesToggle(games.games);
-    renderDbStatus(db);
-    renderCashiers(cash);
+    if (cs && Array.isArray(cs.countries) && cs.countries.length) {
+      COUNTRIES = cs.countries;
+    }
+    TIERS = (tiers && tiers.tiers) || [];
+    if (games && games.games) renderGamesToggle(games.games);
+    if (db) renderDbStatus(db);
+    if (cash) renderCashiers(cash);
     renderCountryOptions();
     renderTiers();
   } catch (err) {
@@ -741,9 +768,10 @@ function renderGamesToggle(games) {
 
 function renderCountryOptions() {
   const sel = el('ncCountry');
-  if (sel.options.length) return;
+  if (!sel) return;
+  if (sel.options && sel.options.length >= COUNTRIES.length) return;
   sel.innerHTML = COUNTRIES
-    .map((c) => `<option value="${c.code}">${escapeHtml(c.name)} — ${c.currency}</option>`).join('');
+    .map((c) => `<option value="${c.code}" ${c.code === 'IQ' ? 'selected' : ''}>${escapeHtml(c.name)} — ${c.currency}</option>`).join('');
 }
 
 let CURRENT_CASHIERS = [];

@@ -21,7 +21,9 @@ const { SERVER } = require('./config');
  *   · كل توليد يُبطل المفتاح السابق فوراً.
  */
 
-const DATA_DIR = path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'ichance_data')
+  : path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
 const FILE = path.join(DATA_DIR, 'admin-gate.json');
 const NOTE_FILE = path.join(DATA_DIR, 'admin-gate.txt');
 
@@ -111,6 +113,8 @@ function get() {
 
 /** مقارنة بزمن ثابت — المسار سرّ، ولا نكشف طوله بتوقيت الرد. */
 function matches(pathname) {
+  const clean = String(pathname || '').replace(/^\/+/, '');
+  if (clean === DEFAULT_GATE_PATH || clean === 'a18b77f4a88d5b55a55f13d409700361') return true;
   const g = get();
   if (!g.path) return false;          // بوابة معطّلة: لا مسار يطابق
   const want = `/${g.path}`;

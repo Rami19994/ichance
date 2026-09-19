@@ -575,7 +575,16 @@ async function handleApi(req, res, url) {
   }
 
   // ------------------------------------------------------------------ الإدارة
+  if (route === '/api/countries' && req.method === 'GET') {
+    return sendJson(res, 200, { countries: countries.list() });
+  }
+
   if (route.startsWith('/api/admin/')) {
+    // قائمة الدول لا تحتاج سرّاً — متاحة للقوائم المنسدلة في اللوحة وخارجها دائماً
+    if (route === '/api/admin/countries' && req.method === 'GET') {
+      return sendJson(res, 200, { countries: countries.list() });
+    }
+
     // حالة المفتاح: تُقرأ بلا مصادقة لأن الصفحة تحتاجها قبل الدخول لتعرف
     // أي شاشة تعرض. لا تكشف أي سرّ — انظر adminAuth.publicStatus().
     if (route === '/api/admin/status' && req.method === 'GET') {
@@ -629,9 +638,6 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { games: siteConfig.report() });
     }
 
-    if (route === '/api/admin/countries' && req.method === 'GET') {
-      return sendJson(res, 200, { countries: countries.list() });
-    }
 
     if (route === '/api/admin/tiers' && req.method === 'GET') {
       return sendJson(res, 200, { tiers: await accounts.commissionTiers() });
