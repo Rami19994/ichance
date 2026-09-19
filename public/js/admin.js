@@ -1187,13 +1187,32 @@ el('newCashierForm').addEventListener('submit', async (e) => {
   const unlimited = el('ncUnlimited').checked;
 
   try {
-    await adminPost('/api/admin/cashier', { username, email, password, country, startingFloat, unlimited });
+    const result = await adminPost('/api/admin/cashier', { username, email, password, country, startingFloat, unlimited });
     out.hidden = false;
     out.className = 'newplayer__out ok';
     out.innerHTML = `✅ تم إنشاء الكاشير <b>${escapeHtml(username)}</b> بنجاح.`;
     el('newCashierForm').reset();
     toast('تم إنشاء الكاشير', 'win');
-    await loadOwner();
+
+    // أضف الكاشير فوراً للجدول بدون انتظار loadOwner
+    if (result && result.cashier) {
+      const c = result.cashier;
+      // ضمان وجود الحقول الأساسية
+      c.player_count = c.player_count || 0;
+      c.players_balance = c.players_balance || 0;
+      c.burn = c.burn || 0;
+      c.commission_rate = c.commission_rate || 5;
+      c.commission_amount = c.commission_amount || 0;
+      c.active = c.active !== false;
+      c.country = c.country || country;
+      c.currency = c.currency || '';
+      c.email = c.email || email;
+      CURRENT_CASHIERS.push(c);
+      renderCashiers({ cashiers: CURRENT_CASHIERS });
+    }
+
+    // تحديث كامل في الخلفية
+    loadOwner().catch(() => {});
   } catch (err) {
     out.hidden = false;
     out.className = 'newplayer__out err';
@@ -1203,6 +1222,7 @@ el('newCashierForm').addEventListener('submit', async (e) => {
     btn.disabled = false;
   }
 });
+
 
 el('cashiersBody').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-ca]');
