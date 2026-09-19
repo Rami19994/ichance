@@ -37,6 +37,6 @@ yarn-error.log*
 # Editor & OS files
 .claude/
 .vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Standalone admin portal project
+ichadmin/
+

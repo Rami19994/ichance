@@ -86,7 +86,10 @@ function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store'
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Gate, Authorization'
   });
   res.end(payload);
 }
@@ -877,6 +880,16 @@ const server = http.createServer((req, res) => {
     url = new URL(rawPath, `http://${req.headers.host || 'localhost'}`);
   } catch {
     return sendJson(res, 400, { error: 'طلب غير صالح' });
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Gate, Authorization',
+      'Access-Control-Max-Age': '86400'
+    });
+    return res.end();
   }
 
   if (url.pathname === '/api/stream') return handleStream(req, res, url);
