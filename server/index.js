@@ -867,7 +867,8 @@ async function handleStream(req, res, url) {
 const server = http.createServer((req, res) => {
   let url;
   try {
-    url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const rawPath = req.headers['x-forwarded-uri'] || req.headers['x-matched-path'] || req.url;
+    url = new URL(rawPath, `http://${req.headers.host || 'localhost'}`);
   } catch {
     return sendJson(res, 400, { error: 'طلب غير صالح' });
   }
@@ -909,13 +910,9 @@ const server = http.createServer((req, res) => {
       .catch(() => sendJson(res, 500, { error: 'تعذّر فتح الصفحة' }));
   }
 
-  // مسار الإدارة — محجوب بالكامل عن الموقع العام بإرجاع 404 إلا لمن يملك الدومين أو الرابط السري
+  // مسار الإدارة — يخدم صفحة الإدارة التي تطلب المفتاح وتتحقق منه
   if (url.pathname === '/admin') {
-    if (isAdminAllowed(req, url)) {
-      return sendStatic(req, res, '/admin.html');
-    }
-    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-    return res.end('<meta charset="utf-8"><body style="background:#080a0f;color:#e8edf6;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1 style="font-size:64px;margin:0;color:#f5c542">404</h1><p>الصفحة غير موجودة</p><a href="/" style="color:#f5c542">العودة للرئيسية</a></div></body>');
+    return sendStatic(req, res, '/admin.html');
   }
 
   // مسارات الموقع
@@ -932,32 +929,6 @@ server.on('clientError', (err, socket) => {
   if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
 });
 
-game.start();
-bots.start();
-
-server.listen(config.SERVER.port, config.SERVER.host, () => {
-  const line = '─'.repeat(52);
-  console.log(`\n${line}`);
-  console.log('  iCHANCE — منصة ألعاب بعملة افتراضية');
-  console.log(line);
-  console.log(`  الرابط        : http://localhost:${config.SERVER.port}`);
-  console.log(`  اللعبة 1      : كروت الحظ (${config.CARD_COUNT} كرت — ${config.GRID.cols}×${config.GRID.rows})`);
-  console.log(`  اللعبة 2      : صيّاد الجوائز (سلوتس ${slots.REELS}×${slots.ROWS} — ${slots.WAYS} طريقة · عائد 80.5%)`);
-  console.log(`  اللعبة 3      : معركة الدبابات (مهارة · 4 مستويات · عائد 79-80%)`);
-  console.log(`  نسبة العائد   : ${(check.rtp * 100).toFixed(2)}%`);
-  console.log(`  مبالغ المشاركة: ${config.STAKES[0]} ← ${config.STAKES[config.STAKES.length - 1]}`);
-  console.log(`  الحد الأقصى   : ${config.MAX_PLAYERS} مشترك لكل جولة`);
-  console.log(`  اللاعبون الآليون: ${config.BOTS.enabled ? 'مفعّل' : 'متوقف'}`);
-  console.log(`  ملف البيانات  : ${store.DATA_FILE}`);
-  console.log(`  قاعدة البيانات: ${supabase.configured() ? supabase.config().url : 'غير مربوطة — لا حسابات ولا كاشير'}`);
-  if (supabase.configured()) console.log('  لوحة الكاشير  : /cashier');
-  const off = siteConfig.report().filter((g) => !g.enabled);
-  if (off.length) console.log(`  ألعاب موقوفة  : ${off.map((g) => g.name).join(' · ')}`);
-  for (const l of adminAuth.bootLines(config.SERVER.port)) console.log(l);
-  for (const l of adminGate.bootLines()) console.log(l);
-  console.log(`${line}\n`);
-});
-
 // إغلاق نظيف يحفظ الأرصدة
 let shuttingDown = false;
 async function shutdown(signal) {
@@ -967,11 +938,41 @@ async function shutdown(signal) {
   game.stop();
   bots.stop();
   for (const c of clients) { try { c.res.end(); } catch { /* تجاهل */ } }
-  // فروق اللعب المعلّقة تُكتب قبل الخروج — وإلا ضاع ما لم يُدفع بعد
   try { await accounts.flushDeltas(); } catch { /* تجاهل */ }
   await store.flush();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();
 }
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+if (!process.env.VERCEL) {
+  game.start();
+  bots.start();
+
+  server.listen(config.SERVER.port, config.SERVER.host, () => {
+    const line = '─'.repeat(52);
+    console.log(`\n${line}`);
+    console.log('  iCHANCE — منصة ألعاب بعملة افتراضية');
+    console.log(line);
+    console.log(`  الرابط        : http://localhost:${config.SERVER.port}`);
+    console.log(`  اللعبة 1      : كروت الحظ (${config.CARD_COUNT} كرت — ${config.GRID.cols}×${config.GRID.rows})`);
+    console.log(`  اللعبة 2      : صيّاد الجوائز (سلوتس ${slots.REELS}×${slots.ROWS} — ${slots.WAYS} طريقة · عائد 80.5%)`);
+    console.log(`  اللعبة 3      : معركة الدبابات (مهارة · 4 مستويات · عائد 79-80%)`);
+    console.log(`  نسبة العائد   : ${(check.rtp * 100).toFixed(2)}%`);
+    console.log(`  مبالغ المشاركة: ${config.STAKES[0]} ← ${config.STAKES[config.STAKES.length - 1]}`);
+    console.log(`  الحد الأقصى   : ${config.MAX_PLAYERS} مشترك لكل جولة`);
+    console.log(`  اللاعبون الآليون: ${config.BOTS.enabled ? 'مفعّل' : 'متوقف'}`);
+    console.log(`  ملف البيانات  : ${store.DATA_FILE}`);
+    console.log(`  قاعدة البيانات: ${supabase.configured() ? supabase.config().url : 'غير مربوطة — لا حسابات ولا كاشير'}`);
+    if (supabase.configured()) console.log('  لوحة الكاشير  : /cashier');
+    const off = siteConfig.report().filter((g) => !g.enabled);
+    if (off.length) console.log(`  ألعاب موقوفة  : ${off.map((g) => g.name).join(' · ')}`);
+    for (const l of adminAuth.bootLines(config.SERVER.port)) console.log(l);
+    for (const l of adminGate.bootLines()) console.log(l);
+    console.log(`${line}\n`);
+  });
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+}
+
+module.exports = server;

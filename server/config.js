@@ -101,10 +101,11 @@ const BOTS = {
 // مع أول إعادة تشغيل. صار في server/adminAuth.js مفتاحاً دائماً يُحفظ على القرص.
 // ---------------------------------------------------------------------------
 
+const path = require('path');
 const SERVER = {
   port: Number(process.env.PORT || 3000),
   host: process.env.HOST || '0.0.0.0',
-  dataFile: process.env.ICHANCE_DATA || null, // يُحسب في store.js إن كان null
+  dataFile: process.env.ICHANCE_DATA || (process.env.VERCEL ? path.join('/tmp', 'players.json') : null),
   historySize: 200
 };
 

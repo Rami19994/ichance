@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "cleanUrls": false,
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/cashier", "destination": "/cashier.html" },
+    { "source": "/lucky-cards", "destination": "/game.html" },
+    { "source": "/bounty-hunter", "destination": "/slot.html" },
+    { "source": "/battle-tanks", "destination": "/tank.html" },
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/6a546f34f797ed19196b0d9392ae8979", "destination": "/api/index.js" },
+    { "source": "/:gate([a-f0-9]{32})", "destination": "/api/index.js" }
+  ]
+}

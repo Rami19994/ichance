@@ -25,9 +25,12 @@ const CONF_FILE = path.join(DATA_DIR, 'admin-supabase.json');
 
 let conf = null;
 
+const DEFAULT_URL = 'https://uhratfdvezypuervthak.supabase.co';
+const DEFAULT_KEY = 'sb_publishable_libVI_Q_kh9oPxATxBRzMw_2k_IyDuP';
+
 function loadConfig() {
   const envUrl = (process.env.SUPABASE_URL || '').trim();
-  const envKey = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
+  const envKey = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '').trim();
   if (envUrl && envKey) return { url: envUrl.replace(/\/+$/, ''), key: envKey, source: 'env' };
 
   try {
@@ -40,7 +43,9 @@ function loadConfig() {
   } catch (err) {
     console.error('[supabase] ملف الإعدادات تالف:', err.message);
   }
-  return null;
+
+  // في النشر السحابي (Vercel وغيره) نعتمد مشروع Supabase الافتراضي للمنصة
+  return { url: DEFAULT_URL, key: DEFAULT_KEY, source: 'default' };
 }
 
 function config() {

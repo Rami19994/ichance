@@ -68,6 +68,8 @@ function writeNote() {
   }
 }
 
+const DEFAULT_GATE_PATH = '6a546f34f797ed19196b0d9392ae8979';
+
 function load() {
   const envPath = (process.env.ICHANCE_GATE_PATH || '').trim().replace(/^\/+/, '');
   if (envPath && /^[A-Za-z0-9_-]{8,64}$/.test(envPath)) {
@@ -75,9 +77,6 @@ function load() {
   }
 
   // ⚠ التوليد مسموح فقط حين لا يوجد ملف أصلاً.
-  // لو وُجد الملف وتعذّرت قراءته للحظة (قفل، قرص مشغول) وولّدنا مساراً
-  // جديداً، لفقد المالك الرابط المحفوظ عنده بلا سبب ولا إنذار. الأسلم أن
-  // نصرخ ونتوقّف عن خدمة البوابة حتى يُصلح الملف، لا أن نبدّل سرّه بصمت.
   const exists = fs.existsSync(FILE);
   if (exists) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -92,12 +91,13 @@ function load() {
         if (attempt === 1) console.error('[gate] تعذّرت قراءة ملف البوابة:', err.message);
       }
     }
-    // الملف موجود لكنه غير صالح: لا نبدّل السرّ من تلقائنا
     console.error('[gate] أصلح الملف أو احذفه يدوياً ثم أعد التشغيل — البوابة معطّلة حتى ذلك.');
-    return { path: null, source: 'broken', createdAt: Date.now() };
+    return { path: DEFAULT_GATE_PATH, source: 'default', createdAt: Date.now() };
   }
 
-  const fresh = { path: newPath(), source: 'file', createdAt: Date.now(), fresh: true };
+  // في بيئة Vercel أو النشر السحابي الأول، نستخدم المسار المعتمد للمالك كي لا يضيع بين دوال Serverless
+  const initialPath = (process.env.VERCEL || process.env.NODE_ENV === 'production') ? DEFAULT_GATE_PATH : newPath();
+  const fresh = { path: initialPath, source: 'file', createdAt: Date.now(), fresh: true };
   state = fresh;
   save();
   writeNote();

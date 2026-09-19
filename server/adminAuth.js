@@ -26,7 +26,9 @@ const { SERVER } = require('./config');
  *   ج) من داخل اللوحة: زر تغيير المفتاح متاح دائماً بعد الدخول.
  */
 
-const DATA_DIR = path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'ichance_data')
+  : path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
 const AUTH_FILE = path.join(DATA_DIR, 'admin.json');
 const PLAIN_FILE = path.join(DATA_DIR, 'admin-key.txt');
 
@@ -130,6 +132,19 @@ function load() {
   // البيئة تحمل مفتاحاً ولم يختر المالك واحداً بعد: لا داعي لتوليد ملف
   // ولا لكتابة مفتاح نصّي مضلّل لا يعمل.
   if (ENV_KEY) return;
+
+  // في بيئة Vercel أو Serverless نعتمد حالة مصادقة ثابتة ما لم تُحدد بيئة أخرى أو ملف
+  if (process.env.VERCEL) {
+    state = {
+      salt: "35b6e0f52da3f3e31db6731b03f5119c",
+      hash: "281e14e49f9459320abd74dd01e4d3fd6312b1e6a9d27d9de6287a619871ed24",
+      claimed: true,
+      createdAt: 1789776369960,
+      rotatedAt: 1789845817219
+    };
+    save();
+    return;
+  }
 
   // أول إقلاع: نولّد مفتاحاً دائماً ونكتبه نصاً ليقرأه المالك
   const key = generateKey();
