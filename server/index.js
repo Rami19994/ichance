@@ -138,6 +138,26 @@ function tokenFrom(req, url) {
 
 // حدّ بسيط لمعدل الطلبات لمنع الضغط الآلي
 const buckets = new Map();
+/**
+ * عنوان الزائر الحقيقي.
+ *
+ * خلف وسيط (Vercel، Nginx، Cloudflare) يعطي remoteAddress عنوان الوسيط
+ * نفسه، فيتشارك كل زوّار الموقع دلو حدّ واحداً: محاولات أي شخص تقفل على
+ * الباقين. أول عنوان في x-forwarded-for هو الزائر الأصلي.
+ *
+ * تزوير هذه الترويسة ممكن نظرياً، لكن أثره أن يتهرّب المزوِّر من حدّ
+ * نفسه لا أن ينتحل غيره — والحماية الحقيقية هنا مسار سرّي 128 بت،
+ * والحدّ طبقة إضافية فوقه لا أساسه.
+ */
+function clientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) {
+    const first = String(fwd).split(',')[0].trim();
+    if (first) return first;
+  }
+  return req.socket.remoteAddress || 'unknown';
+}
+
 function rateLimit(key, max = 30, windowMs = 10_000) {
   const now = Date.now();
   let b = buckets.get(key);
@@ -280,7 +300,7 @@ async function handleApi(req, res, url) {
   const route = url.pathname;
   const token = tokenFrom(req, url);
   const player = await resolvePlayer(token);
-  const ip = req.socket.remoteAddress || 'unknown';
+  const ip = clientIp(req);
 
   const gatedGame = ROUTE_GAME[route];
   if (gatedGame && !siteConfig.gameEnabled(gatedGame)) {
@@ -722,13 +742,33 @@ async function handleApi(req, res, url) {
   if (route === '/api/admin/gate' || route === '/api/admin/gate/path') {
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'طريقة غير مسموحة' });
 
-    // حدّ صارم: هذا المسار يمنح ملكية اللوحة كاملة
-    if (!rateLimit(`gate:${ip}`, 6, 10 * 60_000)) {
-      return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر قليلاً' });
+    // نفحص المسار أولاً ثم نحدّ.
+    //
+    // معرفة المسار السرّي هي إثبات الهوية هنا؛ من يعرفه هو المالك، ومن
+    // لا يعرفه مهاجم. خنق الاثنين بدلو واحد كان يقفل على المالك — وهو
+    // يولّد مفتاحاً كل مرة يدخل — بسبب تخمينات غيره، بينما المهاجم لا
+    // يخسر شيئاً. فالحدّ الصارم يقع على المحاولات **الخاطئة** وحدها.
+    // بوابة غير مضبوطة أصلاً ≠ مسار خاطئ.
+    // على Serverless لا قرص دائم، فالمسار يأتي من متغيّر البيئة. لو كان
+    // ناقصاً يفشل كل نداء بـ404 ثم يصطدم بحدّ المحاولات، فيظنّ المالك أن
+    // رمزه خطأ وهو صحيح. نقولها صراحةً — وهذا لا يكشف المسار لأحد.
+    if (!adminGate.get().path) {
+      return sendJson(res, 503, {
+        error: 'البوابة غير مضبوطة على هذا الخادم — اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة'
+      });
     }
+
     const proof = String(req.headers['x-gate'] || '').trim();
     if (!adminGate.matches(`/${proof}`)) {
+      if (!rateLimit(`gatebad:${ip}`, 8, 10 * 60_000)) {
+        return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر قليلاً' });
+      }
       return sendJson(res, 404, { error: 'غير موجود' });
+    }
+
+    // مسار صحيح: حدّ واسع يمنع حلقة مفتوحة أو ضغطاً متكرّراً بالخطأ فقط
+    if (!rateLimit(`gateok:${ip}`, 40, 60_000)) {
+      return sendJson(res, 429, { error: 'طلبات كثيرة جداً — انتظر دقيقة' });
     }
 
     if (route === '/api/admin/gate') {
@@ -1320,6 +1360,12 @@ const server = http.createServer((req, res) => {
   }
 
   // مسار البوابة السرية لمالك الموقع
+  // الصفحة لا تُخدَّم إن لم تُضبط البوابة — ولا نُظهر 404 صامتاً للمالك
+  if (!adminGate.get().path && url.pathname.length > 8 && /^\/[a-f0-9]{16,64}$/.test(url.pathname)) {
+    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end('البوابة غير مضبوطة — اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة');
+  }
+
   if (adminGate.matches(url.pathname)) {
     return fs.promises.readFile(path.join(__dirname, 'gatePage.html'))
       .then((buf) => {
