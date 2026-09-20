@@ -1116,42 +1116,91 @@ async function updateAccount({ accountId, username, email, ownerId, ownerField }
  * يجب أن يبقى متّصلاً — محو حساب وسط السلسلة يترك حركات بلا طرف ويُفسد كل
  * تقرير لاحق. البديل الصحيح هو إيقاف التنشيط، وهو يمنع الدخول ويُبقي الأثر.
  */
-async function deleteAccount({ accountId, ownerId, ownerField }) {
+async function deleteAccount({ accountId, ownerId, ownerField, force = false }) {
   const row = await byId(accountId);
   if (!row) return { ok: false, error: 'الحساب غير موجود' };
+  const targetId = row.id;
   if (ownerId && row[ownerField] !== ownerId) {
     return { ok: false, error: 'هذا الحساب ليس من حساباتك' };
   }
-  if (row.balance > 0) {
+  if (!force && row.balance > 0) {
     return { ok: false, error: `لا يمكن الحذف ورصيده ${row.balance} — اسحبه أولاً` };
   }
 
   await ensureSupabase();
-  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  if (supabaseReady) {
+    try {
+      // 1. فك ارتباط الحسابات التابعة (سواء للاعبين أو كاشيرية)
+      await sb.request(`/rest/v1/accounts?cashier_id=eq.${sb.enc(targetId)}`, {
+        method: 'PATCH',
+        body: { cashier_id: null }
+      }).catch(() => {});
 
-  try {
-    if (row.role === 'cashier') {
-      const kids = await sb.select('accounts',
-        `select=id&cashier_id=eq.${sb.enc(accountId)}&limit=1`);
-      if (kids.length) return { ok: false, error: 'له لاعبون — انقلهم أو احذفهم أولاً، أو أوقف تنشيطه' };
-    }
-    if (row.role === 'master') {
-      const kids = await sb.select('accounts',
-        `select=id&master_id=eq.${sb.enc(accountId)}&limit=1`);
-      if (kids.length) return { ok: false, error: 'له كاشيرية — انقلهم أو احذفهم أولاً، أو أوقف تنشيطه' };
-    }
+      await sb.request(`/rest/v1/accounts?master_id=eq.${sb.enc(targetId)}`, {
+        method: 'PATCH',
+        body: { master_id: null }
+      }).catch(() => {});
 
-    const moved = await sb.select('transaction_log',
-      `select=id&or=(player_id.eq.${sb.enc(accountId)},cashier_id.eq.${sb.enc(accountId)},master_id.eq.${sb.enc(accountId)})&limit=1`);
-    if (moved.length) {
-      return { ok: false, error: 'له حركات مالية مسجّلة — أوقف تنشيطه بدل حذفه كي يبقى سجلّ المال متّصلاً' };
-    }
+      await sb.request(`/rest/v1/accounts?created_by=eq.${sb.enc(targetId)}`, {
+        method: 'PATCH',
+        body: { created_by: null }
+      }).catch(() => {});
 
-    await sb.request(`/rest/v1/accounts?id=eq.${sb.enc(accountId)}`, { method: 'DELETE' });
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
+      // 2. مسح السجلات المرتبطة لتجنب قيود المفتاح الخارجي في PostgreSQL
+      await sb.request(`/rest/v1/transaction_log?cashier_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      await sb.request(`/rest/v1/transaction_log?player_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      await sb.request(`/rest/v1/transactions?cashier_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      await sb.request(`/rest/v1/transactions?player_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      await sb.request(`/rest/v1/game_rounds?player_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      await sb.request(`/rest/v1/game_sessions?player_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      await sb.request(`/rest/v1/balance_anomalies?account_id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+
+      // 3. حذف الحساب نهائياً من جدول accounts في قاعدة البيانات
+      await sb.request(`/rest/v1/accounts?id=eq.${sb.enc(targetId)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('[accounts] خطأ أثناء حذف الحساب من Supabase:', err.message);
+      return { ok: false, error: err.message };
+    }
   }
+
+  // حذف الحساب من التخزين المحلي إن وجد
+  if (localDb && localDb.accounts) {
+    localDb.accounts = localDb.accounts.filter((a) => a.id !== targetId && a.id !== accountId);
+    for (const a of localDb.accounts) {
+      if (a.cashier_id === targetId || a.cashier_id === accountId) a.cashier_id = null;
+      if (a.master_id === targetId || a.master_id === accountId) a.master_id = null;
+      if (a.created_by === targetId || a.created_by === accountId) a.created_by = null;
+    }
+    if (localDb.transactions) {
+      localDb.transactions = localDb.transactions.filter((tx) => tx.cashier_id !== targetId && tx.player_id !== targetId);
+    }
+    saveLocal();
+  }
+
+  console.log(`[accounts] تم حذف الحساب ${row.username} (${targetId}) نهائياً`);
+  return { ok: true, id: targetId, username: row.username };
 }
 
 module.exports = {

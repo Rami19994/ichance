@@ -1080,9 +1080,11 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, out);
     }
 
-    if (route === '/api/admin/account/delete' && req.method === 'POST') {
+    if ((route === '/api/admin/account/delete' || route === '/api/admin/master/delete' || route === '/api/admin/cashier/delete') && req.method === 'POST') {
       const body = await readBody(req);
-      const out = await accounts.deleteAccount({ accountId: body.accountId });
+      const accountId = body.accountId || body.id || body.masterId || body.cashierId || body.playerId;
+      if (!accountId) return sendJson(res, 400, { error: 'معرّف الحساب مطلوب' });
+      const out = await accounts.deleteAccount({ accountId, force: true });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);
     }

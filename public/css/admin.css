@@ -735,6 +735,16 @@
   background: rgba(46, 204, 113, .25);
   color: #fff;
 }
+.rowbtns button.btn-del {
+  background: rgba(235, 47, 47, .12);
+  border-color: rgba(235, 47, 47, .35);
+  color: #ff5b5b;
+}
+.rowbtns button.btn-del:hover {
+  background: rgba(235, 47, 47, .28);
+  border-color: #ff3838;
+  color: #fff;
+}
 
 /* ─────────────────── نافذة إجراءات الكاشير المنبثقة ─────────────────── */
 .c-modal-overlay {

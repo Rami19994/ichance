@@ -597,18 +597,45 @@ function renderPlayers(players) {
   const body = el('playersBody');
   el('playersHint').textContent = `${players.length} لاعب مسجّل`;
   if (!players.length) {
-    body.innerHTML = '<tr><td colspan="6" class="empty-cell">لا يوجد لاعبون بعد.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="empty-cell">لا يوجد لاعبون بعد.</td></tr>';
     return;
   }
-  body.innerHTML = players.map((p) => `
+  body.innerHTML = players.map((p) => {
+    const pName = p.username || p.display_id || p.id;
+    return `
     <tr>
-      <td class="mono">${escapeHtml(p.id)}</td>
+      <td class="mono">${escapeHtml(pName)}</td>
       <td class="num">${fmt(p.balance)}</td>
       <td class="num">${fmt(p.rounds)}</td>
       <td class="num">${fmt(p.wagered)}</td>
       <td class="num">${fmt(p.won)}</td>
       <td class="num ${p.houseNet > 0 ? 'pos' : p.houseNet < 0 ? 'neg' : 'dim'}">${fmtSigned(p.houseNet)}</td>
-    </tr>`).join('');
+      <td>
+        <span class="rowbtns">
+          <button class="btn-del" data-pa="delete" data-id="${p.id}" data-name="${escapeHtml(pName)}" title="حذف حساب اللاعب نهائياً من قاعدة البيانات">🗑️ حذف</button>
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+if (el('playersBody')) {
+  el('playersBody').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-pa="delete"]');
+    if (!b) return;
+    const id = b.dataset.id;
+    const name = b.dataset.name || 'هذا اللاعب';
+    if (!confirm(`هل أنت متأكد من حذف حساب اللاعب "${name}" نهائياً؟\nسيتم حذفه بالكامل من قاعدة البيانات.`)) return;
+    b.disabled = true;
+    try {
+      await adminPost('/api/admin/account/delete', { accountId: id });
+      toast(`تم حذف حساب اللاعب "${name}" بنجاح`, 'win');
+      await loadOwner();
+    } catch (err) {
+      toast(`تعذّر الحذف: ${err.message}`, 'error', 6000);
+      b.disabled = false;
+    }
+  });
 }
 
 function renderRules(s) {
@@ -829,6 +856,7 @@ function renderCashiers(data) {
           <button data-ca="toggle"   class="${c.active ? 'btn-off' : 'btn-on'}" data-id="${c.id}" data-next="${c.active ? '0' : '1'}" title="${c.active ? 'إيقاف حساب الكاشير' : 'تفعيل حساب الكاشير'}">
             ${c.active ? '🛑 أوقف' : '🟢 شغّل'}
           </button>
+          <button class="btn-del"    data-ca="delete" data-id="${c.id}" data-name="${escapeHtml(c.username)}" title="حذف حساب الكاشير نهائياً من قاعدة البيانات">🗑️ حذف</button>
         </span>
       </td>
     </tr>`;
@@ -1192,6 +1220,40 @@ function openPasswordModal(c) {
   });
 }
 
+function openCashierDeleteModal(c) {
+  CashierModal.show({
+    icon: '🗑️',
+    title: `حذف حساب الكاشير: ${c.username}`,
+    subtitle: 'تحذير: سيتم مسح حساب الكاشير نهائياً من قاعدة البيانات',
+    content: `
+      <div style="background:rgba(235,47,47,0.08);border:1px solid rgba(235,47,47,0.3);border-radius:10px;padding:14px;margin-bottom:16px;color:#ff7675;font-size:13px;line-height:1.6">
+        ⚠️ <b>تنبيه هام:</b> سيتم حذف حساب الكاشير <b>${escapeHtml(c.username)}</b> (${escapeHtml(c.display_id || c.id)}) نهائياً من قاعدة البيانات (Supabase)، وفك ارتباط اللاعبين التابعين له ومسح أي سجلات مرتبطة. هذا الإجراء نهائي ولا يمكن التراجع عنه.
+      </div>
+      <div class="cm-actions">
+        <button type="button" class="btn btn--dark" onclick="CashierModal.hide()">إلغاء</button>
+        <button type="button" class="btn" style="background:#d63031;color:#fff;border:none;padding:8px 16px;font-weight:bold" id="cmConfirmCashierDelete">🗑️ نعم، احذف الكاشير نهائياً</button>
+      </div>
+    `,
+    onMount(container) {
+      const btn = container.querySelector('#cmConfirmCashierDelete');
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ الحذف من قاعدة البيانات…';
+        try {
+          await adminPost('/api/admin/account/delete', { accountId: c.id });
+          CashierModal.hide();
+          toast(`تم حذف حساب الكاشير "${c.username}" نهائياً من قاعدة البيانات`, 'win');
+          await loadOwner();
+        } catch (err) {
+          CashierModal.showError(err.message);
+          btn.disabled = false;
+          btn.textContent = '🗑️ نعم، احذف الكاشير نهائياً';
+        }
+      });
+    }
+  });
+}
+
 /* ─────────────── إنشاء كاشير جديد ─────────────── */
 el('newCashierForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1264,6 +1326,8 @@ el('cashiersBody').addEventListener('click', (e) => {
     openToggleModal(cashier, next);
   } else if (what === 'password') {
     openPasswordModal(cashier);
+  } else if (what === 'delete') {
+    openCashierDeleteModal(cashier);
   }
 });
 
@@ -1403,15 +1467,50 @@ function renderMasters() {
       <td><b>${Number(m.commission_rate).toFixed(0)}%</b><br><span class="dim">${fmt(m.commission_amount)}</span></td>
       <td>
         <span class="rowbtns">
-          <button class="b-in"  data-ma="topup" data-id="${m.id}">أرسل</button>
-          <button class="b-out" data-ma="debit" data-id="${m.id}">اسحب</button>
-          <button data-ma="chain"  data-id="${m.id}">كشفه</button>
-          <button data-ma="toggle" data-id="${m.id}" data-next="${m.active ? '0' : '1'}">
+          <button class="b-in"  data-ma="topup"  data-id="${m.id}" title="إرسال عهدة للماستر">أرسل</button>
+          <button class="b-out" data-ma="debit"  data-id="${m.id}" title="سحب عهدة من الماستر">اسحب</button>
+          <button data-ma="chain"  data-id="${m.id}" title="كشف حساب شبكة الماستر">كشفه</button>
+          <button data-ma="toggle" data-id="${m.id}" data-next="${m.active ? '0' : '1'}" title="${m.active ? 'إيقاف حساب الماستر' : 'تفعيل حساب الماستر'}">
             ${m.active ? 'أوقف' : 'شغّل'}
           </button>
+          <button class="btn-del"  data-ma="delete" data-id="${m.id}" data-name="${escapeHtml(m.username)}" title="حذف حساب الماستر نهائياً من قاعدة البيانات">🗑️ حذف</button>
         </span>
       </td>
     </tr>`).join('');
+}
+
+function openMasterDeleteModal(m) {
+  CashierModal.show({
+    icon: '🗑️',
+    title: `حذف حساب الماستر: ${m.username}`,
+    subtitle: 'تحذير: سيتم مسح حساب الماستر نهائياً من قاعدة البيانات',
+    content: `
+      <div style="background:rgba(235,47,47,0.08);border:1px solid rgba(235,47,47,0.3);border-radius:10px;padding:14px;margin-bottom:16px;color:#ff7675;font-size:13px;line-height:1.6">
+        ⚠️ <b>تنبيه هام:</b> سيتم حذف حساب الماستر <b>${escapeHtml(m.username)}</b> (${escapeHtml(m.display_id || m.id)}) نهائياً من قاعدة البيانات (Supabase)، وفك ارتباط شبكة الكاشيرية واللاعبين التابعين له. هذا الإجراء نهائي ولا يمكن التراجع عنه.
+      </div>
+      <div class="cm-actions">
+        <button type="button" class="btn btn--dark" onclick="CashierModal.hide()">إلغاء</button>
+        <button type="button" class="btn" style="background:#d63031;color:#fff;border:none;padding:8px 16px;font-weight:bold" id="cmConfirmMasterDelete">🗑️ نعم، احذف الماستر نهائياً</button>
+      </div>
+    `,
+    onMount(container) {
+      const btn = container.querySelector('#cmConfirmMasterDelete');
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ الحذف من قاعدة البيانات…';
+        try {
+          await adminPost('/api/admin/account/delete', { accountId: m.id });
+          CashierModal.hide();
+          toast(`تم حذف حساب الماستر "${m.username}" نهائياً من قاعدة البيانات`, 'win');
+          await loadMasters();
+        } catch (err) {
+          CashierModal.showError(err.message);
+          btn.disabled = false;
+          btn.textContent = '🗑️ نعم، احذف الماستر نهائياً';
+        }
+      });
+    }
+  });
 }
 
 el('newMasterForm').addEventListener('submit', async (e) => {
@@ -1467,6 +1566,10 @@ el('mastersBody').addEventListener('click', async (e) => {
       const out = await adminGet(`/api/admin/chain?master=${encodeURIComponent(id)}&limit=40`);
       const rows = out.transactions || [];
       toast(rows.length ? `${rows.length} حركة في شبكته — آخرها ${rows[0].direction}` : 'لا حركات بعد', 'info', 6000);
+      return;
+    } else if (what === 'delete') {
+      const m = MASTERS.find((x) => x.id === id) || { username: b.dataset.name || 'الماستر', id };
+      openMasterDeleteModal(m);
       return;
     }
     await loadMasters();
