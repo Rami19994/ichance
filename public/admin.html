@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>لوحة الإدارة — iCHANCE</title>
+<title>لوحة الإدارة — LuckyArena</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,7 +41,7 @@
   <!-- الدخول المعتاد -->
   <form class="gate__box panel" id="gateForm">
     <div class="gate__logo">iC</div>
-    <h1>لوحة إدارة iCHANCE</h1>
+    <h1>لوحة إدارة LuckyArena</h1>
     <p>أدخل مفتاح الإدارة.</p>
     <div class="field">
       <label for="keyInput">مفتاح الإدارة</label>
@@ -60,7 +60,7 @@
   <header class="adminbar">
     <a class="logo" href="/">
       <span class="logo__mark">iC</span>
-      <span class="logo__text"><b>iCHANCE</b><span>ADMIN</span></span>
+      <span class="logo__text"><b>LuckyArena</b><span>ADMIN</span></span>
     </a>
     <span class="tag tag--live" id="liveTag"><span class="live-dot"></span>مباشر</span>
     <div class="mode-seg" id="modeSeg">
@@ -99,6 +99,112 @@
       </div>
       <div class="card__body">
         <div class="games-toggle" id="gamesToggle"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ الماسترية ═══════════ -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>الماسترية</h2>
+        <span class="card__hint">الإدارة ← ماستر ← كاشير ← لاعب</span>
+      </div>
+      <div class="card__body">
+
+        <form class="newcashier" id="newMasterForm">
+          <div class="field">
+            <label for="nmUser">اسم المستخدم</label>
+            <input id="nmUser" type="text" spellcheck="false" placeholder="master1" required>
+          </div>
+          <div class="field">
+            <label for="nmPass">كلمة المرور</label>
+            <input id="nmPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر" required>
+          </div>
+          <div class="field">
+            <label for="nmCountry">الدولة</label>
+            <select id="nmCountry" required></select>
+          </div>
+          <div class="field">
+            <label for="nmFloat">العهدة الأولى</label>
+            <input id="nmFloat" type="number" min="0" step="1" placeholder="0">
+          </div>
+          <div class="field">
+            <button class="btn btn--gold btn--block" type="submit" id="nmBtn">إنشاء ماستر</button>
+          </div>
+        </form>
+        <div class="newplayer__out" id="nmOut" hidden></div>
+
+        <div class="table-wrap" style="margin-top:16px">
+          <table class="dt">
+            <thead>
+              <tr>
+                <th>الماستر</th><th>الدولة</th><th>عهدته</th><th>كاشيريته</th>
+                <th>لاعبو شبكته</th><th>استلم</th><th>وزّع</th><th>الحرق</th><th>العمولة</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="mastersBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="mastersEmpty" hidden>لا ماسترية بعد.</div>
+      </div>
+    </section>
+
+    <!-- ═══════════ سجلّ الألعاب الخارجية ═══════════ -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>ألعابك الخارجية</h2>
+        <span class="card__hint">سجّل اللعبة برابطها — لا كود لعبة داخل الموقع</span>
+      </div>
+      <div class="card__body">
+        <p class="key-note">
+          اللعبة تُستضاف عندك وتنادي المحفظة المتصلة، فيُخصم الرهان ويُضاف الربح
+          من رصيد اللاعب داخل الموقع. مفتاح التوقيع يُعرض <b>مرة واحدة</b> عند الإنشاء.
+        </p>
+
+        <form class="newcashier" id="newGameForm">
+          <div class="field">
+            <label for="ngName">اسم اللعبة</label>
+            <input id="ngName" type="text" placeholder="لعبة الحظ" required>
+          </div>
+          <div class="field">
+            <label for="ngSlug">المعرّف <span class="dim">(في الرابط)</span></label>
+            <input id="ngSlug" type="text" spellcheck="false" placeholder="lucky-spin" required>
+          </div>
+          <div class="field">
+            <label for="ngCat">الفئة</label>
+            <select id="ngCat">
+              <option value="fast">سريعة</option>
+              <option value="slots">سلوتس</option>
+              <option value="table">طاولات</option>
+              <option value="skill">مهارة</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ngUrl">رابط اللعبة</label>
+            <input id="ngUrl" type="text" spellcheck="false" placeholder="https://games.example.com/spin" required>
+          </div>
+          <div class="field">
+            <label for="ngCover">رابط الغلاف <span class="dim">(اختياري)</span></label>
+            <input id="ngCover" type="text" spellcheck="false" placeholder="https://…/cover.jpg">
+          </div>
+          <div class="field">
+            <label for="ngConfig">التبعيات <span class="dim">(JSON)</span></label>
+            <input id="ngConfig" type="text" spellcheck="false" placeholder='{"theme":"dark"}'>
+          </div>
+          <div class="field">
+            <button class="btn btn--gold btn--block" type="submit" id="ngBtn">سجّل اللعبة</button>
+          </div>
+        </form>
+        <div class="newplayer__out" id="ngOut" hidden></div>
+
+        <div class="table-wrap" style="margin-top:16px">
+          <table class="dt dt--compact">
+            <thead>
+              <tr><th>اللعبة</th><th>المعرّف</th><th>الفئة</th><th>الرابط</th><th>الحالة</th><th>إجراءات</th></tr>
+            </thead>
+            <tbody id="gamesBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="gamesEmpty" hidden>لا ألعاب مسجّلة بعد.</div>
       </div>
     </section>
 

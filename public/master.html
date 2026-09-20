@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>لوحة الكاشير — LuckyArena</title>
+<title>لوحة الماستر — LuckyArena</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/theme.css?v=24">
-<link rel="stylesheet" href="/css/auth.css?v=24">
-<link rel="stylesheet" href="/css/admin.css?v=24">
-<link rel="stylesheet" href="/css/cashier.css?v=24">
+<link rel="stylesheet" href="/css/theme.css?v=25">
+<link rel="stylesheet" href="/css/auth.css?v=25">
+<link rel="stylesheet" href="/css/admin.css?v=25">
+<link rel="stylesheet" href="/css/cashier.css?v=25">
 </head>
 <body>
 
@@ -20,16 +20,16 @@
 <div class="auth" id="gate">
   <form class="auth__box" id="gateForm">
     <div class="auth__logo">iC</div>
-    <h1>لوحة الكاشير</h1>
-    <p>ادخل بحساب الكاشير الذي أنشأته لك الإدارة.</p>
+    <h1>لوحة الماستر</h1>
+    <p>ادخل بحساب الماستر الذي أنشأته لك الإدارة.</p>
 
     <div class="field">
-      <label for="cuser">اسم المستخدم أو الإيميل</label>
-      <input id="cuser" type="text" autocomplete="username" placeholder="اسم المستخدم أو الإيميل" spellcheck="false" required>
+      <label for="muser">اسم المستخدم</label>
+      <input id="muser" type="text" autocomplete="username" spellcheck="false" required>
     </div>
     <div class="field">
-      <label for="cpass">كلمة المرور</label>
-      <input id="cpass" type="password" autocomplete="current-password" required>
+      <label for="mpass">كلمة المرور</label>
+      <input id="mpass" type="password" autocomplete="current-password" required>
     </div>
 
     <button class="btn btn--gold btn--block btn--lg" type="submit" id="gateBtn">دخول</button>
@@ -45,7 +45,7 @@
     <span class="cashbar__logo">iC</span>
     <div class="cashbar__who">
       <b id="whoName">—</b>
-      <span>كاشير</span>
+      <span>ماستر</span>
     </div>
 
     <div class="cashbar__float" id="floatBox">
@@ -60,74 +60,88 @@
 
   <main class="cash__body">
 
-    <!-- ملخّص -->
     <section class="kpis" id="kpis"></section>
 
-    <!-- إنشاء لاعب -->
+    <!-- إنشاء كاشير -->
     <section class="panel card">
       <div class="card__head">
-        <h2>حساب لاعب جديد</h2>
-        <span class="card__hint">الإيميل يُكتب كما تشاء بشرط أن ينتهي بـ gmail.com@</span>
+        <h2>كاشير جديد</h2>
+        <span class="card__hint">يُنشأ بعهدة صفر — تعبّئها له من عهدتك بعد الإنشاء</span>
       </div>
       <div class="card__body">
         <form class="newplayer" id="newForm">
           <div class="field">
             <label for="nUser">اسم المستخدم</label>
-            <input id="nUser" type="text" spellcheck="false" placeholder="ahmad99" required>
-          </div>
-          <div class="field">
-            <label for="nEmail">الإيميل</label>
-            <input id="nEmail" type="text" spellcheck="false" placeholder="ahmad99@gmail.com" required>
+            <input id="nUser" type="text" spellcheck="false" placeholder="cashier1" required>
           </div>
           <div class="field">
             <label for="nPass">كلمة المرور</label>
             <input id="nPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر" required>
           </div>
           <div class="field field--btn">
-            <button class="btn btn--gold btn--block" type="submit" id="newBtn">إنشاء الحساب</button>
+            <button class="btn btn--gold btn--block" type="submit" id="newBtn">إنشاء الكاشير</button>
           </div>
         </form>
         <div class="newplayer__out" id="newOut" hidden></div>
       </div>
     </section>
 
-    <!-- اللاعبون -->
+    <!-- الكاشيرية -->
     <section class="panel card">
       <div class="card__head">
-        <h2>لاعبيّ</h2>
-        <input class="search" id="search" type="search" placeholder="ابحث باسم أو إيميل أو معرّف">
+        <h2>كاشيريّتي</h2>
+        <input class="search" id="search" type="search" placeholder="ابحث باسم أو معرّف">
       </div>
       <div class="card__body">
         <div class="table-wrap">
           <table class="dt">
             <thead>
               <tr>
-                <th>اللاعب</th><th>المعرّف</th><th>الرصيد</th>
-                <th>عُبّئ له</th><th>سُحب منه</th><th>آخر دخول</th><th>إجراءات</th>
+                <th>الكاشير</th><th>المعرّف</th><th>عهدته</th><th>لاعبوه</th>
+                <th>أرصدتهم</th><th>حرقه</th><th>إجراءات</th>
               </tr>
+            </thead>
+            <tbody id="cashiersBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="cashiersEmpty" hidden>لا كاشيرية بعد — أنشئ أول حساب من الأعلى.</div>
+      </div>
+    </section>
+
+    <!-- لاعبو الشبكة -->
+    <section class="panel card">
+      <div class="card__head">
+        <h2>لاعبو شبكتي</h2>
+        <span class="card__hint">للاطّلاع فقط — الإيداع والسحب من صلاحية الكاشير</span>
+      </div>
+      <div class="card__body">
+        <div class="table-wrap">
+          <table class="dt dt--compact">
+            <thead>
+              <tr><th>اللاعب</th><th>كاشيره</th><th>رصيده</th><th>عُبّئ له</th><th>سُحب منه</th><th>ربحه/خسارته</th></tr>
             </thead>
             <tbody id="playersBody"></tbody>
           </table>
         </div>
-        <div class="empty" id="playersEmpty" hidden>لا لاعبين بعد — أنشئ أول حساب من الأعلى.</div>
+        <div class="empty" id="playersEmpty" hidden>لا لاعبين في شبكتك بعد.</div>
       </div>
     </section>
 
     <!-- كشف الحركة -->
     <section class="panel card">
       <div class="card__head">
-        <h2>كشف التعبئة والسحب</h2>
+        <h2>كشف حركة شبكتي</h2>
         <span class="card__hint" id="txHint"></span>
       </div>
       <div class="card__body">
         <div class="txfilter" id="txFilter" hidden>
-          <span>مفلتر على: <b id="txPlayerName"></b></span>
+          <span>مفلتر على: <b id="txWho"></b></span>
           <button class="btn btn--dark btn--sm" type="button" id="txClear">اعرض الكل</button>
         </div>
         <div class="table-wrap">
           <table class="dt dt--compact">
             <thead>
-              <tr><th>الوقت</th><th>اللاعب</th><th>النوع</th><th>المبلغ</th><th>رصيده بعدها</th><th>ملاحظة</th></tr>
+              <tr><th>الوقت</th><th>الاتجاه</th><th>الطرف</th><th>المبلغ</th><th>ملاحظة</th></tr>
             </thead>
             <tbody id="txBody"></tbody>
           </table>
@@ -151,21 +165,19 @@
       <div class="quick" id="quickAmounts"></div>
     </div>
 
-    <div class="field" id="nameField" hidden>
-      <label for="modalName">اسم المستخدم</label>
-      <input id="modalName" type="text" spellcheck="false">
-      <label for="nameEmail" style="margin-top:10px">الإيميل</label>
-      <input id="nameEmail" type="text" spellcheck="false" placeholder="name@gmail.com">
-    </div>
-
     <div class="field" id="passField" hidden>
       <label for="modalPass">كلمة المرور الجديدة</label>
       <input id="modalPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر">
     </div>
 
-    <div class="field">
+    <div class="field" id="nameField" hidden>
+      <label for="modalName">اسم المستخدم</label>
+      <input id="modalName" type="text" spellcheck="false">
+    </div>
+
+    <div class="field" id="noteField">
       <label for="modalNote">ملاحظة <span class="dim">(اختياري)</span></label>
-      <input id="modalNote" type="text" placeholder="مثلاً: نقداً في المحل">
+      <input id="modalNote" type="text" placeholder="مثلاً: عهدة اليوم">
     </div>
 
     <div class="modal__err" id="modalErr" hidden></div>
@@ -176,7 +188,7 @@
   </form>
 </div>
 
-<script src="/js/common.js?v=24"></script>
-<script src="/js/cashier.js?v=24"></script>
+<script src="/js/common.js?v=25"></script>
+<script src="/js/master.js?v=25"></script>
 </body>
 </html>

@@ -176,7 +176,7 @@ function strip(row) {
 }
 
 // ------------------------------------------------------------------ إنشاء الحسابات
-async function createCashier({ username, email, password, startingFloat = 0, unlimited = false, country }) {
+async function createCashier({ username, email, password, startingFloat = 0, unlimited = false, country, masterId = null }) {
   const u = checkUsername(username); if (!u.ok) return u;
   const p = checkPassword(password); if (!p.ok) return p;
   const em = email ? checkEmail(email) : { ok: true, value: null };
@@ -200,7 +200,8 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
         balance: 0,
         unlimited_float: !!unlimited,
         country: c.country,
-        currency: c.currency
+        currency: c.currency,
+        master_id: masterId || null
       });
       let row = rows[0];
       if (f.value > 0) {
@@ -249,6 +250,7 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
     unlimited_float: !!unlimited,
     country: c.country,
     currency: c.currency,
+    master_id: masterId || null,
     active: true,
     created_at: new Date().toISOString(),
     last_login_at: null
@@ -876,8 +878,287 @@ async function setCommissionTiers(tiers) {
   return { ok: true };
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════
+   طبقة الماستر
+
+   الصلاحيات مفروضة في قاعدة البيانات (داخل master_adjust_cashier) لا هنا
+   فقط: الواجهة والمسار قابلان للتجاوز، ودالة قاعدة البيانات ليست كذلك.
+   ما في هذا القسم هو تحقّق مبكّر يعطي رسالة مفهومة قبل الوصول إليها.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function createMaster({ username, email, password, startingFloat = 0, unlimited = false, country }) {
+  const u = checkUsername(username); if (!u.ok) return u;
+  const p = checkPassword(password); if (!p.ok) return p;
+  const em = email ? checkEmail(email) : { ok: true, value: null };
+  if (!em.ok) return em;
+  const f = startingFloat ? checkAmount(startingFloat) : { ok: true, value: 0 };
+  if (!f.ok) return f;
+  const c = countries.resolve(country); if (!c.ok) return c;
+
+  const { hash, salt } = hashPassword(p.value);
+
+  await ensureSupabase();
+  if (supabaseReady) {
+    try {
+      const rows = await sb.insert('accounts', {
+        role: 'master',
+        username: u.value,
+        email: em.value || null,
+        password_hash: hash,
+        password_salt: salt,
+        display_id: shortId(),
+        balance: 0,
+        unlimited_float: !!unlimited,
+        country: c.country,
+        currency: c.currency
+      });
+      let row = rows[0];
+      // العهدة الأولى تمرّ بمسار الإدارة لا بكتابة مباشرة: كل ليرة لها أثر
+      if (f.value > 0) {
+        const out = await sb.rpc('admin_adjust_master', {
+          p_master: row.id, p_amount: f.value, p_topup: true, p_note: 'عهدة أولى'
+        });
+        row = { ...row, balance: out.master_balance, float_balance: out.master_balance };
+      } else {
+        row = { ...row, balance: 0, float_balance: 0 };
+      }
+      return { ok: true, master: strip(row) };
+    } catch (err) {
+      if (err.raw && (err.raw.includes('duplicate key') || err.code === '23505')) {
+        return { ok: false, error: 'اسم المستخدم محجوز مسبقاً' };
+      }
+      return { ok: false, error: err.message || 'تعذّر إنشاء الماستر' };
+    }
+  }
+
+  const db = getLocal();
+  const unameKey = u.value.toLowerCase();
+  if (db.accounts.some((a) => a.username_key === unameKey)) {
+    return { ok: false, error: 'اسم المستخدم محجوز مسبقاً' };
+  }
+  const master = {
+    id: 'mst_' + crypto.randomBytes(8).toString('hex'),
+    role: 'master',
+    username: u.value,
+    username_key: unameKey,
+    email: em.value || null,
+    email_key: em.value ? em.value.toLowerCase() : null,
+    password_hash: hash,
+    password_salt: salt,
+    display_id: shortId(),
+    balance: f.value || 0,
+    float_balance: f.value || 0,
+    unlimited_float: !!unlimited,
+    country: c.country,
+    currency: c.currency,
+    active: true,
+    created_at: new Date().toISOString(),
+    last_login_at: null
+  };
+  db.accounts.push(master);
+  saveLocal();
+  return { ok: true, master: strip(master) };
+}
+
+/** كل الماسترية بملخّصاتهم — للإدارة. */
+async function allMasters() {
+  await ensureSupabase();
+  if (supabaseReady) {
+    try { return await sb.select('master_summary', 'select=*&order=created_at.desc'); }
+    catch (err) { console.warn('[accounts] master_summary:', err.message); }
+  }
+  return getLocal().accounts.filter((a) => a.role === 'master').map(strip);
+}
+
+async function masterSelf(masterId) {
+  await ensureSupabase();
+  if (supabaseReady) {
+    try { return await sb.selectOne('master_summary', `select=*&id=eq.${sb.enc(masterId)}`); }
+    catch (err) { console.warn('[accounts] masterSelf:', err.message); }
+  }
+  return strip(getLocal().accounts.find((a) => a.id === masterId) || null);
+}
+
+/** كاشيرية ماستر بعينه. */
+async function masterCashiers(masterId) {
+  await ensureSupabase();
+  if (supabaseReady) {
+    try {
+      return await sb.select('cashier_summary',
+        `select=*&master_id=eq.${sb.enc(masterId)}&order=created_at.desc`);
+    } catch (err) { console.warn('[accounts] masterCashiers:', err.message); }
+  }
+  return getLocal().accounts.filter((a) => a.role === 'cashier' && a.master_id === masterId).map(strip);
+}
+
+/** لاعبو كاشيرية ماستر بعينه — يراهم ولا يتصرّف بهم. */
+async function masterPlayers(masterId) {
+  await ensureSupabase();
+  if (supabaseReady) {
+    try {
+      return await sb.select('player_summary',
+        `select=*&master_id=eq.${sb.enc(masterId)}&order=created_at.desc`);
+    } catch (err) { console.warn('[accounts] masterPlayers:', err.message); }
+  }
+  const db = getLocal();
+  const mine = new Set(db.accounts.filter((a) => a.role === 'cashier' && a.master_id === masterId).map((a) => a.id));
+  return db.accounts.filter((a) => a.role === 'player' && mine.has(a.cashier_id)).map(strip);
+}
+
+/** الإدارة تعبّئ عهدة ماستر أو تسحب منها. */
+async function adjustMasterFloat({ masterId, amount, topup, note }) {
+  const a = checkAmount(amount); if (!a.ok) return a;
+  await ensureSupabase();
+  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  try {
+    const out = await sb.rpc('admin_adjust_master', {
+      p_master: masterId, p_amount: a.value, p_topup: !!topup, p_note: note || null
+    });
+    return { ok: true, ...out };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/** الماستر يعبّئ كاشيره من عهدته هو — الملكية تُفحص في قاعدة البيانات. */
+async function masterAdjustCashier({ masterId, cashierId, amount, topup, note }) {
+  const a = checkAmount(amount); if (!a.ok) return a;
+  await ensureSupabase();
+  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  try {
+    const out = await sb.rpc('master_adjust_cashier', {
+      p_master: masterId, p_cashier: cashierId,
+      p_amount: a.value, p_topup: !!topup, p_note: note || null
+    });
+    return { ok: true, ...out };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/** نقل كاشير إلى ماستر (أو فكّ ارتباطه) — للإدارة وحدها. */
+async function setCashierMaster({ cashierId, masterId }) {
+  await ensureSupabase();
+  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  try {
+    if (masterId) {
+      const m = await byId(masterId);
+      if (!m || m.role !== 'master') return { ok: false, error: 'الماستر غير موجود' };
+    }
+    await sb.update('accounts', `id=eq.${sb.enc(cashierId)}`,
+      { master_id: masterId || null }, { returning: false });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * كشف السلسلة: كل حركة مع أطرافها واتجاهها.
+ * `masterId` يضيّقه إلى ماستر وكاشيريته، و`cashierId` إلى كاشير واحد.
+ */
+async function chainLedger({ masterId, cashierId, playerId, kinds, limit = 120 } = {}) {
+  await ensureSupabase();
+  if (!supabaseReady) return [];
+  const parts = ['select=*', 'order=created_at.desc',
+                 `limit=${Math.min(Number(limit) || 120, 500)}`];
+  if (masterId) parts.push(`master_id=eq.${sb.enc(masterId)}`);
+  if (cashierId) parts.push(`cashier_id=eq.${sb.enc(cashierId)}`);
+  if (playerId) parts.push(`player_id=eq.${sb.enc(playerId)}`);
+  if (Array.isArray(kinds) && kinds.length) {
+    parts.push(`kind=in.(${kinds.map((k) => sb.enc(k)).join(',')})`);
+  }
+  try { return await sb.select('chain_ledger', parts.join('&')); }
+  catch (err) { console.warn('[accounts] chainLedger:', err.message); return []; }
+}
+
+/**
+ * تعديل بيانات حساب (الاسم/الإيميل).
+ * `ownerId` إن مُرّر وجب أن يكون المالك المباشر — الكاشير للاعبه،
+ * والماستر لكاشيره.
+ */
+async function updateAccount({ accountId, username, email, ownerId, ownerField }) {
+  const row = await byId(accountId);
+  if (!row) return { ok: false, error: 'الحساب غير موجود' };
+  if (ownerId && row[ownerField] !== ownerId) {
+    return { ok: false, error: 'هذا الحساب ليس من حساباتك' };
+  }
+
+  const patch = {};
+  if (username !== undefined && username !== null && String(username).trim() !== row.username) {
+    const u = checkUsername(username); if (!u.ok) return u;
+    patch.username = u.value;
+  }
+  if (email !== undefined && email !== null && String(email).trim() !== (row.email || '')) {
+    const e = checkEmail(email); if (!e.ok) return e;
+    patch.email = e.value;
+  }
+  if (!Object.keys(patch).length) return { ok: true, unchanged: true };
+
+  await ensureSupabase();
+  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  try {
+    await sb.update('accounts', `id=eq.${sb.enc(accountId)}`, patch, { returning: false });
+    return { ok: true };
+  } catch (err) {
+    if (err.raw && err.raw.includes('duplicate key')) {
+      return { ok: false, error: 'الاسم أو الإيميل مستخدم بالفعل' };
+    }
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * حذف حساب.
+ *
+ * ⚠ الحذف ممنوع على أي حساب له حركات مالية أو رصيد أو تابعون. سجلّ المال
+ * يجب أن يبقى متّصلاً — محو حساب وسط السلسلة يترك حركات بلا طرف ويُفسد كل
+ * تقرير لاحق. البديل الصحيح هو إيقاف التنشيط، وهو يمنع الدخول ويُبقي الأثر.
+ */
+async function deleteAccount({ accountId, ownerId, ownerField }) {
+  const row = await byId(accountId);
+  if (!row) return { ok: false, error: 'الحساب غير موجود' };
+  if (ownerId && row[ownerField] !== ownerId) {
+    return { ok: false, error: 'هذا الحساب ليس من حساباتك' };
+  }
+  if (row.balance > 0) {
+    return { ok: false, error: `لا يمكن الحذف ورصيده ${row.balance} — اسحبه أولاً` };
+  }
+
+  await ensureSupabase();
+  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+
+  try {
+    if (row.role === 'cashier') {
+      const kids = await sb.select('accounts',
+        `select=id&cashier_id=eq.${sb.enc(accountId)}&limit=1`);
+      if (kids.length) return { ok: false, error: 'له لاعبون — انقلهم أو احذفهم أولاً، أو أوقف تنشيطه' };
+    }
+    if (row.role === 'master') {
+      const kids = await sb.select('accounts',
+        `select=id&master_id=eq.${sb.enc(accountId)}&limit=1`);
+      if (kids.length) return { ok: false, error: 'له كاشيرية — انقلهم أو احذفهم أولاً، أو أوقف تنشيطه' };
+    }
+
+    const moved = await sb.select('transaction_log',
+      `select=id&or=(player_id.eq.${sb.enc(accountId)},cashier_id.eq.${sb.enc(accountId)},master_id.eq.${sb.enc(accountId)})&limit=1`);
+    if (moved.length) {
+      return { ok: false, error: 'له حركات مالية مسجّلة — أوقف تنشيطه بدل حذفه كي يبقى سجلّ المال متّصلاً' };
+    }
+
+    await sb.request(`/rest/v1/accounts?id=eq.${sb.enc(accountId)}`, { method: 'DELETE' });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   EMAIL_DOMAIN, MIN_PASSWORD,
+  createMaster, allMasters, masterSelf, masterCashiers, masterPlayers,
+  adjustMasterFloat, masterAdjustCashier, setCashierMaster,
+  chainLedger, updateAccount, deleteAccount,
   setCashierCountry, commissionTiers, setCommissionTiers,
   hashPassword, verifyPassword, shortId, newToken,
   checkUsername, checkEmail, checkPassword, checkAmount,

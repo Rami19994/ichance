@@ -171,6 +171,8 @@ async function enterWith(value) {
   startPolling();
   keyStatus().then(paintKeySection);
   loadOwner();
+  loadMasters();
+  loadGames();
   loadDomainConfig();
 }
 
@@ -1341,3 +1343,207 @@ el('copyGateBtn').addEventListener('click', () => {
   navigator.clipboard.writeText(txt).then(() => toast('تم نسخ الرابط السري', 'win')).catch(() => toast(txt));
 });
 
+/* ═══════════════════════════ الماسترية ═══════════════════════════ */
+let MASTERS = [];
+
+async function loadMasters() {
+  try {
+    const out = await adminGet('/api/admin/masters');
+    MASTERS = out.masters || [];
+    renderMasters();
+    renderMasterCountries();
+  } catch (err) {
+    if (err.status !== 401) console.warn('masters:', err.message);
+  }
+}
+
+function renderMasterCountries() {
+  const sel = el('nmCountry');
+  if (!sel || sel.options.length || !COUNTRIES.length) return;
+  sel.innerHTML = COUNTRIES
+    .map((c) => `<option value="${c.code}">${escapeHtml(c.name)} — ${c.currency}</option>`).join('');
+}
+
+function renderMasters() {
+  el('mastersEmpty').hidden = MASTERS.length > 0;
+  el('mastersBody').innerHTML = MASTERS.map((m) => `
+    <tr>
+      <td>
+        <span class="player-cell${m.active ? '' : ' is-off'}">
+          <b>${escapeHtml(m.username)}</b>
+          <span>${m.active ? 'يعمل' : 'موقوف'}</span>
+        </span>
+      </td>
+      <td class="dim">${escapeHtml(m.country || '—')} ${escapeHtml(m.currency || '')}</td>
+      <td><b>${m.unlimited_float ? '∞' : fmt(m.float_balance)}</b></td>
+      <td>${fmt(m.cashier_count)}</td>
+      <td>${fmt(m.player_count)}</td>
+      <td class="tag-in">${fmt(m.received_from_admin)}</td>
+      <td class="tag-out">${fmt(m.gave_cashiers)}</td>
+      <td class="pos">${fmt(m.burn)}</td>
+      <td><b>${Number(m.commission_rate).toFixed(0)}%</b><br><span class="dim">${fmt(m.commission_amount)}</span></td>
+      <td>
+        <span class="rowbtns">
+          <button class="b-in"  data-ma="topup" data-id="${m.id}">أرسل</button>
+          <button class="b-out" data-ma="debit" data-id="${m.id}">اسحب</button>
+          <button data-ma="chain"  data-id="${m.id}">كشفه</button>
+          <button data-ma="toggle" data-id="${m.id}" data-next="${m.active ? '0' : '1'}">
+            ${m.active ? 'أوقف' : 'شغّل'}
+          </button>
+        </span>
+      </td>
+    </tr>`).join('');
+}
+
+el('newMasterForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = el('nmOut');
+  out.hidden = true;
+  el('nmBtn').disabled = true;
+  const password = el('nmPass').value;
+  try {
+    const r = await adminPost('/api/admin/master', {
+      username: el('nmUser').value.trim(),
+      password,
+      country: el('nmCountry').value,
+      startingFloat: Number(el('nmFloat').value) || 0
+    });
+    out.hidden = false;
+    out.innerHTML = `<b>أُنشئ الماستر.</b> سلّمه بياناته — كلمة المرور لن تظهر ثانية:
+      المستخدم <code>${escapeHtml(r.master.username)}</code>
+      · كلمة المرور <code>${escapeHtml(password)}</code>
+      · العملة <code>${escapeHtml(r.master.currency)}</code>
+      · الدخول من <code>/master</code>`;
+    el('newMasterForm').reset();
+    await loadMasters();
+  } catch (err) {
+    out.hidden = false;
+    out.innerHTML = `<b style="color:var(--red)">تعذّر الإنشاء:</b> ${escapeHtml(err.message)}`;
+  } finally {
+    el('nmBtn').disabled = false;
+  }
+});
+
+el('mastersBody').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-ma]');
+  if (!b) return;
+  const id = b.dataset.id;
+  const what = b.dataset.ma;
+  try {
+    if (what === 'topup' || what === 'debit') {
+      const raw = prompt(what === 'topup' ? 'المبلغ المُرسل للماستر' : 'المبلغ المسحوب من الماستر');
+      if (raw === null) return;
+      const amount = Number(raw);
+      if (!Number.isInteger(amount) || amount <= 0) return toast('مبلغ غير صالح', 'error');
+      const out = await adminPost('/api/admin/master/float', {
+        masterId: id, amount, topup: what === 'topup'
+      });
+      toast(`عهدته الآن ${fmt(out.master_balance)}`, 'win');
+    } else if (what === 'toggle') {
+      const next = b.dataset.next === '1';
+      if (!next && !confirm('إيقاف الماستر يمنعه من الدخول فوراً. متابعة؟')) return;
+      await adminPost('/api/admin/master/toggle', { masterId: id, active: next });
+      toast(next ? 'شُغّل الماستر' : 'أُوقف الماستر');
+    } else if (what === 'chain') {
+      const out = await adminGet(`/api/admin/chain?master=${encodeURIComponent(id)}&limit=40`);
+      const rows = out.transactions || [];
+      toast(rows.length ? `${rows.length} حركة في شبكته — آخرها ${rows[0].direction}` : 'لا حركات بعد', 'info', 6000);
+      return;
+    }
+    await loadMasters();
+  } catch (err) { toast(err.message, 'error', 6000); }
+});
+
+/* ═══════════════════════ سجلّ الألعاب الخارجية ═══════════════════════ */
+let GAMES = [];
+
+async function loadGames() {
+  try {
+    const out = await adminGet('/api/admin/games/external');
+    GAMES = out.games || [];
+    renderGamesTable();
+  } catch (err) {
+    if (err.status !== 401) console.warn('games:', err.message);
+  }
+}
+
+function renderGamesTable() {
+  el('gamesEmpty').hidden = GAMES.length > 0;
+  el('gamesBody').innerHTML = GAMES.map((g) => `
+    <tr>
+      <td><b>${escapeHtml(g.name)}</b></td>
+      <td class="mono">${escapeHtml(g.slug)}</td>
+      <td class="dim">${escapeHtml(g.category)}</td>
+      <td class="dim" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(g.launch_url)}</td>
+      <td class="${g.enabled ? 'pos' : 'neg'}">${g.enabled ? 'تعمل' : 'موقوفة'}</td>
+      <td>
+        <span class="rowbtns">
+          <button data-ga="toggle" data-id="${g.id}" data-next="${g.enabled ? '0' : '1'}">
+            ${g.enabled ? 'أوقف' : 'شغّل'}
+          </button>
+          <button data-ga="url"    data-id="${g.id}">الرابط</button>
+          <button data-ga="secret" data-id="${g.id}">بدّل المفتاح</button>
+          <button data-ga="delete" data-id="${g.id}">حذف</button>
+        </span>
+      </td>
+    </tr>`).join('');
+}
+
+el('newGameForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = el('ngOut');
+  out.hidden = true;
+  el('ngBtn').disabled = true;
+  try {
+    const r = await adminPost('/api/admin/games/external', {
+      name: el('ngName').value.trim(),
+      slug: el('ngSlug').value.trim().toLowerCase(),
+      category: el('ngCat').value,
+      launchUrl: el('ngUrl').value.trim(),
+      coverUrl: el('ngCover').value.trim() || null,
+      config: el('ngConfig').value.trim() || '{}'
+    });
+    out.hidden = false;
+    // المفتاح يُعرض هنا مرة واحدة فقط ولا يُخرجه الخادم بعدها إطلاقاً
+    out.innerHTML = `<b>سُجّلت اللعبة.</b> انسخ مفتاح التوقيع الآن — لن يظهر مرة أخرى:
+      <code>${escapeHtml(r.secret)}</code>
+      رابط اللعب: <code>${location.origin}/play/${escapeHtml(r.game.slug)}</code>`;
+    el('newGameForm').reset();
+    await loadGames();
+  } catch (err) {
+    out.hidden = false;
+    out.innerHTML = `<b style="color:var(--red)">تعذّر التسجيل:</b> ${escapeHtml(err.message)}`;
+  } finally {
+    el('ngBtn').disabled = false;
+  }
+});
+
+el('gamesBody').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-ga]');
+  if (!b) return;
+  const id = b.dataset.id;
+  const g = GAMES.find((x) => x.id === id);
+  const what = b.dataset.ga;
+  try {
+    if (what === 'toggle') {
+      await adminPost('/api/admin/games/external/update', { id, enabled: b.dataset.next === '1' });
+      toast(b.dataset.next === '1' ? 'شُغّلت اللعبة' : 'أُوقفت اللعبة');
+    } else if (what === 'url') {
+      const next = prompt('رابط اللعبة', g ? g.launch_url : '');
+      if (next === null) return;
+      await adminPost('/api/admin/games/external/update', { id, launchUrl: next.trim() });
+      toast('حُفظ الرابط');
+    } else if (what === 'secret') {
+      if (!confirm('سيتوقف المفتاح الحالي فوراً وتحتاج تحديثه في لعبتك. متابعة؟')) return;
+      const r = await adminPost('/api/admin/games/external/secret', { id });
+      el('ngOut').hidden = false;
+      el('ngOut').innerHTML = `<b>المفتاح الجديد</b> — انسخه الآن، لن يظهر ثانية:<code>${escapeHtml(r.secret)}</code>`;
+      toast('بُدِّل المفتاح', 'win');
+    } else if (what === 'delete') {
+      if (!confirm('حذف اللعبة نهائياً؟ لا تُحذف إن كانت لها حركات لعب.')) return;
+      await adminPost('/api/admin/games/external/delete', { id });
+      toast('حُذفت اللعبة');
+    }
+    await loadGames();
+  } catch (err) { toast(err.message, 'error', 6000); }
+});

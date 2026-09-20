@@ -17,6 +17,7 @@ const supabase = require('./supabase');
 const accounts = require('./accounts');
 const siteConfig = require('./siteConfig');
 const adminGate = require('./adminGate');
+const gameRegistry = require('./gameRegistry');
 const countries = require('./countries');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -108,6 +109,25 @@ function readBody(req, limit = 8 * 1024) {
       try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
       catch { reject(new Error('صيغة JSON غير صالحة')); }
     });
+    req.on('error', reject);
+  });
+}
+
+/**
+ * يقرأ الجسم نصّاً كما وصل.
+ * توقيع المحفظة محسوب على هذا النصّ بالذات؛ التحقّق على كائن أُعيد تركيبه
+ * من JSON يقبل أجساماً لم تُوقَّع فعلاً (ترتيب مفاتيح أو مسافات مختلفة).
+ */
+function readRawBody(req, limit = 64 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) { reject(new Error('الطلب كبير جداً')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
@@ -248,6 +268,14 @@ const ROUTE_GAME = {
   '/api/tank/start': 'tank'
 };
 
+/** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
+async function resolveMaster(req, url) {
+  const token = String(req.headers['x-master-token'] || url.searchParams.get('mtoken') || '').trim();
+  if (!token) return null;
+  const row = await accounts.byToken(token);
+  return row && row.role === 'master' && row.active ? row : null;
+}
+
 async function handleApi(req, res, url) {
   const route = url.pathname;
   const token = tokenFrom(req, url);
@@ -311,6 +339,166 @@ async function handleApi(req, res, url) {
   }
 
   // ═══════════════════════════════ الكاشير ═══════════════════════════════
+  // ══════════════════ المحفظة المتصلة (ينادي عليها خادم اللعبة) ══════════════════
+  //
+  // لا رمز لاعب هنا: الهوية تأتي من رمز الإقلاع، والصلاحية من توقيع HMAC
+  // بمفتاح اللعبة. أي نداء بلا توقيع صحيح يُرفض قبل لمس أي رصيد.
+  if (route.startsWith('/api/gw/')) {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'طريقة غير مسموحة' });
+
+    const raw = await readRawBody(req);
+    let body;
+    try { body = raw ? JSON.parse(raw) : {}; }
+    catch { return sendJson(res, 400, { error: 'صيغة JSON غير صالحة' }); }
+
+    const gameId = String(req.headers['x-game-id'] || body.game_id || '').trim();
+    const game = gameId ? await gameRegistry.getById(gameId) : null;
+    if (!game) return sendJson(res, 401, { error: 'لعبة غير معروفة' });
+    if (!game.enabled) return sendJson(res, 403, { error: 'هذه اللعبة متوقفة' });
+
+    const sig = gameRegistry.verifySignature(
+      game, raw, req.headers['x-signature'], req.headers['x-timestamp']
+    );
+    if (!sig.ok) return sendJson(res, 401, { error: sig.error });
+
+    // الهوية من رمز الإقلاع وحده
+    const session = await gameRegistry.resolveLaunch(body.token, game.id);
+    if (!session) return sendJson(res, 401, { error: 'رمز الإقلاع منتهٍ أو غير صالح' });
+
+    // فروق اللعب الداخلي تُكتب أولاً كي لا يُحسب الرهان على رصيد قديم
+    await accounts.flushPlayer(session.player_id);
+
+    let out;
+    if (route === '/api/gw/balance') {
+      out = await gameRegistry.walletBalance(game, session.player_id);
+    } else if (route === '/api/gw/debit') {
+      out = await gameRegistry.walletDebit(game, session.player_id, {
+        amount: body.amount, txRef: body.tx_ref, roundRef: body.round_ref
+      });
+    } else if (route === '/api/gw/credit') {
+      out = await gameRegistry.walletCredit(game, session.player_id, {
+        amount: body.amount, txRef: body.tx_ref, roundRef: body.round_ref
+      });
+    } else if (route === '/api/gw/rollback') {
+      out = await gameRegistry.walletRollback(game, {
+        targetRef: body.target_ref, txRef: body.tx_ref
+      });
+    } else {
+      return sendJson(res, 404, { error: 'مسار محفظة غير معروف' });
+    }
+
+    if (!out.ok) return sendJson(res, 400, { error: out.error });
+
+    // الذاكرة تتبع قاعدة البيانات فوراً كي يرى اللاعب رصيده الصحيح
+    const fresh = await accounts.byId(session.player_id);
+    if (fresh) store.attachAccount(fresh);
+    return sendJson(res, 200, out);
+  }
+
+  // ═══════════════════════════════ الماستر ═══════════════════════════════
+  if (route === '/api/master/login' && req.method === 'POST') {
+    if (!rateLimit(`mlogin:${ip}`, 8, 60_000)) {
+      return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
+    }
+    const body = await readBody(req);
+    const out = await accounts.login(body.identifier, body.password, { expectRole: 'master' });
+    if (!out.ok) return sendJson(res, 401, { error: out.error });
+    return sendJson(res, 200, { token: out.token, master: out.account });
+  }
+
+  if (route.startsWith('/api/master/')) {
+    const master = await resolveMaster(req, url);
+    if (!master) return sendJson(res, 401, { error: 'جلسة الماستر منتهية — سجّل الدخول' });
+
+    if (route === '/api/master/overview' && req.method === 'GET') {
+      const [self, cashiers] = await Promise.all([
+        accounts.masterSelf(master.id),
+        accounts.masterCashiers(master.id)
+      ]);
+      return sendJson(res, 200, { master: self, cashiers });
+    }
+
+    // لاعبو كاشيريته: يراهم ولا يتصرّف بهم — الإيداع والسحب من صلاحية الكاشير
+    if (route === '/api/master/players' && req.method === 'GET') {
+      return sendJson(res, 200, { players: await accounts.masterPlayers(master.id) });
+    }
+
+    if (route === '/api/master/transactions' && req.method === 'GET') {
+      const rows = await accounts.chainLedger({
+        masterId: master.id,
+        cashierId: url.searchParams.get('cashier') || null,
+        limit: url.searchParams.get('limit')
+      });
+      return sendJson(res, 200, { transactions: rows });
+    }
+
+    if (route === '/api/master/cashier' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.createCashier({
+        username: body.username, email: body.email, password: body.password,
+        country: body.country || master.country,
+        startingFloat: 0,              // العهدة تُعطى بعد الإنشاء من عهدة الماستر
+        masterId: master.id
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/master/cashier/float' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.masterAdjustCashier({
+        masterId: master.id, cashierId: body.cashierId,
+        amount: body.amount, topup: body.topup !== false, note: body.note
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/master/cashier/password' && req.method === 'POST') {
+      const body = await readBody(req);
+      const target = await accounts.byId(body.cashierId);
+      if (!target || target.master_id !== master.id) {
+        return sendJson(res, 400, { error: 'هذا الكاشير ليس من حساباتك' });
+      }
+      const out = await accounts.setCashierPassword({
+        cashierId: body.cashierId, newPassword: body.password
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/master/cashier/toggle' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setActive({
+        accountId: body.cashierId, active: !!body.active,
+        ownerId: master.id, ownerField: 'master_id'
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/master/cashier/update' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.updateAccount({
+        accountId: body.cashierId, username: body.username, email: body.email,
+        ownerId: master.id, ownerField: 'master_id'
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/master/cashier/delete' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.deleteAccount({
+        accountId: body.cashierId, ownerId: master.id, ownerField: 'master_id'
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    return sendJson(res, 404, { error: 'مسار ماستر غير معروف' });
+  }
+
   if (route === '/api/cashier/login' && req.method === 'POST') {
     if (!rateLimit(`clogin:${ip}`, 12, 60_000)) {
       return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
@@ -377,6 +565,25 @@ async function handleApi(req, res, url) {
       const body = await readBody(req);
       const out = await accounts.setPlayerPassword({
         playerId: body.playerId, newPassword: body.password, ownerId: cashier.id
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/cashier/player/update' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.updateAccount({
+        accountId: body.playerId, username: body.username, email: body.email,
+        ownerId: cashier.id, ownerField: 'cashier_id'
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/cashier/player/delete' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.deleteAccount({
+        accountId: body.playerId, ownerId: cashier.id, ownerField: 'cashier_id'
       });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);
@@ -536,6 +743,36 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true, path: moved.path });
   }
 
+  // ───────────────────── إقلاع لعبة خارجية ─────────────────────
+  if (route === '/api/game/launch' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    const body = await readBody(req);
+    const game = await gameRegistry.getBySlug(body.slug);
+    if (!game) return sendJson(res, 404, { error: 'لعبة غير معروفة' });
+    if (!game.enabled) return sendJson(res, 403, { error: 'هذه اللعبة متوقفة مؤقتاً' });
+
+    const launch = await gameRegistry.createLaunch(game, {
+      accountId: player.accountId, displayId: player.id
+    });
+    if (!launch.ok) return sendJson(res, 500, { error: launch.error });
+    return sendJson(res, 200, {
+      url: launch.url,
+      expiresAt: launch.expiresAt,
+      game: { slug: game.slug, name: game.name, config: game.config }
+    });
+  }
+
+  // قائمة الألعاب الخارجية للردهة — بلا مفاتيح
+  if (route === '/api/games' && req.method === 'GET') {
+    const list = await gameRegistry.listGames({ onlyEnabled: true });
+    return sendJson(res, 200, {
+      games: list.map((g) => ({
+        slug: g.slug, name: g.name, category: g.category,
+        cover_url: g.cover_url, accent: g.accent
+      }))
+    });
+  }
+
   // ------------------------------------------------------ معركة الدبابات
   if (route === '/api/tank/config' && req.method === 'GET') {
     return sendJson(res, 200, tankGame.publicConfig());
@@ -658,6 +895,150 @@ async function handleApi(req, res, url) {
       const out = await accounts.setCashierCountry(body.cashierId, body.country);
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/games/external' && req.method === 'GET') {
+      const list = await gameRegistry.listGames();
+      return sendJson(res, 200, {
+        games: list.map(gameRegistry.publicGame),
+        rounds: await gameRegistry.recentRounds({ limit: 40 })
+      });
+    }
+
+    if (route === '/api/admin/games/external' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await gameRegistry.createGame({
+        slug: body.slug, name: body.name, category: body.category,
+        launchUrl: body.launchUrl, coverUrl: body.coverUrl, accent: body.accent,
+        config: body.config, sortOrder: body.sortOrder
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/games/external/update' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await gameRegistry.updateGame(body.id, body);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/games/external/secret' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await gameRegistry.rotateSecret(body.id);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/games/external/delete' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await gameRegistry.deleteGame(body.id);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/masters' && req.method === 'GET') {
+      return sendJson(res, 200, { masters: await accounts.allMasters() });
+    }
+
+    if (route === '/api/admin/master' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.createMaster({
+        username: body.username, email: body.email, password: body.password,
+        country: body.country, startingFloat: body.startingFloat, unlimited: body.unlimited
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/master/float' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.adjustMasterFloat({
+        masterId: body.masterId, amount: body.amount,
+        topup: body.topup !== false, note: body.note
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/master/toggle' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setActive({ accountId: body.masterId, active: !!body.active });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/master/cashiers' && req.method === 'GET') {
+      const id = url.searchParams.get('master');
+      if (!id) return sendJson(res, 400, { error: 'حدّد الماستر' });
+      const [cashiers, players] = await Promise.all([
+        accounts.masterCashiers(id),
+        accounts.masterPlayers(id)
+      ]);
+      return sendJson(res, 200, { cashiers, players });
+    }
+
+    // نقل كاشير بين الماسترية — للإدارة وحدها
+    if (route === '/api/admin/cashier/master' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.setCashierMaster({
+        cashierId: body.cashierId, masterId: body.masterId || null
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    // كشف السلسلة كاملاً: أدمن←ماستر، ماستر←كاشير، كاشير←لاعب
+    if (route === '/api/admin/chain' && req.method === 'GET') {
+      const kindsParam = url.searchParams.get('kinds');
+      const rows = await accounts.chainLedger({
+        masterId: url.searchParams.get('master') || null,
+        cashierId: url.searchParams.get('cashier') || null,
+        playerId: url.searchParams.get('player') || null,
+        kinds: kindsParam ? kindsParam.split(',').filter(Boolean) : null,
+        limit: url.searchParams.get('limit')
+      });
+      return sendJson(res, 200, { transactions: rows });
+    }
+
+    // الإدارة تودع وتسحب لأي لاعب مباشرة، عبر كاشيره كي يبقى الأثر متّصلاً
+    if ((route === '/api/admin/player/deposit' || route === '/api/admin/player/withdraw')
+        && req.method === 'POST') {
+      const body = await readBody(req);
+      const target = await accounts.byId(body.playerId);
+      if (!target || target.role !== 'player') return sendJson(res, 400, { error: 'اللاعب غير موجود' });
+      if (!target.cashier_id) return sendJson(res, 400, { error: 'اللاعب بلا كاشير — اربطه بكاشير أولاً' });
+
+      await accounts.flushPlayer(target.id);
+      const fn = route.endsWith('deposit') ? accounts.deposit : accounts.withdraw;
+      const out = await fn({
+        cashierId: target.cashier_id, playerId: target.id,
+        amount: body.amount, note: body.note || 'من الإدارة'
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      const fresh = await accounts.byId(target.id);
+      if (fresh) store.attachAccount(fresh);
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/account/update' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.updateAccount({
+        accountId: body.accountId, username: body.username, email: body.email
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/account/delete' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.deleteAccount({ accountId: body.accountId });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/players' && req.method === 'GET') {
+      return sendJson(res, 200, { players: await accounts.allPlayers({ limit: 500 }) });
     }
 
     if (route === '/api/admin/cashiers' && req.method === 'GET') {
@@ -965,6 +1346,8 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/battle-tanks') return sendStatic(req, res, '/tank.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
+  if (url.pathname === '/master') return sendStatic(req, res, '/master.html');
+  if (url.pathname.startsWith('/play/')) return sendStatic(req, res, '/play.html');
   return sendStatic(req, res, url.pathname);
 });
 

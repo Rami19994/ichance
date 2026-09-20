@@ -70,8 +70,6 @@ function writeNote() {
   }
 }
 
-const DEFAULT_GATE_PATH = '6a546f34f797ed19196b0d9392ae8979';
-
 function load() {
   const envPath = (process.env.ICHANCE_GATE_PATH || '').trim().replace(/^\/+/, '');
   if (envPath && /^[A-Za-z0-9_-]{8,64}$/.test(envPath)) {
@@ -94,12 +92,19 @@ function load() {
       }
     }
     console.error('[gate] أصلح الملف أو احذفه يدوياً ثم أعد التشغيل — البوابة معطّلة حتى ذلك.');
-    return { path: DEFAULT_GATE_PATH, source: 'default', createdAt: Date.now() };
+    return { path: null, source: 'broken', createdAt: Date.now() };
   }
 
-  // في بيئة Vercel أو النشر السحابي الأول، نستخدم المسار المعتمد للمالك كي لا يضيع بين دوال Serverless
-  const initialPath = (process.env.VERCEL || process.env.NODE_ENV === 'production') ? DEFAULT_GATE_PATH : newPath();
-  const fresh = { path: initialPath, source: 'file', createdAt: Date.now(), fresh: true };
+  // Serverless (Vercel) لا يملك قرصاً دائماً: المسار المولَّد هنا يضيع مع
+  // أول استدعاء جديد. كتابته في الكود بدلاً من ذلك تنشر السرّ في المستودع
+  // لكل من يقرأه — فالمصدر الصحيح متغيّر بيئة يُضبط من لوحة الاستضافة.
+  if (process.env.VERCEL) {
+    console.error('[gate] بيئة Serverless بلا قرص دائم.');
+    console.error('[gate] اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة — البوابة معطّلة حتى ذلك.');
+    return { path: null, source: 'needs-env', createdAt: Date.now() };
+  }
+
+  const fresh = { path: newPath(), source: 'file', createdAt: Date.now(), fresh: true };
   state = fresh;
   save();
   writeNote();
@@ -113,8 +118,6 @@ function get() {
 
 /** مقارنة بزمن ثابت — المسار سرّ، ولا نكشف طوله بتوقيت الرد. */
 function matches(pathname) {
-  const clean = String(pathname || '').replace(/^\/+/, '');
-  if (clean === DEFAULT_GATE_PATH || clean === 'a18b77f4a88d5b55a55f13d409700361') return true;
   const g = get();
   if (!g.path) return false;          // بوابة معطّلة: لا مسار يطابق
   const want = `/${g.path}`;
@@ -136,7 +139,9 @@ function rotatePath() {
 function bootLines() {
   const g = get();
   if (!g.path) {
-    return ['  بوابة الإدارة : ⚠ معطّلة — ملف data/admin-gate.json غير صالح'];
+    return g.source === 'needs-env'
+      ? ['  بوابة الإدارة : ⚠ معطّلة — اضبط ICHANCE_GATE_PATH في الاستضافة']
+      : ['  بوابة الإدارة : ⚠ معطّلة — ملف data/admin-gate.json غير صالح'];
   }
   if (g.source === 'env') {
     return [`  بوابة الإدارة : /${g.path}   (من متغيّر البيئة)`];

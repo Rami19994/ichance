@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>اللعب — LuckyArena</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=25">
+<style>
+  .play-wrap { padding: 14px; max-width: 1280px; margin: 0 auto; }
+
+  .play-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; margin-bottom: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+  }
+  .play-bar__name { font-weight: 800; font-size: 15px; }
+  .play-bar__spacer { flex: 1 1 auto; }
+  .play-bar__wallet {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(247, 201, 72, .1);
+    border: 1px solid rgba(247, 201, 72, .3);
+  }
+  .play-bar__wallet span { color: var(--gold-2); font-size: 11.5px; }
+  .play-bar__wallet b { font-size: 15px; }
+
+  .frame-box {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: #060a10;
+    aspect-ratio: 16 / 9;
+    min-height: 420px;
+  }
+  .frame-box iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+  .play-msg {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    padding: 24px; text-align: center;
+    color: var(--txt-2); font-size: 14px; line-height: 1.9;
+  }
+  .play-msg[hidden] { display: none; }
+  .play-msg b { display: block; margin-bottom: 8px; color: var(--txt); font-size: 16px; }
+
+  @media (max-width: 700px) {
+    .frame-box { aspect-ratio: 3 / 4; min-height: 380px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="play-wrap">
+      <div class="play-bar">
+        <span class="play-bar__name" id="gameName">…</span>
+        <span class="play-bar__spacer"></span>
+        <span class="play-bar__wallet"><span>رصيدك</span><b id="balance">0</b></span>
+        <a class="btn btn--dark btn--sm" href="/">خروج من اللعبة</a>
+      </div>
+
+      <div class="frame-box">
+        <iframe id="frame" hidden
+                allow="autoplay; fullscreen"
+                referrerpolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+        <div class="play-msg" id="msg"><b>جارٍ تجهيز اللعبة…</b></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="/js/common.js?v=25"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+function show(title, detail) {
+  $('msg').hidden = false;
+  $('msg').innerHTML = `<div><b>${title}</b>${detail ? escapeHtml(detail) : ''}</div>`;
+}
+
+/**
+ * الرصيد يُقرأ من الخادم دورياً لا من اللعبة.
+ * اللعبة تغيّره عبر مسارات المحفظة الموقّعة، فمصدر الحقيقة هو الخادم؛
+ * لو صدّقنا ما ترسله الصفحة لصار الرصيد المعروض قابلاً للتزوير.
+ */
+async function syncBalance() {
+  try {
+    const me = await API.get('/api/me');
+    $('balance').textContent = fmt(me.player.balance);
+  } catch { /* نتجاهل انقطاعاً عابراً */ }
+}
+
+(async function boot() {
+  const ok = await bootSession();
+  mountShell('games');
+  if (!ok) {
+    location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+    return;
+  }
+
+  const slug = location.pathname.split('/').filter(Boolean)[1];
+  if (!slug) return show('رابط غير صالح');
+
+  try {
+    const out = await API.post('/api/game/launch', { slug });
+    $('gameName').textContent = out.game.name;
+    document.title = `${out.game.name} — LuckyArena`;
+    $('frame').src = out.url;
+    $('frame').hidden = false;
+    $('msg').hidden = true;
+  } catch (err) {
+    show('تعذّر فتح اللعبة', err.message);
+    return;
+  }
+
+  await syncBalance();
+  setInterval(syncBalance, 5000);
+  // العودة إلى التبويب: نُحدّث فوراً بدل انتظار الدورة
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncBalance(); });
+})();
+</script>
+</body>
+</html>

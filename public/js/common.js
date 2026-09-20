@@ -1,5 +1,5 @@
 /* ==========================================================================
-   iCHANCE — أدوات مشتركة: الجلسة، الاتصال بالخادم، الهيكل، التنبيهات
+   LuckyArena — أدوات مشتركة: الجلسة، الاتصال بالخادم، الهيكل، التنبيهات
    ========================================================================== */
 'use strict';
 
@@ -209,7 +209,7 @@ function renderTopbar() {
     <button class="burger" id="burger" aria-label="القائمة">${ICONS.menu}</button>
     <a class="logo" href="/">
       <span class="logo__mark">iC</span>
-      <span class="logo__text"><b>iCHANCE</b><span>CASINO & SPORTS</span></span>
+      <span class="logo__text"><b>LuckyArena</b><span>CASINO & SPORTS</span></span>
     </a>
 
     <nav class="topbar-nav" id="topbarNav">

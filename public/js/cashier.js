@@ -7,7 +7,9 @@
 'use strict';
 
 const el = (id) => document.getElementById(id);
-const TOKEN_KEY = 'ichance.cashierToken';
+// اسم مختلف عمداً: common.js يعرّف CASHIER_TOKEN_KEY في النطاق العام نفسه،
+// وتكرار const هناك يُفشل تحميل هذا الملف بأكمله فلا يُربط أي زر.
+const CASHIER_TOKEN_KEY = 'ichance.cashierToken';
 
 let token = null;
 let me = null;
@@ -77,7 +79,7 @@ el('gateForm').addEventListener('submit', async (e) => {
       password: el('cpass').value
     });
     token = out.token;
-    try { localStorage.setItem(TOKEN_KEY, token); } catch { /* تصفح خاص */ }
+    try { localStorage.setItem(CASHIER_TOKEN_KEY, token); } catch { /* تصفح خاص */ }
     el('cpass').value = '';
     showPanel();
     await refresh();
@@ -90,7 +92,7 @@ el('gateForm').addEventListener('submit', async (e) => {
 
 el('logoutBtn').addEventListener('click', () => {
   token = null;
-  try { localStorage.removeItem(TOKEN_KEY); } catch { /* تجاهل */ }
+  try { localStorage.removeItem(CASHIER_TOKEN_KEY); } catch { /* تجاهل */ }
   players = []; txs = []; me = null;
   showGate();
 });
@@ -175,7 +177,9 @@ function paintPlayers() {
           <button class="b-out" data-do="withdraw" data-id="${p.id}">سحب</button>
           <button data-do="password" data-id="${p.id}">كلمة المرور</button>
           <button data-do="tx"       data-id="${p.id}">كشفه</button>
+          <button data-do="rename"   data-id="${p.id}">تعديل</button>
           <button data-do="toggle"   data-id="${p.id}">${p.active ? 'إيقاف' : 'تفعيل'}</button>
+          <button data-do="delete"   data-id="${p.id}">حذف</button>
         </span>
       </td>
     </tr>`).join('');
@@ -240,14 +244,21 @@ function openModal(kind, player) {
   const titles = {
     deposit: 'تعبئة رصيد',
     withdraw: 'سحب رصيد',
-    password: 'تغيير كلمة المرور'
+    password: 'تغيير كلمة المرور',
+    rename: 'تعديل بيانات اللاعب'
   };
   el('modalTitle').textContent = titles[kind];
   el('modalWho').textContent = `${player.username} · ${player.display_id} · رصيده ${fmt(player.balance)}`;
 
   const isPass = kind === 'password';
-  el('amountField').hidden = isPass;
+  const isRename = kind === 'rename';
+  el('amountField').hidden = isPass || isRename;
   el('passField').hidden = !isPass;
+  if (el('nameField')) {
+    el('nameField').hidden = !isRename;
+    el('nameEmail').value = isRename ? (player.email || '') : '';
+    el('modalName').value = isRename ? player.username : '';
+  }
   el('modalAmount').value = '';
   el('modalPass').value = '';
   el('modalNote').value = '';
@@ -281,7 +292,14 @@ el('modalForm').addEventListener('submit', async (e) => {
   el('modalOk').disabled = true;
 
   try {
-    if (action.kind === 'password') {
+    if (action.kind === 'rename') {
+      await api('POST', '/api/cashier/player/update', {
+        playerId: action.player.id,
+        username: el('modalName').value.trim(),
+        email: el('nameEmail').value.trim()
+      });
+      toast('حُفظ التعديل');
+    } else if (action.kind === 'password') {
       const pw = el('modalPass').value;
       await api('POST', '/api/cashier/password', { playerId: action.player.id, password: pw });
       toast(`تغيّرت كلمة مرور ${action.player.username} — سلّمها له`, 'win', 6000);
@@ -313,7 +331,17 @@ el('playersBody').addEventListener('click', async (e) => {
   if (!player) return;
 
   const what = b.dataset.do;
-  if (what === 'deposit' || what === 'withdraw' || what === 'password') {
+  if (what === 'delete') {
+    if (!confirm(`حذف ${player.username} نهائياً؟\nلا يُحذف إن كان له رصيد أو حركات مالية — أوقفه بدل ذلك.`)) return;
+    try {
+      await api('POST', '/api/cashier/player/delete', { playerId: player.id });
+      toast('حُذف اللاعب');
+      await refresh();
+    } catch (err) { toast(err.message, 'error', 6000); }
+    return;
+  }
+
+  if (what === 'deposit' || what === 'withdraw' || what === 'password' || what === 'rename') {
     if (!player.active && what !== 'password') {
       toast('الحساب موقوف — فعّله أولاً', 'error');
       return;
@@ -353,7 +381,7 @@ el('refreshBtn').addEventListener('click', async () => {
 
 /* ------------------------------- الإقلاع ------------------------------- */
 (async function boot() {
-  try { token = localStorage.getItem(TOKEN_KEY); } catch { token = null; }
+  try { token = localStorage.getItem(CASHIER_TOKEN_KEY); } catch { token = null; }
   if (!token) return showGate();
 
   try {
@@ -361,7 +389,7 @@ el('refreshBtn').addEventListener('click', async () => {
     await refresh();
   } catch (err) {
     token = null;
-    try { localStorage.removeItem(TOKEN_KEY); } catch { /* تجاهل */ }
+    try { localStorage.removeItem(CASHIER_TOKEN_KEY); } catch { /* تجاهل */ }
     showGate(err.status === 401 ? '' : err.message);
   }
 })();
