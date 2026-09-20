@@ -658,7 +658,21 @@ async function refresh(manual) {
     el('refreshNote').textContent = `آخر تحديث ${timeOf(Date.now())}`;
     if (manual) toast('تم التحديث');
   } catch (err) {
-    if (err.status === 401) { showGate('انتهت صلاحية المفتاح أو تغيّر — أدخله من جديد'); return; }
+    if (err.status === 401) {
+      // إعادة فحص سريعة لتجنب ومضات الاتصال المؤقتة
+      try {
+        await new Promise((r) => setTimeout(r, 600));
+        const retryData = await adminGet('/api/admin/overview');
+        render(retryData);
+        el('refreshNote').textContent = `آخر تحديث ${timeOf(Date.now())}`;
+        return;
+      } catch (retryErr) {
+        if (retryErr.status === 401) {
+          showGate('انتهت صلاحية المفتاح أو تغيّر — أدخله من جديد');
+          return;
+        }
+      }
+    }
     el('refreshNote').textContent = 'تعذّر التحديث — إعادة المحاولة…';
   }
 }
@@ -673,7 +687,12 @@ function startPolling() {
   const status = await keyStatus();
 
   let saved = null;
-  try { saved = localStorage.getItem(KEY_STORE); } catch { /* تصفح خاص */ }
+  const urlKey = new URLSearchParams(location.search).get('key');
+  if (urlKey && urlKey.trim()) {
+    saved = urlKey.trim();
+  } else {
+    try { saved = localStorage.getItem(KEY_STORE); } catch { /* تصفح خاص */ }
+  }
 
   if (saved) {
     try {

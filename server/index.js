@@ -276,7 +276,7 @@ async function isAdminAllowed(req, url) {
   if (gateProof && await adminGate.matches('/' + gateProof)) return true;
 
   const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
-  if (key && adminAuth.verify(key)) return true;
+  if (key && await adminAuth.verify(key)) return true;
 
   return false;
 }
@@ -782,7 +782,7 @@ async function handleApi(req, res, url) {
     }
 
     if (route === '/api/admin/gate') {
-      const out = adminAuth.rotate();
+      const out = await adminAuth.rotate();
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       console.log('[gate] وُلّد مفتاح إدارة جديد من البوابة');
       return sendJson(res, 200, { ok: true, key: out.key });
@@ -878,7 +878,7 @@ async function handleApi(req, res, url) {
     // حالة المفتاح: تُقرأ بلا مصادقة لأن الصفحة تحتاجها قبل الدخول لتعرف
     // أي شاشة تعرض. لا تكشف أي سرّ — انظر adminAuth.publicStatus().
     if (route === '/api/admin/status' && req.method === 'GET') {
-      return sendJson(res, 200, adminAuth.publicStatus());
+      return sendJson(res, 200, await adminAuth.publicStatus());
     }
 
     // إنشاء المفتاح أول مرة من المتصفح. بلا مصادقة بالضرورة (لا مفتاح بعد)،
@@ -886,7 +886,7 @@ async function handleApi(req, res, url) {
     if (route === '/api/admin/claim' && req.method === 'POST') {
       if (!rateLimit(`claim:${ip}`, 5, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
       const body = await readBody(req);
-      const result = adminAuth.claim(body.key);
+      const result = await adminAuth.claim(body.key);
       if (!result.ok) return sendJson(res, 400, { error: result.error });
       return sendJson(res, 200, { ok: true });
     }
@@ -897,7 +897,7 @@ async function handleApi(req, res, url) {
     }
 
     const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
-    if (!adminAuth.verify(key)) {
+    if (!(await adminAuth.verify(key))) {
       if (!rateLimit(`admin:${ip}`, 10, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
       return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح' });
     }
@@ -1164,7 +1164,7 @@ async function handleApi(req, res, url) {
     // تغيير المفتاح من داخل اللوحة — بلا تيرمنال. بلا `key` يولّد مفتاحاً قوياً.
     if (route === '/api/admin/rotate' && req.method === 'POST') {
       const body = await readBody(req);
-      const result = adminAuth.rotate(body.key);
+      const result = await adminAuth.rotate(body.key);
       if (!result.ok) return sendJson(res, 400, { error: result.error });
       return sendJson(res, 200, { ok: true, key: result.key, generated: result.generated });
     }

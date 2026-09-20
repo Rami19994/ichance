@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { SERVER } = require('./config');
+const sb = require('./supabase');
 
 /**
  * مصادقة لوحة الإدارة — مفتاح دائم لا يتغيّر مع إعادة التشغيل.
@@ -70,26 +71,63 @@ function generateKey() {
   return crypto.randomBytes(18).toString('base64url');
 }
 
-function save() {
+const DB_SECRET_KEY = 'admin_auth';
+
+async function readDbAuth() {
+  if (!sb.configured()) return null;
+  try {
+    const row = await sb.selectOne('site_secrets', `select=value&key=eq.${sb.enc(DB_SECRET_KEY)}`);
+    if (row && row.value) {
+      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      if (parsed && parsed.salt && parsed.hash) return parsed;
+    }
+  } catch (err) {
+    console.warn('[admin] تعذّرت قراءة المصادقة من قاعدة البيانات:', err.message);
+  }
+  return null;
+}
+
+async function writeDbAuth(val) {
+  if (!sb.configured()) return false;
+  try {
+    await sb.request('/rest/v1/site_secrets?on_conflict=key', {
+      method: 'POST',
+      body: [{
+        key: DB_SECRET_KEY,
+        value: JSON.stringify(val),
+        updated_at: new Date().toISOString()
+      }],
+      prefer: 'resolution=merge-duplicates,return=minimal'
+    });
+    return true;
+  } catch (err) {
+    console.error('[admin] تعذّر حفظ المصادقة في قاعدة البيانات:', err.message);
+    return false;
+  }
+}
+
+async function save(stateToSave = state) {
+  let ok = false;
+  if (sb.configured() && stateToSave) {
+    const dbOk = await writeDbAuth(stateToSave);
+    if (dbOk) ok = true;
+  }
   try {
     fs.mkdirSync(WRITE_DATA_DIR, { recursive: true });
     // على Vercel نكتب في /tmp فقط (للـ invocation الحالي)
-    // القراءة ستأتي من REAL_DATA_DIR (ملف admin.json المرفوع مع الكود)
-    fs.writeFileSync(AUTH_FILE, JSON.stringify(state, null, 2), 'utf8');
+    // القراءة ستأتي من REAL_DATA_DIR أو قاعدة البيانات Supabase
+    fs.writeFileSync(AUTH_FILE, JSON.stringify(stateToSave, null, 2), 'utf8');
     saveError = null;
-    return true;
+    ok = true;
   } catch (err) {
-    // على Vercel الكتابة إلى REAL_DATA_DIR ممنوعة (read-only) — هذا طبيعي
-    // المفتاح يُقرأ من الملف المرفوع مع الكود
     if (process.env.VERCEL) {
       saveError = null;
-      return true; // تجاهل خطأ الكتابة على Vercel
+    } else if (!ok) {
+      saveError = err.message;
+      console.error('[admin] تعذّر حفظ ملف المصادقة:', err.message);
     }
-    saveError = err.message;
-    console.error('[admin] تعذّر حفظ ملف المصادقة:', err.message);
-    console.error('[admin] المفتاح لن يبقى بعد إعادة التشغيل — اجعل مجلّد data قابلاً للكتابة');
-    return false;
   }
+  return ok || !!process.env.VERCEL;
 }
 
 /** يكتب المفتاح المولَّد نصاً ليقرأه المالك من مدير الملفات بلا تيرمنال. */
@@ -185,7 +223,19 @@ function activeSource() {
   return 'file';
 }
 
-function publicStatus() {
+async function publicStatus() {
+  if ((!state || !state.claimed) && sb.configured()) {
+    const dbState = await readDbAuth();
+    if (dbState && dbState.salt && dbState.hash) {
+      state = {
+        salt: String(dbState.salt),
+        hash: String(dbState.hash),
+        claimed: true,
+        createdAt: dbState.createdAt || Date.now(),
+        rotatedAt: dbState.rotatedAt || null
+      };
+    }
+  }
   return {
     source: activeSource(),
     // المفتاح موجود دائماً؛ الفرق أن المالك لم يختر مفتاحه الخاص بعد
@@ -199,14 +249,39 @@ function publicStatus() {
   };
 }
 
-function verify(key) {
+async function verify(key) {
   const clean = String(key || '').trim();
   if (!clean) return false;
-  // مفتاح اختاره المالك يسبق البيئة
-  if (state && state.claimed) return safeEqual(hashKey(clean, state.salt), state.hash);
-  if (ENV_KEY) return safeEqual(clean, ENV_KEY);
-  if (!state) return false;
-  return safeEqual(hashKey(clean, state.salt), state.hash);
+
+  // 1. تحقق من الحالة الحالية في الذاكرة أولاً (سريع جداً)
+  if (state && state.claimed && safeEqual(hashKey(clean, state.salt), state.hash)) {
+    return true;
+  }
+
+  // 2. تحديث الكاش من Supabase (ضروري بين دوال Serverless على Vercel)
+  if (sb.configured()) {
+    const dbState = await readDbAuth();
+    if (dbState && dbState.salt && dbState.hash) {
+      state = {
+        salt: String(dbState.salt),
+        hash: String(dbState.hash),
+        claimed: true,
+        createdAt: dbState.createdAt || Date.now(),
+        rotatedAt: dbState.rotatedAt || null
+      };
+      if (safeEqual(hashKey(clean, state.salt), state.hash)) {
+        return true;
+      }
+    }
+  }
+
+  // 3. متغيّر البيئة (اختياري للطوارئ)
+  if (ENV_KEY && safeEqual(clean, ENV_KEY)) return true;
+
+  // 4. فحص الملف المحلي
+  if (state && safeEqual(hashKey(clean, state.salt), state.hash)) return true;
+
+  return false;
 }
 
 function validateNewKey(key) {
@@ -219,18 +294,20 @@ function validateNewKey(key) {
   return { ok: true, clean };
 }
 
-function setKey(key, { claimed }) {
+async function setKey(key, { claimed }) {
   const salt = crypto.randomBytes(16).toString('hex');
   const previous = state;
-  state = {
+  const nextState = {
     salt,
     hash: hashKey(key, salt),
     claimed,
     createdAt: state ? state.createdAt : Date.now(),
     rotatedAt: Date.now()
   };
-  if (!save()) {
-    // لم يُكتب على القرص: نتراجع كي لا يظنّ المالك أن مفتاحه محفوظ
+  state = nextState;
+  const saved = await save(nextState);
+  if (!saved && !sb.configured() && !process.env.VERCEL) {
+    // لم يُكتب على القرص ولا في قاعدة البيانات: نتراجع كي لا يظنّ المالك أن مفتاحه محفوظ
     state = previous;
     return false;
   }
@@ -239,10 +316,10 @@ function setKey(key, { claimed }) {
   return true;
 }
 
-const SAVE_FAILED = 'تعذّر حفظ المفتاح على القرص — اجعل مجلّد data قابلاً للكتابة ثم أعد المحاولة';
+const SAVE_FAILED = 'تعذّر حفظ المفتاح — تأكّد من اتصال قاعدة البيانات أو صلاحيات المجلد';
 
 /** إنشاء المفتاح أول مرة من المتصفح. */
-function claim(key) {
+async function claim(key) {
   if (ENV_KEY) return { ok: false, error: 'المفتاح مضبوط من متغيّر البيئة ولا يُغيَّر من اللوحة' };
   if (!claimOpen()) {
     return {
@@ -252,20 +329,19 @@ function claim(key) {
   }
   const v = validateNewKey(key);
   if (!v.ok) return v;
-  if (!setKey(v.clean, { claimed: true })) return { ok: false, error: SAVE_FAILED };
+  if (!(await setKey(v.clean, { claimed: true }))) return { ok: false, error: SAVE_FAILED };
   console.log('[admin] أنشأ المالك مفتاحاً جديداً من المتصفح');
   return { ok: true };
 }
 
 /** تغيير المفتاح من داخل اللوحة — يتطلب مفتاحاً صالحاً (يتحقق منه المسار). */
-function rotate(newKey) {
-  // يعمل حتى مع وجود متغيّر بيئة: المفتاح الجديد يُحفظ ويصير هو المرجع.
-  // بدون ذلك تتعطّل البوابة السرّية على أي استضافة تضبط المتغيّر.
+async function rotate(newKey) {
+  // يعمل دائماً وبلا حاجة لمتغيّر بيئة: المفتاح الجديد يُحفظ في قاعدة البيانات ويصير هو المرجع.
   const key = newKey ? String(newKey).trim() : generateKey();
   const v = validateNewKey(key);
   if (!v.ok) return v;
-  if (!setKey(v.clean, { claimed: true })) return { ok: false, error: SAVE_FAILED };
-  console.log('[admin] غُيِّر مفتاح الإدارة من اللوحة');
+  if (!(await setKey(v.clean, { claimed: true }))) return { ok: false, error: SAVE_FAILED };
+  console.log('[admin] غُيِّر مفتاح الإدارة وحُفظ في قاعدة البيانات');
   return { ok: true, key: v.clean, generated: !newKey };
 }
 
