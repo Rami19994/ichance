@@ -274,10 +274,19 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
   return { ok: true, cashier: strip(cashier) };
 }
 
-async function createPlayer({ cashierId, username, email, password, createdBy }) {
-  const u = checkUsername(username); if (!u.ok) return u;
-  const e = checkEmail(email); if (!e.ok) return e;
+async function createPlayer({ cashierId, username, email, password, createdBy, balance = 0 }) {
+  let uRaw = String(username || '').trim();
+  let emRaw = email ? String(email).trim() : '';
+  if (uRaw.includes('@') && !emRaw) {
+    emRaw = uRaw;
+  }
+  if (!emRaw) {
+    emRaw = `${uRaw.toLowerCase()}@player.luckyarena.com`;
+  }
+  const u = checkUsername(uRaw); if (!u.ok) return u;
+  const e = checkEmail(emRaw); if (!e.ok) return e;
   const p = checkPassword(password); if (!p.ok) return p;
+  const balNum = Math.max(0, Math.round(Number(balance) || 0));
 
   const { hash, salt } = hashPassword(p.value);
 
@@ -292,7 +301,7 @@ async function createPlayer({ cashierId, username, email, password, createdBy })
         password_salt: salt,
         display_id: shortId(),
         cashier_id: cashierId || null,
-        balance: 0,
+        balance: balNum,
         created_by: createdBy || cashierId || null
       });
       return { ok: true, player: strip(rows[0]) };
@@ -769,6 +778,29 @@ async function allCashiers() {
       commission_amount
     };
   });
+}
+
+async function cashierSelf(cashierId) {
+  await ensureSupabase();
+  if (supabaseReady) {
+    try {
+      const row = await sb.selectOne('cashier_summary', `select=*&id=eq.${sb.enc(String(cashierId))}`);
+      if (row) return row;
+    } catch (err) { console.warn('[accounts] cashierSelf:', err.message); }
+  }
+  return strip(getLocal().accounts.find((a) => a.id === cashierId) || null);
+}
+
+async function cashierPlayers(cashierId) {
+  await ensureSupabase();
+  if (supabaseReady) {
+    try {
+      return await sb.select('player_summary',
+        `select=*&cashier_id=eq.${sb.enc(String(cashierId))}&order=created_at.desc`);
+    } catch (err) { console.warn('[accounts] cashierPlayers:', err.message); }
+  }
+  const db = getLocal();
+  return db.accounts.filter((a) => a.role === 'player' && a.cashier_id === cashierId).map(strip);
 }
 
 async function allPlayers({ limit = 200 } = {}) {

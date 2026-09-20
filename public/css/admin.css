@@ -957,6 +957,201 @@
   display: block;
   margin-top: 8px;
   padding: 10px 12px;
+}
+
+@keyframes cmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.c-modal-box {
+  background: linear-gradient(170deg, #151d2a 0%, #0d121c 100%);
+  border: 1px solid rgba(247, 201, 72, 0.25);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 40px rgba(247, 201, 72, 0.08);
+  border-radius: 20px;
+  width: min(520px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px 26px;
+  color: var(--txt);
+  animation: cmSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+@keyframes cmSlideUp {
+  from { transform: translateY(16px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.c-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.c-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.c-modal-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(247, 201, 72, 0.1);
+  border: 1px solid rgba(247, 201, 72, 0.25);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.c-modal-title {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.c-modal-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--txt-2);
+}
+
+.c-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #111722;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.c-modal-close:hover {
+  background: #1b2434;
+  color: #fff;
+  border-color: var(--gold-2);
+}
+
+.c-modal-err {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: rgba(255, 91, 115, 0.12);
+  border: 1px solid rgba(255, 91, 115, 0.35);
+  border-radius: 10px;
+  color: #ff9fb1;
+  font-size: 12.5px;
+}
+.c-modal-err[hidden] {
+  display: none !important;
+}
+
+.c-modal-body form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cm-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt-2);
+}
+
+.cm-field input,
+.cm-field select {
+  width: 100%;
+  background: #0b0f17;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 14px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  transition: border-color 0.15s;
+}
+.cm-field input:focus,
+.cm-field select:focus {
+  outline: none;
+  border-color: var(--gold-2);
+  box-shadow: 0 0 0 2px rgba(247, 201, 72, 0.15);
+}
+
+.cm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.cm-chip {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #16202e;
+  border: 1px solid var(--line);
+  color: var(--txt-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cm-chip:hover {
+  background: #202c3e;
+  color: #fff;
+  border-color: var(--gold-2);
+  transform: translateY(-1px);
+}
+
+.cm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.cm-actions .btn {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.cm-warn-box {
+  padding: 14px;
+  background: rgba(255, 176, 32, 0.08);
+  border: 1px solid rgba(255, 176, 32, 0.25);
+  border-radius: 10px;
+  color: #ffd88a;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.cm-success-box {
+  padding: 14px;
+  background: rgba(41, 217, 140, 0.1);
+  border: 1px solid rgba(41, 217, 140, 0.3);
+  border-radius: 10px;
+  color: #a3f3cc;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.cm-success-box code {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 12px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   color: #ffd875;
@@ -965,4 +1160,113 @@
   word-break: break-all;
   direction: ltr;
   text-align: left;
+}
+
+/* ──────────────────── داشبورد شبكة الماستر والكاشير والنوافذ الموسعة ──────────────────── */
+.c-modal-box--wide {
+  width: min(920px, 96vw) !important;
+  max-width: 920px !important;
+}
+
+.btn-eye {
+  background: rgba(63, 169, 255, 0.12) !important;
+  color: #5bb2ff !important;
+  border-color: rgba(63, 169, 255, 0.3) !important;
+  font-weight: 700;
+}
+.btn-eye:hover {
+  background: rgba(63, 169, 255, 0.25) !important;
+  color: #fff !important;
+  border-color: #5bb2ff !important;
+}
+
+.net-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.net-kpi {
+  background: #0f1520;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.net-kpi__lbl {
+  font-size: 11px;
+  color: var(--txt-2);
+  font-weight: 600;
+}
+.net-kpi__val {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.net-kpi--gold .net-kpi__val { color: var(--gold-2); }
+.net-kpi--pos .net-kpi__val { color: var(--green); }
+.net-kpi--blue .net-kpi__val { color: #5bb2ff; }
+
+.badge-cashier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(63, 169, 255, 0.1);
+  border: 1px solid rgba(63, 169, 255, 0.25);
+  color: #6ab7ff;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.badge-master {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(247, 201, 72, 0.1);
+  border: 1px solid rgba(247, 201, 72, 0.25);
+  color: var(--gold-2);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.badge-direct {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.net-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+.net-tab {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--txt-2);
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.net-tab.is-active, .net-tab:hover {
+  background: #192333;
+  color: #fff;
+  border-color: var(--gold-2);
 }

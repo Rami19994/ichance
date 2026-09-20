@@ -411,22 +411,52 @@
           <span class="card__hint" id="playersHint"></span>
         </div>
         <div class="card__body card__body--flush">
-          <div class="table-wrap table-wrap--tall">
-            <table class="dt">
-              <thead>
-                <tr>
-                  <th>المعرّف</th>
-                  <th>الرصيد</th>
-                  <th>جولات</th>
-                  <th>راهن</th>
-                  <th>ربح</th>
-                  <th>صافي الموقع</th>
-                  <th>إجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="playersBody"></tbody>
-            </table>
+          <div style="padding:14px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,0.02)">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;display:flex;align-items:center;gap:6px;color:var(--gold-2)">
+            <span>➕</span><span>إنشاء حساب لاعب جديد من الإدارة</span>
           </div>
+          <form id="newPlayerAdminForm" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:8px;align-items:end">
+            <div class="field" style="margin:0">
+              <label for="npaUser" style="font-size:11px">اسم المستخدم أو الإيميل</label>
+              <input id="npaUser" type="text" spellcheck="false" placeholder="player1 أو email@..." required>
+            </div>
+            <div class="field" style="margin:0">
+              <label for="npaPass" style="font-size:11px">كلمة المرور</label>
+              <input id="npaPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر" required>
+            </div>
+            <div class="field" style="margin:0">
+              <label for="npaCashier" style="font-size:11px">الكاشير التابع له</label>
+              <select id="npaCashier">
+                <option value="">بدون كاشير (مباشر للإدارة)</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0">
+              <label for="npaBalance" style="font-size:11px">رصيد مبدئي</label>
+              <input id="npaBalance" type="number" min="0" step="1" placeholder="0">
+            </div>
+            <div class="field" style="margin:0">
+              <button class="btn btn--gold btn--block" type="submit" id="npaBtn">إنشاء اللاعب</button>
+            </div>
+          </form>
+          <div class="newplayer__out" id="npaOut" hidden style="margin-top:10px"></div>
+        </div>
+        <div class="table-wrap table-wrap--tall">
+          <table class="dt">
+            <thead>
+              <tr>
+                <th>المعرّف / الاسم</th>
+                <th>الكاشير التابع له</th>
+                <th>الرصيد</th>
+                <th>جولات</th>
+                <th>راهن</th>
+                <th>ربح</th>
+                <th>صافي الموقع</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="playersBody"></tbody>
+          </table>
+        </div>
         </div>
       </section>
 

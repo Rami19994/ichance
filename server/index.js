@@ -1049,11 +1049,38 @@ async function handleApi(req, res, url) {
     if (route === '/api/admin/master/cashiers' && req.method === 'GET') {
       const id = url.searchParams.get('master');
       if (!id) return sendJson(res, 400, { error: 'حدّد الماستر' });
-      const [cashiers, players] = await Promise.all([
+      const [master, cashiers, players] = await Promise.all([
+        accounts.masterSelf(id),
         accounts.masterCashiers(id),
         accounts.masterPlayers(id)
       ]);
-      return sendJson(res, 200, { cashiers, players });
+      return sendJson(res, 200, { master, cashiers, players });
+    }
+
+    // شبكة الكاشير وتفاصيل اللاعبين المسجلين عن طريقه
+    if (route === '/api/admin/cashier/network' && req.method === 'GET') {
+      const id = url.searchParams.get('cashier');
+      if (!id) return sendJson(res, 400, { error: 'حدّد الكاشير' });
+      const [cashier, players] = await Promise.all([
+        accounts.cashierSelf(id),
+        accounts.cashierPlayers(id)
+      ]);
+      return sendJson(res, 200, { cashier, players });
+    }
+
+    // إنشاء حساب لاعب جديد من لوحة الإدارة
+    if (route === '/api/admin/player' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await accounts.createPlayer({
+        username: body.username,
+        email: body.email,
+        password: body.password,
+        cashierId: body.cashierId || null,
+        balance: Number(body.balance) || 0,
+        createdBy: 'admin'
+      });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
     }
 
     // نقل كاشير بين الماسترية — للإدارة وحدها
@@ -1211,12 +1238,17 @@ async function handleApi(req, res, url) {
         const gp = gamePlayersMap[acc.id] || gamePlayersMap[acc.display_id] || {};
         return {
           id: acc.display_id || acc.id,
+          realId: acc.id,
           balance: Number(acc.balance || 0),
           rounds: gp.rounds || 0,
           wagered: gp.wagered || 0,
           won: gp.won || 0,
           houseNet: gp.houseNet || 0,
           username: acc.username,
+          cashierId: acc.cashier_id || null,
+          cashierName: acc.cashier_username || null,
+          masterId: acc.master_id || null,
+          masterName: acc.master_username || null,
           country: acc.country
         };
       });

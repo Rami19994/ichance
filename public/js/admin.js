@@ -657,16 +657,25 @@ function detailRow(r) {
 
 function renderPlayers(players) {
   const body = el('playersBody');
+  if (!body) return;
   el('playersHint').textContent = `${players.length} لاعب مسجّل`;
   if (!players.length) {
-    body.innerHTML = '<tr><td colspan="7" class="empty-cell">لا يوجد لاعبون بعد.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="empty-cell">لا يوجد لاعبون بعد.</td></tr>';
     return;
   }
   body.innerHTML = players.map((p) => {
     const pName = p.username || p.display_id || p.id;
+    let cashierBadge = '<span class="badge-direct">مباشر (إدارة)</span>';
+    if (p.cashierName) {
+      cashierBadge = `<span class="badge-cashier" title="كاشير: ${escapeHtml(p.cashierName)}">💼 ${escapeHtml(p.cashierName)}</span>`;
+      if (p.masterName) {
+        cashierBadge += ` <span class="badge-master" title="ماستر: ${escapeHtml(p.masterName)}">👑 ${escapeHtml(p.masterName)}</span>`;
+      }
+    }
     return `
     <tr>
-      <td class="mono">${escapeHtml(pName)}</td>
+      <td class="mono"><b>${escapeHtml(pName)}</b></td>
+      <td>${cashierBadge}</td>
       <td class="num">${fmt(p.balance)}</td>
       <td class="num">${fmt(p.rounds)}</td>
       <td class="num">${fmt(p.wagered)}</td>
@@ -674,7 +683,7 @@ function renderPlayers(players) {
       <td class="num ${p.houseNet > 0 ? 'pos' : p.houseNet < 0 ? 'neg' : 'dim'}">${fmtSigned(p.houseNet)}</td>
       <td>
         <span class="rowbtns">
-          <button class="btn-del" data-pa="delete" data-id="${p.id}" data-name="${escapeHtml(pName)}" title="حذف حساب اللاعب نهائياً من قاعدة البيانات">🗑️ حذف</button>
+          <button class="btn-del" data-pa="delete" data-id="${p.realId || p.id}" data-name="${escapeHtml(pName)}" title="حذف حساب اللاعب نهائياً من قاعدة البيانات">🗑️ حذف</button>
         </span>
       </td>
     </tr>`;
@@ -699,6 +708,34 @@ if (el('playersBody')) {
     }
   });
 }
+
+el('newPlayerAdminForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = el('npaBtn');
+  const out = el('npaOut');
+  btn.disabled = true;
+  out.hidden = true;
+  const username = el('npaUser').value.trim();
+  const password = el('npaPass').value;
+  const cashierId = el('npaCashier').value || null;
+  const balance = Number(el('npaBalance').value) || 0;
+  try {
+    const res = await adminPost('/api/admin/player', { username, password, cashierId, balance });
+    out.hidden = false;
+    out.className = 'newplayer__out ok';
+    out.innerHTML = `✅ تم إنشاء اللاعب <b>${escapeHtml(res.player.username)}</b> بنجاح! المعرّف: <code>${escapeHtml(res.player.display_id || res.player.id)}</code> · كلمة المرور: <code>${escapeHtml(password)}</code> · الرصيد: <b>${fmt(res.player.balance || 0)}</b>`;
+    el('newPlayerAdminForm').reset();
+    toast('تم إنشاء حساب اللاعب بنجاح', 'win');
+    await loadOwner();
+  } catch (err) {
+    out.hidden = false;
+    out.className = 'newplayer__out err';
+    out.innerHTML = `<b>خطأ:</b> ${escapeHtml(err.message)}`;
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function renderRules(s) {
   el('rulesBox').innerHTML = `
@@ -890,6 +927,16 @@ function renderCashiers(data) {
   const list = data.cashiers || [];
   CURRENT_CASHIERS = list;
   el('cashiersEmpty').hidden = list.length > 0;
+
+  // تحديث قائمة الكاشيرية في نموذج إنشاء اللاعب من الإدارة
+  const npaSel = el('npaCashier');
+  if (npaSel) {
+    const curVal = npaSel.value;
+    npaSel.innerHTML = '<option value="">بدون كاشير (مباشر للإدارة)</option>' +
+      list.map(c => `<option value="${c.id}">${escapeHtml(c.username)} (${escapeHtml(c.country || '')})</option>`).join('');
+    if (curVal) npaSel.value = curVal;
+  }
+
   el('cashiersBody').innerHTML = list.map((c) => {
     const cur = c.currency || '';
     const floatVal = c.float_balance != null ? c.float_balance : (c.balance || 0);
@@ -911,8 +958,9 @@ function renderCashiers(data) {
       <td><b>${commRate.toFixed(0)}%</b><br><span class="dim">${fmt(commAmt)}</span></td>
       <td>
         <span class="rowbtns">
-          <button class="b-in"  data-ca="topup"    data-id="${c.id}" title="إرسال وتعبئة عهدة للكاشير">💸 أرسل</button>
-          <button class="b-out" data-ca="debit"    data-id="${c.id}" title="سحب عهدة من الكاشير">📥 اسحب</button>
+          <button class="btn-eye"   data-ca="view"     data-id="${c.id}" data-name="${escapeHtml(c.username)}" title="عرض تفاصيل الكاشير واللاعبين المسجلين من خلاله">👁️ شبكته</button>
+          <button class="b-in"      data-ca="topup"    data-id="${c.id}" title="إرسال وتعبئة عهدة للكاشير">💸 أرسل</button>
+          <button class="b-out"     data-ca="debit"    data-id="${c.id}" title="سحب عهدة من الكاشير">📥 اسحب</button>
           <button data-ca="password" data-id="${c.id}" title="تغيير كلمة مرور الكاشير">🔑 كلمة المرور</button>
           <button data-ca="country"  data-id="${c.id}" title="تغيير دولة وعملة الكاشير">🌍 الدولة</button>
           <button data-ca="toggle"   class="${c.active ? 'btn-off' : 'btn-on'}" data-id="${c.id}" data-next="${c.active ? '0' : '1'}" title="${c.active ? 'إيقاف حساب الكاشير' : 'تفعيل حساب الكاشير'}">
@@ -934,7 +982,9 @@ const CashierModal = {
   body: el('cmBody'),
   err: el('cmErr'),
 
-  show({ icon, title, subtitle, content, onMount }) {
+  show({ icon, title, subtitle, content, wide = false, onMount }) {
+    const box = this.overlay.querySelector('.c-modal-box');
+    if (box) box.classList.toggle('c-modal-box--wide', !!wide);
     this.icon.textContent = icon || '💼';
     this.title.textContent = title;
     this.subtitle.textContent = subtitle || '';
@@ -947,6 +997,8 @@ const CashierModal = {
   },
 
   hide() {
+    const box = this.overlay.querySelector('.c-modal-box');
+    if (box) box.classList.remove('c-modal-box--wide');
     this.overlay.hidden = true;
     this.body.innerHTML = '';
     document.body.style.overflow = '';
@@ -1377,7 +1429,9 @@ el('cashiersBody').addEventListener('click', (e) => {
   const cashier = CURRENT_CASHIERS.find((x) => x.id === id);
   if (!cashier) return toast('بيانات الكاشير غير متوفرة، جاري التحديث…', 'error');
 
-  if (what === 'topup') {
+  if (what === 'view') {
+    openCashierNetworkModal(cashier);
+  } else if (what === 'topup') {
     openTopupModal(cashier);
   } else if (what === 'debit') {
     openDebitModal(cashier);
@@ -1392,6 +1446,118 @@ el('cashiersBody').addEventListener('click', (e) => {
     openCashierDeleteModal(cashier);
   }
 });
+
+async function openCashierNetworkModal(c) {
+  CashierModal.show({
+    icon: '💼',
+    title: `شبكة الكاشير: ${c.username}`,
+    subtitle: 'جارٍ تحميل قائمة اللاعبين وحركاتهم المالية…',
+    wide: true,
+    content: `<div style="text-align:center;padding:40px;color:var(--txt-2)">⏳ جارٍ جلب شبكة الكاشير واللاعبين…</div>`
+  });
+
+  try {
+    const res = await adminGet('/api/admin/cashier/network?cashier=' + encodeURIComponent(c.id));
+    const cashier = res.cashier || c;
+    const players = res.players || [];
+    const cur = cashier.currency || c.currency || 'IQD';
+    const totalPlayersBal = players.reduce((s, p) => s + Number(p.balance || 0), 0);
+    const totalDeposited = players.reduce((s, p) => s + Number(p.total_deposited || 0), 0);
+    const totalWithdrawn = players.reduce((s, p) => s + Number(p.total_withdrawn || 0), 0);
+    const floatVal = cashier.unlimited_float ? '∞' : fmt(cashier.float_balance != null ? cashier.float_balance : (cashier.balance || 0));
+    const masterLabel = cashier.master_username ? `👑 ${escapeHtml(cashier.master_username)}` : 'مباشر تحت الإدارة';
+
+    const playersRows = players.length ? players.map((p) => {
+      const pName = p.username || p.display_id || p.id;
+      const createdStr = p.created_at ? new Date(p.created_at).toLocaleDateString('ar-EG') : '—';
+      return `
+        <tr>
+          <td><b class="mono">${escapeHtml(pName)}</b><br><span class="dim" style="font-size:11px">${escapeHtml(p.display_id || '')}</span></td>
+          <td class="num"><b>${fmt(p.balance)}</b> ${cur}</td>
+          <td class="num tag-in">${fmt(p.total_deposited || 0)}</td>
+          <td class="num tag-out">${fmt(p.total_withdrawn || 0)}</td>
+          <td class="num ${p.game_pl > 0 ? 'pos' : p.game_pl < 0 ? 'neg' : 'dim'}">${p.game_pl ? fmtSigned(p.game_pl) : '0'}</td>
+          <td><span class="${p.active ? 'pos' : 'neg'}">${p.active ? 'نشط' : 'موقوف'}</span></td>
+          <td class="dim" style="font-size:11px">${createdStr}</td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty-cell">لا يوجد لاعبون مسجلون عبر هذا الكاشير حتى الآن.</td></tr>`;
+
+    const html = `
+      <div class="net-kpis">
+        <div class="net-kpi net-kpi--gold">
+          <span class="net-kpi__lbl">العهدة الحالية</span>
+          <span class="net-kpi__val">${floatVal} ${cur}</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">الماستر المشرف</span>
+          <span class="net-kpi__val" style="font-size:14px">${masterLabel}</span>
+        </div>
+        <div class="net-kpi net-kpi--blue">
+          <span class="net-kpi__lbl">عدد اللاعبين</span>
+          <span class="net-kpi__val">${players.length} لاعب</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">إجمالي أرصدة لاعبيه</span>
+          <span class="net-kpi__val">${fmt(totalPlayersBal)} ${cur}</span>
+        </div>
+        <div class="net-kpi net-kpi--pos">
+          <span class="net-kpi__lbl">إجمالي الإيداعات</span>
+          <span class="net-kpi__val">${fmt(totalDeposited)}</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">إجمالي السحوبات</span>
+          <span class="net-kpi__val">${fmt(totalWithdrawn)}</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">حرق الكاشير (Burn)</span>
+          <span class="net-kpi__val">${fmt(cashier.burn || 0)}</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">العمولة المستحقة</span>
+          <span class="net-kpi__val">${Number(cashier.commission_rate || 5)}% (${fmt(cashier.commission_amount || 0)})</span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div style="font-weight:800;font-size:14px;margin-bottom:8px;color:#fff;display:flex;align-items:center;justify-content:space-between">
+          <span>🎮 اللاعبون المسجلون عن طريق الكاشير (${players.length})</span>
+          <span class="dim" style="font-size:12px">الدولة: ${escapeHtml(cashier.country || '—')}</span>
+        </div>
+        <div class="table-wrap" style="max-height:360px;overflow-y:auto">
+          <table class="dt dt--compact">
+            <thead>
+              <tr>
+                <th>اللاعب / المعرف</th>
+                <th>الرصيد</th>
+                <th>إيداعاته</th>
+                <th>سحوباته</th>
+                <th>صافي لعبه</th>
+                <th>الحالة</th>
+                <th>تاريخ التسجيل</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${playersRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="cm-actions" style="margin-top:16px">
+        <button type="button" class="btn btn--dark" onclick="CashierModal.hide()">إغلاق النافذة</button>
+      </div>
+    `;
+
+    CashierModal.show({
+      icon: '💼',
+      title: `شبكة الكاشير: ${cashier.username}`,
+      subtitle: `المعرف: ${cashier.display_id || cashier.id} · الدولة: ${cashier.country || ''} (${cur})`,
+      wide: true,
+      content: html
+    });
+  } catch (err) {
+    CashierModal.showError('تعذّر جلب شبكة الكاشير: ' + err.message);
+  }
+}
 
 el('tiersBody').addEventListener('input', (e) => {
   const inp = e.target.closest('.tier-input');
@@ -1529,8 +1695,9 @@ function renderMasters() {
       <td><b>${Number(m.commission_rate).toFixed(0)}%</b><br><span class="dim">${fmt(m.commission_amount)}</span></td>
       <td>
         <span class="rowbtns">
-          <button class="b-in"  data-ma="topup"  data-id="${m.id}" title="إرسال عهدة للماستر">أرسل</button>
-          <button class="b-out" data-ma="debit"  data-id="${m.id}" title="سحب عهدة من الماستر">اسحب</button>
+          <button class="btn-eye"  data-ma="view"   data-id="${m.id}" data-name="${escapeHtml(m.username)}" title="عرض كاشيرية ولاعبي الماستر وإحصائيات شبكته">👁️ شبكته</button>
+          <button class="b-in"     data-ma="topup"  data-id="${m.id}" title="إرسال عهدة للماستر">أرسل</button>
+          <button class="b-out"    data-ma="debit"  data-id="${m.id}" title="سحب عهدة من الماستر">اسحب</button>
           <button data-ma="chain"  data-id="${m.id}" title="كشف حساب شبكة الماستر">كشفه</button>
           <button data-ma="toggle" data-id="${m.id}" data-next="${m.active ? '0' : '1'}" title="${m.active ? 'إيقاف حساب الماستر' : 'تفعيل حساب الماستر'}">
             ${m.active ? 'أوقف' : 'شغّل'}
@@ -1615,7 +1782,11 @@ el('mastersBody').addEventListener('click', async (e) => {
   const id = b.dataset.id;
   const what = b.dataset.ma;
   try {
-    if (what === 'topup' || what === 'debit') {
+    if (what === 'view') {
+      const m = MASTERS.find((x) => x.id === id) || { username: b.dataset.name || 'الماستر', id };
+      openMasterNetworkModal(m);
+      return;
+    } else if (what === 'topup' || what === 'debit') {
       const raw = prompt(what === 'topup' ? 'المبلغ المُرسل للماستر' : 'المبلغ المسحوب من الماستر');
       if (raw === null) return;
       const amount = Number(raw);
@@ -1642,6 +1813,186 @@ el('mastersBody').addEventListener('click', async (e) => {
     await loadMasters();
   } catch (err) { toast(err.message, 'error', 6000); }
 });
+
+async function openMasterNetworkModal(m) {
+  CashierModal.show({
+    icon: '👑',
+    title: `شبكة الماستر: ${m.username}`,
+    subtitle: 'جارٍ تحميل كاشيرية ولاعبي الماستر…',
+    wide: true,
+    content: `<div style="text-align:center;padding:40px;color:var(--txt-2)">⏳ جارٍ جلب شبكة الماستر…</div>`
+  });
+
+  try {
+    const res = await adminGet('/api/admin/master/cashiers?master=' + encodeURIComponent(m.id));
+    const master = res.master || m;
+    const cashiers = res.cashiers || [];
+    const players = res.players || [];
+    const cur = master.currency || m.currency || 'IQD';
+
+    const totalCashiersFloat = cashiers.reduce((s, c) => s + Number(c.float_balance != null ? c.float_balance : (c.balance || 0)), 0);
+    const totalPlayersBal = players.reduce((s, p) => s + Number(p.balance || 0), 0);
+    const totalDeposited = players.reduce((s, p) => s + Number(p.total_deposited || 0), 0);
+    const totalWithdrawn = players.reduce((s, p) => s + Number(p.total_withdrawn || 0), 0);
+    const floatVal = master.unlimited_float ? '∞' : fmt(master.float_balance != null ? master.float_balance : (master.balance || 0));
+
+    const cashiersRows = cashiers.length ? cashiers.map((c) => {
+      const cFloat = c.unlimited_float ? '∞' : fmt(c.float_balance != null ? c.float_balance : (c.balance || 0));
+      return `
+        <tr>
+          <td><b class="mono">${escapeHtml(c.username)}</b><br><span class="dim" style="font-size:11px">${escapeHtml(c.display_id || '')}</span></td>
+          <td class="dim">${escapeHtml(c.country || '—')}</td>
+          <td class="num"><b>${cFloat}</b> ${cur}</td>
+          <td class="num">${fmt(c.player_count || 0)}</td>
+          <td class="num">${fmt(c.players_balance || 0)}</td>
+          <td class="num pos">${fmt(c.burn || 0)}</td>
+          <td>
+            <button class="btn-eye btn--sm" data-ca-sub-view="${c.id}" style="padding:4px 8px;font-size:11px">👁️ عرض لاعبيه</button>
+          </td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty-cell">لا يوجد كاشيرية مسجلون تحت هذا الماستر بعد.</td></tr>`;
+
+    const playersRows = players.length ? players.map((p) => {
+      const pName = p.username || p.display_id || p.id;
+      return `
+        <tr>
+          <td><b class="mono">${escapeHtml(pName)}</b></td>
+          <td><span class="badge-cashier">💼 ${escapeHtml(p.cashier_username || 'كاشير')}</span></td>
+          <td class="num"><b>${fmt(p.balance)}</b> ${cur}</td>
+          <td class="num tag-in">${fmt(p.total_deposited || 0)}</td>
+          <td class="num tag-out">${fmt(p.total_withdrawn || 0)}</td>
+          <td class="num ${p.game_pl > 0 ? 'pos' : p.game_pl < 0 ? 'neg' : 'dim'}">${p.game_pl ? fmtSigned(p.game_pl) : '0'}</td>
+          <td><span class="${p.active ? 'pos' : 'neg'}">${p.active ? 'نشط' : 'موقوف'}</span></td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty-cell">لا يوجد لاعبون في شبكة هذا الماستر بعد.</td></tr>`;
+
+    const html = `
+      <div class="net-kpis">
+        <div class="net-kpi net-kpi--gold">
+          <span class="net-kpi__lbl">عهدة الماستر</span>
+          <span class="net-kpi__val">${floatVal} ${cur}</span>
+        </div>
+        <div class="net-kpi net-kpi--blue">
+          <span class="net-kpi__lbl">كاشيرية الماستر</span>
+          <span class="net-kpi__val">${cashiers.length} كاشير</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">إجمالي عهدات كاشيريته</span>
+          <span class="net-kpi__val">${fmt(totalCashiersFloat)} ${cur}</span>
+        </div>
+        <div class="net-kpi net-kpi--blue">
+          <span class="net-kpi__lbl">إجمالي لاعبي شبكته</span>
+          <span class="net-kpi__val">${players.length} لاعب</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">أرصدة لاعبي الشبكة</span>
+          <span class="net-kpi__val">${fmt(totalPlayersBal)} ${cur}</span>
+        </div>
+        <div class="net-kpi net-kpi--pos">
+          <span class="net-kpi__lbl">إيداعات شبكته</span>
+          <span class="net-kpi__val">${fmt(totalDeposited)}</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">سحوبات شبكته</span>
+          <span class="net-kpi__val">${fmt(totalWithdrawn)}</span>
+        </div>
+        <div class="net-kpi">
+          <span class="net-kpi__lbl">حرق الشبكة (Burn)</span>
+          <span class="net-kpi__val">${fmt(master.burn || 0)}</span>
+        </div>
+      </div>
+
+      <div class="net-tabs">
+        <button type="button" class="net-tab is-active" id="mTabCashiers">💼 كاشيرية الماستر (${cashiers.length})</button>
+        <button type="button" class="net-tab" id="mTabPlayers">🎮 لاعبو شبكة الماستر (${players.length})</button>
+      </div>
+
+      <div id="mPanelCashiers">
+        <div class="table-wrap" style="max-height:340px;overflow-y:auto">
+          <table class="dt dt--compact">
+            <thead>
+              <tr>
+                <th>الكاشير</th>
+                <th>الدولة</th>
+                <th>عهدته</th>
+                <th>لاعبوه</th>
+                <th>أرصدتهم</th>
+                <th>حرقه</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cashiersRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="mPanelPlayers" hidden>
+        <div class="table-wrap" style="max-height:340px;overflow-y:auto">
+          <table class="dt dt--compact">
+            <thead>
+              <tr>
+                <th>اللاعب / المعرف</th>
+                <th>الكاشير المباشر</th>
+                <th>الرصيد</th>
+                <th>إيداعاته</th>
+                <th>سحوباته</th>
+                <th>صافي لعبه</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${playersRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="cm-actions" style="margin-top:16px">
+        <button type="button" class="btn btn--dark" onclick="CashierModal.hide()">إغلاق النافذة</button>
+      </div>
+    `;
+
+    CashierModal.show({
+      icon: '👑',
+      title: `داشبورد شبكة الماستر: ${master.username}`,
+      subtitle: `المعرف: ${master.display_id || master.id} · الدولة: ${master.country || ''} (${cur})`,
+      wide: true,
+      content: html,
+      onMount(container) {
+        const tabC = container.querySelector('#mTabCashiers');
+        const tabP = container.querySelector('#mTabPlayers');
+        const panC = container.querySelector('#mPanelCashiers');
+        const panP = container.querySelector('#mPanelPlayers');
+
+        tabC?.addEventListener('click', () => {
+          tabC.classList.add('is-active');
+          tabP.classList.remove('is-active');
+          panC.hidden = false;
+          panP.hidden = true;
+        });
+
+        tabP?.addEventListener('click', () => {
+          tabP.classList.add('is-active');
+          tabC.classList.remove('is-active');
+          panP.hidden = false;
+          panC.hidden = true;
+        });
+
+        container.querySelectorAll('button[data-ca-sub-view]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const cid = btn.dataset.caSubView;
+            const cObj = cashiers.find(x => x.id === cid) || { id: cid };
+            openCashierNetworkModal(cObj);
+          });
+        });
+      }
+    });
+  } catch (err) {
+    CashierModal.showError('تعذّر جلب شبكة الماستر: ' + err.message);
+  }
+}
 
 /* ═══════════════════════ سجلّ الألعاب الخارجية ═══════════════════════ */
 let GAMES = [];
