@@ -70,7 +70,7 @@ function checkEmail(email) {
 }
 
 function checkPassword(password) {
-  const p = String(password || '');
+  const p = String(password || '').trim();
   if (p.length < MIN_PASSWORD) return { ok: false, error: `كلمة المرور: ${MIN_PASSWORD} خانات على الأقل` };
   if (p.length > 200) return { ok: false, error: 'كلمة المرور طويلة جداً' };
   return { ok: true, value: p };
@@ -343,27 +343,34 @@ async function createPlayer({ cashierId, username, email, password, createdBy })
 
 // ------------------------------------------------------------------- تسجيل الدخول
 async function login(identifier, password, { expectRole } = {}) {
-  const id = String(identifier || '').trim().toLowerCase();
-  if (!id || !password) return { ok: false, error: 'أدخل اسم المستخدم وكلمة المرور' };
+  const rawId = String(identifier || '').trim();
+  const id = rawId.toLowerCase();
+  const pwd = String(password || '');
+  if (!rawId || !pwd) return { ok: false, error: 'أدخل اسم المستخدم وكلمة المرور' };
 
   await ensureSupabase();
-  if (supabaseReady) {
+  if (supabaseReady || sb.configured()) {
     try {
-      const q = id.includes('@')
-        ? `select=*&email_key=eq.${sb.enc(id)}`
-        : `select=*&username_key=eq.${sb.enc(id)}`;
-      const row = await sb.selectOne('accounts', q);
-      if (row && verifyPassword(password, row.password_hash, row.password_salt)) {
-        if (!row.active) return { ok: false, error: 'هذا الحساب موقوف — راجع الكاشير' };
+      const q = `or=(username_key.eq.${sb.enc(id)},email_key.eq.${sb.enc(id)},display_id.eq.${sb.enc(rawId)},display_id.eq.${sb.enc(rawId.toUpperCase())},id.eq.${sb.enc(rawId)})`;
+      const row = await sb.selectOne('accounts', `select=*&${q}`);
+      if (row) {
+        const isMatch = verifyPassword(pwd, row.password_hash, row.password_salt) ||
+                        verifyPassword(pwd.trim(), row.password_hash, row.password_salt);
+        if (!isMatch) {
+          return { ok: false, error: 'كلمة المرور غير صحيحة' };
+        }
+        if (!row.active) {
+          return { ok: false, error: 'هذا الحساب موقوف — راجع الإدارة' };
+        }
         if (expectRole && row.role !== expectRole) {
-          return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+          return { ok: false, error: `هذا الحساب ليس حساب ${expectRole === 'cashier' ? 'كاشير' : expectRole === 'master' ? 'ماستر' : 'لاعب'}` };
         }
         const token = newToken();
         await sb.update('accounts', `id=eq.${row.id}`,
           { play_token: token, last_login_at: new Date().toISOString() }, { returning: false });
         return { ok: true, token, account: strip({ ...row, play_token: undefined }) };
       }
-      return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+      return { ok: false, error: 'اسم المستخدم أو المعرّف غير مسجّل' };
     } catch (err) {
       console.warn('[accounts] خطأ الدخول عبر Supabase:', err.message);
     }
@@ -371,13 +378,24 @@ async function login(identifier, password, { expectRole } = {}) {
 
   // المحرك المحلي
   const db = getLocal();
-  const row = db.accounts.find((a) => (a.username_key === id || a.email_key === id));
-  if (!row || !verifyPassword(password, row.password_hash, row.password_salt)) {
-    return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+  const row = db.accounts.find((a) =>
+    a.username_key === id ||
+    a.email_key === id ||
+    a.display_id === rawId ||
+    a.display_id === rawId.toUpperCase() ||
+    a.id === rawId
+  );
+  if (!row) {
+    return { ok: false, error: 'اسم المستخدم أو المعرّف غير مسجّل' };
   }
-  if (!row.active) return { ok: false, error: 'هذا الحساب موقوف — راجع الكاشير' };
+  const isMatch = verifyPassword(pwd, row.password_hash, row.password_salt) ||
+                  verifyPassword(pwd.trim(), row.password_hash, row.password_salt);
+  if (!isMatch) {
+    return { ok: false, error: 'كلمة المرور غير صحيحة' };
+  }
+  if (!row.active) return { ok: false, error: 'هذا الحساب موقوف — راجع الإدارة' };
   if (expectRole && row.role !== expectRole) {
-    return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+    return { ok: false, error: `هذا الحساب ليس حساب ${expectRole === 'cashier' ? 'كاشير' : expectRole === 'master' ? 'ماستر' : 'لاعب'}` };
   }
 
   const token = newToken();

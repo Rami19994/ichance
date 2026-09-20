@@ -208,7 +208,7 @@ function renderTopbar() {
   return `
     <button class="burger" id="burger" aria-label="القائمة">${ICONS.menu}</button>
     <a class="logo" href="/">
-      <span class="logo__mark">iC</span>
+      <span class="logo__mark">LA</span>
       <span class="logo__text"><b>LuckyArena</b><span>CASINO & SPORTS</span></span>
     </a>
 

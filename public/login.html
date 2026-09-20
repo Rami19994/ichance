@@ -100,7 +100,7 @@
   <div class="auth__wrap">
     <div class="auth__glow"></div>
     <form class="auth__box" id="loginForm">
-      <div class="auth__logo">iC</div>
+      <div class="auth__logo">LA</div>
       <span class="auth__badge">بوابة دخول اللاعبين</span>
       <h1 class="auth__title">تسجيل الدخول</h1>
       <p class="auth__desc">ادخل باسم المستخدم أو الإيميل وكلمة المرور للبدء باللعب.</p>
@@ -155,8 +155,8 @@ el('loginForm').addEventListener('submit', async (e) => {
 
   try {
     const data = await API.post('/api/auth/login', {
-      identifier: el('identifier').value,
-      password: el('password').value
+      identifier: el('identifier').value.trim(),
+      password: el('password').value.trim()
     });
     try { localStorage.setItem('ichance.token', data.token); } catch (e) {}
     const next = new URLSearchParams(location.search).get('next');

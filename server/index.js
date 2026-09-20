@@ -1440,7 +1440,7 @@ if (!process.env.VERCEL) {
   server.listen(config.SERVER.port, config.SERVER.host, () => {
     const line = '─'.repeat(52);
     console.log(`\n${line}`);
-    console.log('  iCHANCE — منصة ألعاب بعملة افتراضية');
+    console.log('  LuckyArena — منصة ألعاب كازينو ومراهنات فاخرة');
     console.log(line);
     console.log(`  الرابط        : http://localhost:${config.SERVER.port}`);
     console.log(`  اللعبة 1      : كروت الحظ (${config.CARD_COUNT} كرت — ${config.GRID.cols}×${config.GRID.rows})`);

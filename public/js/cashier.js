@@ -75,8 +75,8 @@ el('gateForm').addEventListener('submit', async (e) => {
   el('gateBtn').disabled = true;
   try {
     const out = await api('POST', '/api/cashier/login', {
-      identifier: el('cuser').value,
-      password: el('cpass').value
+      identifier: el('cuser').value.trim(),
+      password: el('cpass').value.trim()
     });
     token = out.token;
     try { localStorage.setItem(CASHIER_TOKEN_KEY, token); } catch { /* تصفح خاص */ }

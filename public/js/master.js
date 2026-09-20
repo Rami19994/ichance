@@ -68,8 +68,8 @@ el('gateForm').addEventListener('submit', async (e) => {
   el('gateBtn').disabled = true;
   try {
     const out = await api('POST', '/api/master/login', {
-      identifier: el('muser').value,
-      password: el('mpass').value
+      identifier: el('muser').value.trim(),
+      password: el('mpass').value.trim()
     });
     token = out.token;
     try { localStorage.setItem(MASTER_TOKEN_KEY, token); } catch { /* تصفح خاص */ }
