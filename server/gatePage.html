@@ -116,7 +116,8 @@ document.getElementById('go').addEventListener('click', async () => {
     const r = await call('/api/admin/gate');
     try {
       localStorage.setItem('ichance.adminKey', r.key);
-      document.cookie = 'ichance_admin_gate=' + encodeURIComponent(GATE) + '; path=/; max-age=86400; SameSite=Lax';
+      localStorage.setItem('ichance_admin_gate', GATE);
+      document.cookie = 'ichance_admin_gate=' + encodeURIComponent(GATE) + '; path=/; max-age=31536000; SameSite=Lax';
     } catch (e) {}
     show('ok', 'تم توليد مفتاح المالك بنجاح! جارٍ التحويل إلى لوحة التحكم…' +
                '<code>' + r.key + '</code>');

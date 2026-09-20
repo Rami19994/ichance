@@ -56,8 +56,14 @@ function boardMini(cards) {
 }
 
 function currentGateProof() {
-  return new URLSearchParams(location.search).get('gate') ||
-         document.cookie.match(/ichance_admin_gate=([A-Za-z0-9_-]+)/)?.[1] || '';
+  const fromQuery = new URLSearchParams(location.search).get('gate');
+  if (fromQuery) {
+    try { localStorage.setItem('ichance_admin_gate', fromQuery); } catch { /* تصفح خاص */ }
+    return fromQuery;
+  }
+  const fromCookie = document.cookie.match(/ichance_admin_gate=([A-Za-z0-9_-]+)/)?.[1];
+  if (fromCookie) return fromCookie;
+  try { return localStorage.getItem('ichance_admin_gate') || ''; } catch { return ''; }
 }
 
 async function adminGet(path) {
@@ -69,6 +75,9 @@ async function adminGet(path) {
   const res = await fetch(url, { headers });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401) {
+      showGate((data && data.error) || 'انتهت صلاحية المفتاح — أدخل مفتاحك للمتابعة');
+    }
     const err = new Error((data && data.error) || `خطأ ${res.status}`);
     err.status = res.status;
     throw err;
@@ -89,6 +98,9 @@ async function adminPost(path, body) {
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401) {
+      showGate((data && data.error) || 'انتهت صلاحية المفتاح — أدخل مفتاحك للمتابعة');
+    }
     const err = new Error((data && data.error) || `خطأ ${res.status}`);
     err.status = res.status;
     throw err;
@@ -174,6 +186,7 @@ async function enterWith(value) {
   loadMasters();
   loadGames();
   loadDomainConfig();
+  loadAdminKeys();
 }
 
 el('gateForm').addEventListener('submit', async (e) => {
@@ -214,40 +227,89 @@ el('claimForm').addEventListener('submit', async (e) => {
   }
 });
 
-/* ------------------------- تغيير المفتاح لاحقاً ------------------------- */
+/* ------------------------- إدارة مفاتيح وأجهزة الأدمن ------------------------- */
+let ADMIN_KEYS = [];
+
 function paintKeySection(status) {
   if (!status) return;
-  const canRotate = !!status.canRotate;
-  el('keySource').textContent = !canRotate
-    ? 'مضبوط من متغيّر البيئة ICHANCE_ADMIN_KEY — يُغيَّر من الاستضافة'
-    : status.storageWritable === false
-      ? '⚠ مجلّد data غير قابل للكتابة — المفتاح لن يبقى بعد إعادة التشغيل'
-      : 'محفوظ على الخادم — دائم بعد إعادة التشغيل';
-  el('newKeyInput').disabled = !canRotate;
-  el('genKeyBtn').disabled = !canRotate;
-  el('rotateBtn').disabled = !canRotate;
+  el('keySource').textContent = `المفاتيح النشطة: ${status.keysCount || 1} مفتاح (يدعم تعدد الأجهزة)`;
 }
 
-el('genKeyBtn').addEventListener('click', () => {
+async function loadAdminKeys() {
+  try {
+    const res = await adminGet('/api/admin/keys');
+    ADMIN_KEYS = res.keys || [];
+    renderAdminKeysTable();
+  } catch (err) {
+    if (err.status !== 401) console.warn('admin keys:', err.message);
+  }
+}
+
+function renderAdminKeysTable() {
+  const body = el('adminKeysBody');
+  if (!body) return;
+  if (!ADMIN_KEYS.length) {
+    body.innerHTML = '<tr><td colspan="4" class="muted">لا توجد مفاتيح مسجلة.</td></tr>';
+    return;
+  }
+  body.innerHTML = ADMIN_KEYS.map((k) => {
+    const created = new Date(k.createdAt);
+    const createdStr = `${created.toLocaleDateString('ar-EG')} ${timeOf(k.createdAt)}`;
+    const usedStr = k.lastUsedAt ? `${new Date(k.lastUsedAt).toLocaleDateString('ar-EG')} ${timeOf(k.lastUsedAt)}` : 'لم يُستخدم بعد';
+    const canDelete = ADMIN_KEYS.length > 1;
+    return `
+      <tr>
+        <td><b>${escapeHtml(k.name)}</b></td>
+        <td class="dim">${createdStr}</td>
+        <td class="dim">${usedStr}</td>
+        <td>
+          ${canDelete
+            ? `<button class="btn btn--dark btn--sm" data-key-del="${k.id}">🗑️ حذف المفتاح</button>`
+            : '<span class="dim">المفتاح الوحيد</span>'}
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+el('adminKeysBody')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-key-del]');
+  if (!btn) return;
+  const id = btn.dataset.keyDel;
+  if (!confirm('هل أنت متأكد من حذف مفتاح هذا الجهاز نهائياً؟')) return;
+  try {
+    await adminPost('/api/admin/keys/delete', { keyId: id });
+    toast('تم حذف المفتاح بنجاح');
+    await loadAdminKeys();
+    keyStatus().then(paintKeySection);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
+
+el('genKeyBtn')?.addEventListener('click', () => {
   el('newKeyInput').value = randomKey();
   el('newKeyInput').focus();
   el('newKeyInput').select();
 });
 
-el('rotateBtn').addEventListener('click', async () => {
+el('addKeyBtn')?.addEventListener('click', async () => {
+  const name = el('newKeyNameInput').value.trim() || 'جهاز أدمن إضافي';
   const wanted = el('newKeyInput').value.trim();
   const errBox = el('keyError');
   errBox.hidden = true;
-  if (!confirm('سيتوقف المفتاح الحالي فوراً على كل الأجهزة. متابعة؟')) return;
   try {
-    const out = await adminPost('/api/admin/rotate', wanted ? { key: wanted } : {});
-    // الخادم غيّر المفتاح، فمفتاح الجلسة الحالي لم يعد صالحاً — نبدّله فوراً
-    adminKey = out.key;
-    try { localStorage.setItem(KEY_STORE, out.key); } catch { /* تصفح خاص */ }
+    const out = await adminPost('/api/admin/keys/add', {
+      name,
+      key: wanted || undefined
+    });
     el('newKeyInput').value = '';
+    el('newKeyNameInput').value = '';
     el('keyValue').textContent = out.key;
+    el('keyResultLabel').textContent = `تم إنشاء المفتاح بنجاح لـ (${escapeHtml(out.name)}) — انسخه الآن وسلمه للأدمن:`;
     el('keyResult').hidden = false;
-    toast('تم تغيير المفتاح');
+    toast('تم إنشاء وحفظ المفتاح الجديد بنجاح', 'win');
+    await loadAdminKeys();
+    keyStatus().then(paintKeySection);
   } catch (ex) {
     errBox.hidden = false;
     errBox.textContent = ex.message;
@@ -1519,13 +1581,18 @@ el('newMasterForm').addEventListener('submit', async (e) => {
   out.hidden = true;
   el('nmBtn').disabled = true;
   const password = el('nmPass').value;
+  const userVal = el('nmUser').value.trim();
   try {
-    const r = await adminPost('/api/admin/master', {
-      username: el('nmUser').value.trim(),
+    const payload = {
+      username: userVal,
       password,
       country: el('nmCountry').value,
       startingFloat: Number(el('nmFloat').value) || 0
-    });
+    };
+    if (userVal.includes('@')) {
+      payload.email = userVal;
+    }
+    const r = await adminPost('/api/admin/master', payload);
     out.hidden = false;
     out.innerHTML = `<b>أُنشئ الماستر.</b> سلّمه بياناته — كلمة المرور لن تظهر ثانية:
       المستخدم <code>${escapeHtml(r.master.username)}</code>

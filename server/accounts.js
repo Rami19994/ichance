@@ -53,9 +53,9 @@ function shortId() {
 function checkUsername(username) {
   const u = String(username || '').trim();
   if (u.length < 3) return { ok: false, error: 'اسم المستخدم قصير — 3 أحرف على الأقل' };
-  if (u.length > 24) return { ok: false, error: 'اسم المستخدم طويل' };
-  if (!/^[A-Za-z0-9._-]+$/.test(u)) {
-    return { ok: false, error: 'اسم المستخدم: حروف إنجليزية وأرقام و . _ - فقط' };
+  if (u.length > 64) return { ok: false, error: 'اسم المستخدم طويل' };
+  if (!/^[A-Za-z0-9._@+-]+$/.test(u)) {
+    return { ok: false, error: 'اسم المستخدم: حروف إنجليزية وأرقام و . _ - @ فقط' };
   }
   return { ok: true, value: u };
 }
@@ -906,9 +906,14 @@ async function setCommissionTiers(tiers) {
    ═══════════════════════════════════════════════════════════════════════ */
 
 async function createMaster({ username, email, password, startingFloat = 0, unlimited = false, country }) {
-  const u = checkUsername(username); if (!u.ok) return u;
+  let uRaw = String(username || '').trim();
+  let emRaw = email ? String(email).trim() : '';
+  if (uRaw.includes('@') && !emRaw) {
+    emRaw = uRaw;
+  }
+  const u = checkUsername(uRaw); if (!u.ok) return u;
   const p = checkPassword(password); if (!p.ok) return p;
-  const em = email ? checkEmail(email) : { ok: true, value: null };
+  const em = emRaw ? checkEmail(emRaw) : { ok: true, value: null };
   if (!em.ok) return em;
   const f = startingFloat ? checkAmount(startingFloat) : { ok: true, value: 0 };
   if (!f.ok) return f;

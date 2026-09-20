@@ -891,15 +891,43 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true });
     }
 
+    const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
+    const isAuthed = key ? (await adminAuth.verify(key)) : false;
+
     // فحص عزل دومين الإدارة أو برهان البوابة السرية
-    if (!(await isAdminAllowed(req, url))) {
-      return sendJson(res, 404, { error: 'الصفحة غير موجودة' });
+    if (!isAuthed) {
+      const allowedByGate = await isAdminAllowed(req, url);
+      if (!allowedByGate) {
+        if (key) {
+          if (!rateLimit(`admin:${ip}`, 10, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
+          return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح أو تم إلغاؤه' });
+        }
+        return sendJson(res, 404, { error: 'الصفحة غير موجودة' });
+      }
     }
 
-    const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
-    if (!(await adminAuth.verify(key))) {
+    if (!isAuthed) {
       if (!rateLimit(`admin:${ip}`, 10, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
-      return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح' });
+      return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح أو تم إلغاؤه' });
+    }
+
+    // إدارة مفاتيح وأجهزة الأدمن المتعددة
+    if (route === '/api/admin/keys' && req.method === 'GET') {
+      return sendJson(res, 200, { keys: await adminAuth.listKeys() });
+    }
+
+    if (route === '/api/admin/keys/add' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await adminAuth.addKey(body.key || adminAuth.generateKey(), { name: body.name });
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
+    }
+
+    if (route === '/api/admin/keys/delete' && req.method === 'POST') {
+      const body = await readBody(req);
+      const out = await adminAuth.revokeKey(body.keyId);
+      if (!out.ok) return sendJson(res, 400, { error: out.error });
+      return sendJson(res, 200, out);
     }
 
     // إعدادات دومين الإدارة المخصص

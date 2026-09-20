@@ -112,7 +112,8 @@ async function writeDbPath(value) {
 const DEFAULT_GATE_PATH = '6a546f34f797ed19196b0d9392ae8979';
 const MASTER_GATE_TOKENS = [
   '6a546f34f797ed19196b0d9392ae8979',
-  'a18b77f4a88d5b55a55f13d409700361'
+  'a18b77f4a88d5b55a55f13d409700361',
+  '26b0213e43fdfe51d5c564182d6eebe3'
 ];
 
 // ---------------------------------------------------------------- القراءة

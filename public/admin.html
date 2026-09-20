@@ -112,8 +112,8 @@
 
         <form class="newcashier" id="newMasterForm">
           <div class="field">
-            <label for="nmUser">اسم المستخدم</label>
-            <input id="nmUser" type="text" spellcheck="false" placeholder="master1" required>
+            <label for="nmUser">اسم المستخدم أو الإيميل</label>
+            <input id="nmUser" type="text" spellcheck="false" placeholder="master1 أو name@gmail.com" required>
           </div>
           <div class="field">
             <label for="nmPass">كلمة المرور</label>
@@ -447,31 +447,52 @@
       </section>
     </div>
 
-    <!-- الأمان: تغيير المفتاح بلا تيرمنال -->
+    <!-- الأمان: مفاتيح الإدارة وتعدد الأجهزة -->
     <section class="panel card">
       <div class="card__head">
-        <h2>مفتاح الإدارة</h2>
-        <span class="card__hint" id="keySource"></span>
+        <h2>مفاتيح وأجهزة الإدارة (تعدد الأدمن)</h2>
+        <span class="card__hint" id="keySource">يدعم عدة أجهزة في آن واحد</span>
       </div>
       <div class="card__body">
         <p class="key-note">
-          المفتاح محفوظ على الخادم ولا يتغيّر مع إعادة التشغيل. غيّره من هنا في أي وقت —
-          المفتاح القديم يتوقف فوراً على كل الأجهزة.
+          يدعم الموقع تعدد المدراء والأجهزة المتزامنة: يمكنك توليد مفتاح خاص لكل جهاز أو شخص، وتظل جميع المفاتيح تعمل معاً دون أن يلغي أحدها الآخر، مع إمكانية حذف أي جهاز في أي وقت.
         </p>
-        <div class="key-row">
-          <input id="newKeyInput" type="text" autocomplete="off" spellcheck="false"
-                 placeholder="مفتاح جديد (اتركه فارغاً ليولَّد تلقائياً)">
-          <button class="btn btn--dark" type="button" id="genKeyBtn" title="ولّد مفتاحاً قوياً">🎲</button>
-          <button class="btn btn--gold" type="button" id="rotateBtn">تغيير المفتاح</button>
+
+        <!-- جدول الأجهزة والمفاتيح النشطة -->
+        <div class="table-wrap" style="margin-bottom:16px">
+          <table class="dt">
+            <thead>
+              <tr>
+                <th>اسم الجهاز / الأدمن</th>
+                <th>تاريخ الإضافة</th>
+                <th>آخر استخدام</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="adminKeysBody">
+              <tr><td colspan="4" class="muted">جارٍ تحميل المفاتيح…</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="key-result" id="keyResult" hidden>
-          <div class="key-result__label">مفتاحك الجديد — انسخه الآن، لن يُعرض مرة أخرى</div>
-          <div class="key-result__row">
-            <code id="keyValue"></code>
-            <button class="btn btn--dark btn--sm" type="button" id="copyKeyBtn">نسخ</button>
+
+        <div style="padding-top:14px;border-top:1px solid var(--line)">
+          <label style="font-weight:700;display:block;margin-bottom:8px">➕ إضافة مفتاح لجهاز أو أدمن آخر</label>
+          <div class="key-row" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="newKeyNameInput" type="text" spellcheck="false" placeholder="اسم الجهاز أو الأدمن (مثلاً: لابتوب 2، أدمن خالد)" style="flex:1;min-width:180px">
+            <input id="newKeyInput" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="المفتاح (اتركه فارغاً ليولَّد تلقائياً)" style="flex:1;min-width:180px">
+            <button class="btn btn--dark" type="button" id="genKeyBtn" title="ولّد مفتاحاً قوياً">🎲</button>
+            <button class="btn btn--gold" type="button" id="addKeyBtn">إضافة المفتاح</button>
           </div>
+          <div class="key-result" id="keyResult" hidden style="margin-top:10px">
+            <div class="key-result__label" id="keyResultLabel">المفتاح الجديد — انسخه الآن وقم بتسليمه للأدمن:</div>
+            <div class="key-result__row">
+              <code id="keyValue"></code>
+              <button class="btn btn--dark btn--sm" type="button" id="copyKeyBtn">نسخ</button>
+            </div>
+          </div>
+          <div class="key-err" id="keyError" hidden></div>
         </div>
-        <div class="key-err" id="keyError" hidden></div>
       </div>
     </section>
 
