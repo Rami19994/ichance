@@ -265,7 +265,7 @@ async function resolveCashier(req, url) {
  * 2. أو إذا كان يحمل برهان البوابة السرية (query ?gate=... أو cookie أو header).
  * 3. أو إذا كان يحمل مفتاح إدارة صحيح ومصادقاً.
  */
-function isAdminAllowed(req, url) {
+async function isAdminAllowed(req, url) {
   const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
   const adminDomain = siteConfig.getAdminDomain();
   if (adminDomain && host === adminDomain) return true;
@@ -273,7 +273,7 @@ function isAdminAllowed(req, url) {
   const gateProof = url.searchParams.get('gate') ||
                     (req.headers['x-gate'] || '') ||
                     (req.headers['cookie'] || '').match(/ichance_admin_gate=([A-Za-z0-9_-]+)/)?.[1];
-  if (gateProof && adminGate.matches('/' + gateProof)) return true;
+  if (gateProof && await adminGate.matches('/' + gateProof)) return true;
 
   const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
   if (key && adminAuth.verify(key)) return true;
@@ -745,19 +745,7 @@ async function handleApi(req, res, url) {
   // تشخيص مفتوح: لا يكشف المسار، ويقول ما الذي يمنع البوابة من العمل.
   // بدونه يبقى المالك يخمّن بين 404 و429 بلا دليل.
   if (route === '/api/admin/gate/status' && req.method === 'GET') {
-    const g = adminGate.get();
-    return sendJson(res, 200, {
-      configured: !!g.path,
-      source: g.source,               // env | file | needs-env | broken
-      canRotatePath: g.source === 'file',
-      serverless: !!process.env.VERCEL,
-      pathLength: g.path ? g.path.length : 0,
-      hint: g.path
-        ? (g.source === 'env'
-            ? 'المسار من متغيّر البيئة ICHANCE_GATE_PATH — يُغيَّر من لوحة الاستضافة لا من هنا'
-            : 'المسار محفوظ في data/admin-gate.json')
-        : 'اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة ثم أعد النشر'
-    });
+    return sendJson(res, 200, await adminGate.status());
   }
 
   if (route === '/api/admin/gate' || route === '/api/admin/gate/path') {
@@ -773,14 +761,15 @@ async function handleApi(req, res, url) {
     // على Serverless لا قرص دائم، فالمسار يأتي من متغيّر البيئة. لو كان
     // ناقصاً يفشل كل نداء بـ404 ثم يصطدم بحدّ المحاولات، فيظنّ المالك أن
     // رمزه خطأ وهو صحيح. نقولها صراحةً — وهذا لا يكشف المسار لأحد.
-    if (!adminGate.get().path) {
+    const gateState = await adminGate.current();
+    if (!gateState.path) {
       return sendJson(res, 503, {
-        error: 'البوابة غير مضبوطة على هذا الخادم — اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة'
+        error: 'تعذّر حفظ مسار البوابة — تأكّد من اتصال قاعدة البيانات'
       });
     }
 
     const proof = String(req.headers['x-gate'] || '').trim();
-    if (!adminGate.matches(`/${proof}`)) {
+    if (!(await adminGate.matches(`/${proof}`))) {
       if (!rateLimit(`gatebad:${ip}`, 8, 10 * 60_000)) {
         return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر قليلاً' });
       }
@@ -799,7 +788,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true, key: out.key });
     }
 
-    const moved = adminGate.rotatePath();
+    const moved = await adminGate.rotatePath();
     if (!moved.ok) return sendJson(res, 400, { error: moved.error });
     return sendJson(res, 200, { ok: true, path: moved.path });
   }
@@ -903,7 +892,7 @@ async function handleApi(req, res, url) {
     }
 
     // فحص عزل دومين الإدارة أو برهان البوابة السرية
-    if (!isAdminAllowed(req, url)) {
+    if (!(await isAdminAllowed(req, url))) {
       return sendJson(res, 404, { error: 'الصفحة غير موجودة' });
     }
 
@@ -1339,6 +1328,22 @@ async function handleStream(req, res, url) {
   req.on('error', close);
 }
 
+/** يخدم صفحة البوابة إن طابق المسار، وإلا 404 كأي مسار مجهول. */
+async function serveGate(req, res, url) {
+  if (!(await adminGate.matches(url.pathname))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('غير موجود');
+  }
+  const buf = await fs.promises.readFile(path.join(__dirname, 'gatePage.html'));
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Robots-Tag': 'noindex, nofollow',
+    'Referrer-Policy': 'no-referrer'
+  });
+  res.end(buf);
+}
+
 const server = http.createServer((req, res) => {
   let url;
   try {
@@ -1380,25 +1385,14 @@ const server = http.createServer((req, res) => {
     if (url.pathname === '/' || url.pathname === '/admin') return sendStatic(req, res, '/admin.html');
   }
 
-  // مسار البوابة السرية لمالك الموقع
-  // الصفحة لا تُخدَّم إن لم تُضبط البوابة — ولا نُظهر 404 صامتاً للمالك
-  if (!adminGate.get().path && url.pathname.length > 8 && /^\/[a-f0-9]{16,64}$/.test(url.pathname)) {
-    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end('البوابة غير مضبوطة — اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة');
-  }
-
-  if (adminGate.matches(url.pathname)) {
-    return fs.promises.readFile(path.join(__dirname, 'gatePage.html'))
-      .then((buf) => {
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-store',
-          'X-Robots-Tag': 'noindex, nofollow',
-          'Referrer-Policy': 'no-referrer'
-        });
-        res.end(buf);
-      })
-      .catch(() => sendJson(res, 500, { error: 'تعذّر فتح الصفحة' }));
+  // مسار البوابة السرّية.
+  // فحص الشكل متزامن وبلا شبكة، فالصفحات العادية لا تدفع ثمن رحلة إلى
+  // قاعدة البيانات؛ ولا نذهب إليها إلا إذا بدا المسار مسارَ بوابة.
+  if (adminGate.looksLikeGate(url.pathname)) {
+    return serveGate(req, res, url).catch((err) => {
+      console.error('[gate]', err.message);
+      if (!res.headersSent) sendJson(res, 500, { error: 'خطأ في الخادم' });
+    });
   }
 
   // مسار الإدارة — يخدم صفحة الإدارة التي تطلب المفتاح وتتحقق منه
@@ -1460,7 +1454,9 @@ if (!process.env.VERCEL) {
     const off = siteConfig.report().filter((g) => !g.enabled);
     if (off.length) console.log(`  ألعاب موقوفة  : ${off.map((g) => g.name).join(' · ')}`);
     for (const l of adminAuth.bootLines(config.SERVER.port)) console.log(l);
-    for (const l of adminGate.bootLines()) console.log(l);
+    adminGate.bootLines()
+      .then((lines) => lines.forEach((l) => console.log(l)))
+      .catch(() => {});
     console.log(`${line}\n`);
   });
 

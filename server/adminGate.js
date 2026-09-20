@@ -4,21 +4,24 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { SERVER } = require('./config');
+const sb = require('./supabase');
 
 /**
  * البوابة السرّية للإدارة.
  *
- * صفحة على مسار عشوائي طويل، غير مذكورة في أي رابط ولا قائمة، تولّد مفتاح
- * إدارة جديداً بضغطة وتدخل به مباشرة. لا يحتاج المالك أن يحفظ مفتاحاً:
- * يحفظ الرابط وحده.
+ * صفحة على مسار عشوائي طويل، غير مذكورة في أي رابط، تولّد مفتاح إدارة
+ * جديداً بضغطة وتدخل به. المالك يحفظ الرابط وحده لا المفتاح.
  *
- * ⚠ الثمن الأمني، صراحةً: من يملك الرابط يملك اللوحة. لا كلمة مرور بعده.
- * لذلك:
- *   · المسار 128 بت عشوائية (32 خانة سداسية) — لا يُخمَّن ولا يُمسح بحثاً.
- *   · محاولات التوليد محدودة بصرامة.
- *   · الصفحة تُخدَّم من مجلّد الخادم لا من public، فلا يصل إليها أحد
- *     بتخمين اسم ملف، ولا تظهر في أي فهرسة.
- *   · كل توليد يُبطل المفتاح السابق فوراً.
+ * ── أين يُحفظ المسار
+ * في **قاعدة البيانات** أولاً. كان يُحفظ في ملف على القرص، فكانت
+ * الاستضافات بلا قرص دائم (Vercel) تفقده مع كل استدعاء — فلا يتغيّر إلا
+ * بمتغيّر بيئة وإعادة نشر. الآن يتبدّل بضغطة ويعمل فوراً في كل مكان.
+ *
+ * الترتيب: متغيّر البيئة (للإنقاذ لو فُقد كل شيء) ← قاعدة البيانات ←
+ * ملف محلّي (خادم بقرص دائم) ← يُولَّد ويُحفظ.
+ *
+ * ⚠ الثمن الأمني صراحةً: من يملك الرابط يملك اللوحة. لا كلمة مرور بعده.
+ * لذلك المسار 128 بت عشوائية لا تُخمَّن، والمحاولات الخاطئة محدودة.
  */
 
 const DATA_DIR = process.env.VERCEL
@@ -27,146 +30,187 @@ const DATA_DIR = process.env.VERCEL
 const FILE = path.join(DATA_DIR, 'admin-gate.json');
 const NOTE_FILE = path.join(DATA_DIR, 'admin-gate.txt');
 
-let state = null;
+const SECRET_KEY = 'gate_path';
+const SHAPE = /^[A-Za-z0-9_-]{16,64}$/;
 
-function newPath() {
-  return crypto.randomBytes(16).toString('hex');   // 128 بت
+/**
+ * مدّة التخزين المؤقّت.
+ * بدونه يدفع كل طلب رحلةً إلى قاعدة البيانات (~450 مللي ثانية). وبعد
+ * التبديل قد يبقى المسار القديم صالحاً على نسخة دافئة حتى انتهاء المدّة،
+ * لذلك هي قصيرة.
+ */
+const CACHE_MS = 20_000;
+
+const ENV_PATH = (process.env.ICHANCE_GATE_PATH || '').trim().replace(/^\/+/, '');
+const envLocked = () => !!ENV_PATH && SHAPE.test(ENV_PATH);
+
+let cache = null;          // { path, source, at }
+
+function newPath() { return crypto.randomBytes(16).toString('hex'); }
+
+// ---------------------------------------------------------------- الملف
+function readFilePath() {
+  try {
+    if (!fs.existsSync(FILE)) return null;
+    const raw = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+    if (raw && typeof raw.path === 'string' && SHAPE.test(raw.path)) return raw.path;
+    console.error('[gate] محتوى ملف البوابة غير صالح:', FILE);
+  } catch (err) {
+    console.error('[gate] تعذّرت قراءة ملف البوابة:', err.message);
+  }
+  return null;
 }
 
-function save() {
+function writeFilePath(value) {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(state, null, 2), 'utf8');
+    fs.writeFileSync(FILE, JSON.stringify({ path: value, updatedAt: Date.now() }, null, 2), 'utf8');
+    fs.writeFileSync(NOTE_FILE, [
+      'رابط بوابة الإدارة السرّية — LuckyArena',
+      '='.repeat(52), '', `/${value}`, '', '='.repeat(52),
+      'افتح هذا المسار على موقعك، ومن هناك تولّد مفتاح إدارة وتدخل.',
+      '',
+      'عامله معاملة كلمة المرور: من يملكه يملك اللوحة.',
+      'لتغييره: من صفحة البوابة نفسها، زرّ «تغيير الرابط السرّي».',
+      ''
+    ].join('\n'), 'utf8');
     return true;
   } catch (err) {
-    console.error('[gate] تعذّر حفظ مسار البوابة:', err.message);
+    console.error('[gate] تعذّر حفظ ملف البوابة:', err.message);
     return false;
   }
 }
 
-/** ينسخ الرابط نصّاً ليقرأه المالك من مدير ملفات الاستضافة بلا تيرمنال. */
-function writeNote() {
-  const body = [
-    'رابط بوابة الإدارة السرّية — iCHANCE',
-    '='.repeat(52),
-    '',
-    `/${state.path}`,
-    '',
-    '='.repeat(52),
-    'افتح هذا المسار على موقعك، مثال:',
-    `  https://your-site.com/${state.path}`,
-    '',
-    'من هناك تولّد مفتاح إدارة جديداً وتدخل اللوحة بضغطة.',
-    '',
-    'عامل هذا الرابط معاملة كلمة المرور: من يملكه يملك لوحة الإدارة.',
-    'لا تشاركه، ولا تفتحه على جهاز لا تثق به، ولا تضعه في أي رسالة.',
-    'لتبديله: احذف data/admin-gate.json وأعد تشغيل الخادم.',
-    ''
-  ].join('\n');
+// ------------------------------------------------------- قاعدة البيانات
+async function readDbPath() {
+  if (!sb.configured()) return null;
   try {
-    fs.writeFileSync(NOTE_FILE, body, 'utf8');
+    const row = await sb.selectOne('site_secrets', `select=value&key=eq.${sb.enc(SECRET_KEY)}`);
+    if (row && typeof row.value === 'string' && SHAPE.test(row.value)) return row.value;
   } catch (err) {
-    console.error('[gate] تعذّر كتابة ملف الرابط:', err.message);
+    console.warn('[gate] تعذّرت قراءة المسار من قاعدة البيانات:', err.message);
+  }
+  return null;
+}
+
+async function writeDbPath(value) {
+  if (!sb.configured()) return false;
+  try {
+    // upsert على مفتاح واحد ثابت
+    await sb.request('/rest/v1/site_secrets?on_conflict=key', {
+      method: 'POST',
+      body: [{ key: SECRET_KEY, value, updated_at: new Date().toISOString() }],
+      prefer: 'resolution=merge-duplicates,return=minimal'
+    });
+    return true;
+  } catch (err) {
+    console.error('[gate] تعذّر حفظ المسار في قاعدة البيانات:', err.message);
+    return false;
   }
 }
 
-function load() {
-  const envPath = (process.env.ICHANCE_GATE_PATH || '').trim().replace(/^\/+/, '');
-  if (envPath && /^[A-Za-z0-9_-]{8,64}$/.test(envPath)) {
-    return { path: envPath, source: 'env', createdAt: Date.now() };
+// ---------------------------------------------------------------- القراءة
+/** المسار الحالي ومصدره، بتخزين مؤقّت قصير. */
+async function current({ fresh = false } = {}) {
+  if (envLocked()) return { path: ENV_PATH, source: 'env' };
+  if (!fresh && cache && Date.now() - cache.at < CACHE_MS) return cache;
+
+  const fromDb = await readDbPath();
+  if (fromDb) {
+    cache = { path: fromDb, source: 'db', at: Date.now() };
+    return cache;
   }
 
-  // ⚠ التوليد مسموح فقط حين لا يوجد ملف أصلاً.
-  const exists = fs.existsSync(FILE);
-  if (exists) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-        if (raw && typeof raw.path === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(raw.path)) {
-          return { path: raw.path, source: 'file', createdAt: raw.createdAt || Date.now() };
-        }
-        console.error('[gate] محتوى ملف البوابة غير صالح:', FILE);
-        break;
-      } catch (err) {
-        if (attempt === 1) console.error('[gate] تعذّرت قراءة ملف البوابة:', err.message);
-      }
-    }
-    console.error('[gate] أصلح الملف أو احذفه يدوياً ثم أعد التشغيل — البوابة معطّلة حتى ذلك.');
-    return { path: null, source: 'broken', createdAt: Date.now() };
+  const fromFile = readFilePath();
+  if (fromFile) {
+    // موجود محلياً وقاعدة البيانات فارغة: نرفعه إليها ليبقى بعد النشر
+    if (sb.configured()) await writeDbPath(fromFile);
+    cache = { path: fromFile, source: sb.configured() ? 'db' : 'file', at: Date.now() };
+    return cache;
   }
 
-  // Serverless (Vercel) لا يملك قرصاً دائماً: المسار المولَّد هنا يضيع مع
-  // أول استدعاء جديد. كتابته في الكود بدلاً من ذلك تنشر السرّ في المستودع
-  // لكل من يقرأه — فالمصدر الصحيح متغيّر بيئة يُضبط من لوحة الاستضافة.
-  if (process.env.VERCEL) {
-    console.error('[gate] بيئة Serverless بلا قرص دائم.');
-    console.error('[gate] اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة — البوابة معطّلة حتى ذلك.');
-    return { path: null, source: 'needs-env', createdAt: Date.now() };
+  // لا شيء في أي مكان: نولّد أوّل مسار ونحفظه
+  const born = newPath();
+  const saved = sb.configured() ? await writeDbPath(born) : writeFilePath(born);
+  if (!saved) {
+    console.error('[gate] تعذّر حفظ المسار في أي مكان — البوابة معطّلة.');
+    return { path: null, source: 'unsaved' };
   }
-
-  const fresh = { path: newPath(), source: 'file', createdAt: Date.now(), fresh: true };
-  state = fresh;
-  save();
-  writeNote();
-  return fresh;
+  writeFilePath(born);   // نسخة محلّية للقراءة بلا تيرمنال (تفشل بهدوء على Serverless)
+  console.log(`[gate] وُلّد مسار البوابة: /${born}`);
+  cache = { path: born, source: sb.configured() ? 'db' : 'file', at: Date.now() };
+  return cache;
 }
 
-function get() {
-  if (!state) state = load();
-  return state;
+/** شكل المسار وحده — بلا أي وصول لقاعدة البيانات. */
+function looksLikeGate(pathname) {
+  return SHAPE.test(String(pathname || '').replace(/^\/+/, ''));
 }
 
-/** مقارنة بزمن ثابت — المسار سرّ، ولا نكشف طوله بتوقيت الرد. */
-function matches(pathname) {
-  const g = get();
-  if (!g.path) return false;          // بوابة معطّلة: لا مسار يطابق
-  const want = `/${g.path}`;
-  const a = Buffer.from(String(pathname || ''));
-  const b = Buffer.from(want);
+/**
+ * هل هذا المسار هو البوابة؟
+ * نفحص الشكل أوّلاً بلا شبكة: الطلبات العادية (/ و/admin و/api/…) لا تصل
+ * إلى قاعدة البيانات إطلاقاً فلا تدفع ثمن رحلة على كل صفحة.
+ */
+async function matches(pathname) {
+  if (!looksLikeGate(pathname)) return false;
+  const g = await current();
+  if (!g.path) return false;
+
+  const a = Buffer.from(String(pathname).replace(/^\/+/, ''));
+  const b = Buffer.from(g.path);
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
 }
 
-/** يبدّل المسار نفسه — لو تسرّب الرابط. */
-function rotatePath() {
-  // المسار من متغيّر البيئة لا يُبدَّل من الكود: المتغيّر يتقدّم على الملف
-  // في كل إقلاع، فالمسار «الجديد» لن يعمل أبداً وسيظنّ المالك أنه نجح.
-  const current = get();
-  if (current.source === 'env') {
+// --------------------------------------------------------------- التبديل
+/** يبدّل المسار — يعمل على أي استضافة لأن المخزن هو قاعدة البيانات. */
+async function rotatePath() {
+  if (envLocked()) {
     return {
       ok: false,
-      error: 'المسار مضبوط من ICHANCE_GATE_PATH — غيّره من إعدادات الاستضافة ثم أعد النشر'
-    };
-  }
-  // Serverless بلا قرص دائم: الكتابة تضيع مع أول استدعاء جديد
-  if (process.env.VERCEL) {
-    return {
-      ok: false,
-      error: 'الاستضافة بلا قرص دائم — غيّر ICHANCE_GATE_PATH من إعداداتها ثم أعد النشر'
+      error: 'المسار مضبوط من متغيّر البيئة ICHANCE_GATE_PATH — احذفه من إعدادات الاستضافة ليصير قابلاً للتبديل من هنا'
     };
   }
 
-  state = { path: newPath(), source: 'file', createdAt: Date.now() };
-  if (!save()) return { ok: false, error: 'تعذّر حفظ المسار الجديد' };
-  writeNote();
-  console.log(`[gate] بُدِّل مسار البوابة: /${state.path}`);
-  return { ok: true, path: state.path };
+  const next = newPath();
+  const saved = sb.configured() ? await writeDbPath(next) : writeFilePath(next);
+  if (!saved) return { ok: false, error: 'تعذّر حفظ المسار الجديد' };
+  writeFilePath(next);
+
+  cache = { path: next, source: sb.configured() ? 'db' : 'file', at: Date.now() };
+  console.log('[gate] بُدِّل مسار البوابة');
+  return { ok: true, path: next };
 }
 
-function bootLines() {
-  const g = get();
-  if (!g.path) {
-    return g.source === 'needs-env'
-      ? ['  بوابة الإدارة : ⚠ معطّلة — اضبط ICHANCE_GATE_PATH في الاستضافة']
-      : ['  بوابة الإدارة : ⚠ معطّلة — ملف data/admin-gate.json غير صالح'];
-  }
-  if (g.source === 'env') {
-    return [`  بوابة الإدارة : /${g.path}   (من متغيّر البيئة)`];
-  }
+/** حالة البوابة للتشخيص — بلا كشف المسار. */
+async function status() {
+  const g = await current();
+  return {
+    configured: !!g.path,
+    source: g.source,                       // env | db | file | unsaved
+    canRotate: !envLocked(),
+    storage: sb.configured() ? 'database' : 'file',
+    serverless: !!process.env.VERCEL,
+    hint: g.path
+      ? (g.source === 'env'
+          ? 'المسار من متغيّر البيئة — احذف ICHANCE_GATE_PATH ليصير قابلاً للتبديل من صفحة البوابة'
+          : 'المسار محفوظ ويتبدّل من صفحة البوابة مباشرة')
+      : 'تعذّر حفظ المسار — تأكّد من اتصال قاعدة البيانات'
+  };
+}
+
+async function bootLines() {
+  const g = await current();
+  if (!g.path) return ['  بوابة الإدارة : ⚠ معطّلة — تعذّر حفظ المسار'];
+  if (g.source === 'env') return [`  بوابة الإدارة : /${g.path}   (من متغيّر البيئة)`];
   return [
     `  بوابة الإدارة : /${g.path}`,
-    '                  (رابط سرّي — محفوظ في data/admin-gate.txt)'
+    `                  (محفوظ في ${g.source === 'db' ? 'قاعدة البيانات' : 'ملف محلّي'} — يتبدّل من الصفحة)`
   ];
 }
 
-module.exports = { get, matches, rotatePath, bootLines, FILE, NOTE_FILE };
+module.exports = {
+  matches, looksLikeGate, rotatePath, status, bootLines, current,
+  FILE, NOTE_FILE
+};
