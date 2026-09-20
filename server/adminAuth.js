@@ -87,9 +87,18 @@ async function readDbAuth() {
   return null;
 }
 
-async function writeDbAuth(val) {
+async function writeDbAuth(val, { force = false } = {}) {
   if (!sb.configured()) return false;
   try {
+    // حماية المفتاح المعتمد من الكتابة فوقه بمفتاح غير معتمد (claimed: false)
+    if (!force && val && !val.claimed) {
+      const existing = await readDbAuth();
+      if (existing && existing.claimed && existing.hash) {
+        state = existing;
+        return true;
+      }
+    }
+
     await sb.request('/rest/v1/site_secrets?on_conflict=key', {
       method: 'POST',
       body: [{
@@ -106,10 +115,10 @@ async function writeDbAuth(val) {
   }
 }
 
-async function save(stateToSave = state) {
+async function save(stateToSave = state, options = {}) {
   let ok = false;
   if (sb.configured() && stateToSave) {
-    const dbOk = await writeDbAuth(stateToSave);
+    const dbOk = await writeDbAuth(stateToSave, options);
     if (dbOk) ok = true;
   }
   try {
@@ -175,29 +184,30 @@ function load() {
       }
     }
   } catch (err) {
-    console.error('[admin] ملف المصادقة تالف، سنولّد مفتاحاً جديداً:', err.message);
+    console.error('[admin] ملف المصادقة تالف:', err.message);
   }
 
+  // على Serverless (Vercel) أو مع اتصال قاعدة البيانات:
+  // لا نولّد مفتاحاً عشوائياً عند الإقلاع ولا نكتب في قاعدة البيانات كي لا نطمس مفتاح المالك.
+  if (process.env.VERCEL || sb.configured()) {
+    return;
+  }
 
-  // البيئة تحمل مفتاحاً ولم يختر المالك واحداً بعد: لا داعي لتوليد ملف
-  // ولا لكتابة مفتاح نصّي مضلّل لا يعمل.
   if (ENV_KEY) return;
 
-
-
-  // أول إقلاع: نولّد مفتاحاً دائماً ونكتبه نصاً ليقرأه المالك
+  // أول إقلاع محلي بلا قاعدة بيانات: نولّد مفتاحاً ونكتبه نصاً
   const key = generateKey();
   const salt = crypto.randomBytes(16).toString('hex');
   state = {
     salt,
     hash: hashKey(key, salt),
-    claimed: false,          // لم يختر المالك مفتاحه بعد
+    claimed: false,
     createdAt: Date.now(),
     rotatedAt: null
   };
-  save();
+  save(state);
   writePlainKey(key);
-  state.firstRunKey = key;   // للطباعة عند الإقلاع فقط، لا يُحفظ
+  state.firstRunKey = key;
 }
 
 // ---------------------------------------------------------------------------
@@ -294,7 +304,7 @@ function validateNewKey(key) {
   return { ok: true, clean };
 }
 
-async function setKey(key, { claimed }) {
+async function setKey(key, { claimed, force = true }) {
   const salt = crypto.randomBytes(16).toString('hex');
   const previous = state;
   const nextState = {
@@ -305,7 +315,7 @@ async function setKey(key, { claimed }) {
     rotatedAt: Date.now()
   };
   state = nextState;
-  const saved = await save(nextState);
+  const saved = await save(nextState, { force });
   if (!saved && !sb.configured() && !process.env.VERCEL) {
     // لم يُكتب على القرص ولا في قاعدة البيانات: نتراجع كي لا يظنّ المالك أن مفتاحه محفوظ
     state = previous;
