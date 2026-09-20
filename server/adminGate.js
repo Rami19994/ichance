@@ -129,6 +129,23 @@ function matches(pathname) {
 
 /** يبدّل المسار نفسه — لو تسرّب الرابط. */
 function rotatePath() {
+  // المسار من متغيّر البيئة لا يُبدَّل من الكود: المتغيّر يتقدّم على الملف
+  // في كل إقلاع، فالمسار «الجديد» لن يعمل أبداً وسيظنّ المالك أنه نجح.
+  const current = get();
+  if (current.source === 'env') {
+    return {
+      ok: false,
+      error: 'المسار مضبوط من ICHANCE_GATE_PATH — غيّره من إعدادات الاستضافة ثم أعد النشر'
+    };
+  }
+  // Serverless بلا قرص دائم: الكتابة تضيع مع أول استدعاء جديد
+  if (process.env.VERCEL) {
+    return {
+      ok: false,
+      error: 'الاستضافة بلا قرص دائم — غيّر ICHANCE_GATE_PATH من إعداداتها ثم أعد النشر'
+    };
+  }
+
   state = { path: newPath(), source: 'file', createdAt: Date.now() };
   if (!save()) return { ok: false, error: 'تعذّر حفظ المسار الجديد' };
   writeNote();

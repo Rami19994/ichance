@@ -1,5 +1,8 @@
 'use strict';
 
+// يُقرأ قبل أي وحدة أخرى: بقيّة الملفات تقرأ process.env عند تحميلها
+require('./env').load();
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -739,6 +742,24 @@ async function handleApi(req, res, url) {
   // ───────────────────────── بوابة الإدارة السرّية ─────────────────────────
   // البرهان هنا هو معرفة المسار السرّي، لا مفتاح الإدارة — فهذه البوابة
   // وُجدت أصلاً لمن فقد المفتاح أو لا يريد حفظه.
+  // تشخيص مفتوح: لا يكشف المسار، ويقول ما الذي يمنع البوابة من العمل.
+  // بدونه يبقى المالك يخمّن بين 404 و429 بلا دليل.
+  if (route === '/api/admin/gate/status' && req.method === 'GET') {
+    const g = adminGate.get();
+    return sendJson(res, 200, {
+      configured: !!g.path,
+      source: g.source,               // env | file | needs-env | broken
+      canRotatePath: g.source === 'file',
+      serverless: !!process.env.VERCEL,
+      pathLength: g.path ? g.path.length : 0,
+      hint: g.path
+        ? (g.source === 'env'
+            ? 'المسار من متغيّر البيئة ICHANCE_GATE_PATH — يُغيَّر من لوحة الاستضافة لا من هنا'
+            : 'المسار محفوظ في data/admin-gate.json')
+        : 'اضبط ICHANCE_GATE_PATH في إعدادات الاستضافة ثم أعد النشر'
+    });
+  }
+
   if (route === '/api/admin/gate' || route === '/api/admin/gate/path') {
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'طريقة غير مسموحة' });
 
