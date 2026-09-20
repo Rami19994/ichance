@@ -8,6 +8,9 @@
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   <base href="/games/neon-slots/" />
   <link rel="stylesheet" href="assets/css/main.css" />
+  <!-- تحميل مكتبات CreateJS مسبقاً لتفادي مشاكل التحميل الديناميكي -->
+  <script src="assets/js/libs/preloadjs.min.js"></script>
+  <script src="assets/js/libs/soundjs.min.js"></script>
   <script>
     // تهيئة مسبقة لمتغير إعدادات اللعبة
     window.slotMachineConfig = {
@@ -20,6 +23,102 @@
     };
   </script>
   <script src="assets/js/main.js"></script>
+  <script>
+    // === شبكة أمان: إصلاح مشكلة التعليق عند 100% ===
+    (function() {
+      var safetyTimer = null;
+      var maxWait = 12000; // 12 ثانية كحد أقصى
+      var startTime = Date.now();
+      var forced = false;
+
+      function forceGameStart() {
+        if (forced) return;
+        var container = document.getElementById('slot-machine');
+        if (!container) return;
+
+        // تحقق إذا اللعبة شغّالة أصلاً
+        if (container.classList.contains('smg-loaded')) {
+          forced = true;
+          return;
+        }
+
+        // تحقق من نسبة التحميل
+        var pctEl = container.querySelector('.smg-preloader span.smg-value, .smg-preloader span');
+        var pctText = pctEl ? pctEl.textContent : '';
+        var isComplete = pctText.indexOf('100') !== -1 || pctText.indexOf('99') !== -1;
+        var timeout = (Date.now() - startTime) > maxWait;
+
+        if (isComplete || timeout) {
+          forced = true;
+          console.log('[LuckyArena] Forcing game start. pct=' + pctText + ' timeout=' + timeout);
+
+          // إضافة smg-loaded لإظهار اللعبة
+          container.classList.add('smg-loaded');
+
+          // إخفاء شاشة التحميل
+          var preloader = container.querySelector('.smg-preloader');
+          if (preloader) {
+            preloader.style.display = 'none';
+          }
+
+          // إظهار .smg-inner مباشرة
+          var inner = container.querySelector('.smg-inner');
+          if (inner) {
+            inner.style.display = 'block';
+          }
+
+          // محاولة إصلاح bg.png إذا ما تحمّلت
+          var bgImg = container.querySelector('img.smg-bg');
+          if (bgImg && !bgImg.complete) {
+            bgImg.src = bgImg.src; // إعادة محاولة التحميل
+          }
+
+          clearInterval(safetyTimer);
+        }
+      }
+
+      // فحص كل 500 ميلي ثانية
+      safetyTimer = setInterval(forceGameStart, 500);
+
+      // إيقاف الفحص بعد 15 ثانية كحد أقصى
+      setTimeout(function() {
+        clearInterval(safetyTimer);
+        if (!forced) forceGameStart(); // محاولة أخيرة
+      }, 15000);
+
+      // مراقبة إضافة class smg-loaded للإيقاف المبكر
+      var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+          var target = mutations[i].target;
+          if (target.id === 'slot-machine' && target.classList.contains('smg-loaded')) {
+            forced = true;
+            clearInterval(safetyTimer);
+            observer.disconnect();
+
+            // إخفاء preloader عندما يضيف الكود الأصلي smg-loaded
+            var preloader = target.querySelector('.smg-preloader');
+            if (preloader) preloader.style.display = 'none';
+            break;
+          }
+        }
+      });
+
+      var slotEl = document.getElementById('slot-machine');
+      if (slotEl) {
+        observer.observe(slotEl, { attributes: true, attributeFilter: ['class'] });
+      } else {
+        // انتظار ظهور العنصر
+        var domObserver = new MutationObserver(function() {
+          var el = document.getElementById('slot-machine');
+          if (el) {
+            domObserver.disconnect();
+            observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+          }
+        });
+        domObserver.observe(document.body || document.documentElement, { childList: true, subtree: true });
+      }
+    })();
+  </script>
 
   <style>
     :root {
