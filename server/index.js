@@ -1507,6 +1507,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/lucky-cards') return sendStatic(req, res, '/game.html');
   if (url.pathname === '/bounty-hunter') return sendStatic(req, res, '/slot.html');
   if (url.pathname === '/battle-tanks') return sendStatic(req, res, '/tank.html');
+  if (url.pathname === '/neon-slots') return sendStatic(req, res, '/neon-slots.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

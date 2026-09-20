@@ -31,6 +31,10 @@
       "destination": "/neon-slots.html"
     },
     {
+      "source": "/play/:slug",
+      "destination": "/play.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },
