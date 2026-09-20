@@ -19,8 +19,8 @@ const GAMES = [
     title: 'صيّاد الجوائز — Bounty Hunter',
     cat: 'slots',
     rtpBadge: 'HIGH RTP',
-    provider: 'iChance Originals',
-    providerKey: 'ichance',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
     live: true,
     realGame: true,
     href: '/bounty-hunter',
@@ -36,8 +36,8 @@ const GAMES = [
     cat: 'table',
     cats: ['table', 'blackjack'],
     rtpBadge: 'LIVE DEALER',
-    provider: 'iChance Live',
-    providerKey: 'ichance',
+    provider: 'LuckyArena Live',
+    providerKey: 'luckyarena',
     live: true,
     realGame: true,
     href: '/lucky-cards',
@@ -52,8 +52,8 @@ const GAMES = [
     title: 'معركة الدبابات — Battle Tanks',
     cat: 'skill',
     rtpBadge: 'PVP ARENA',
-    provider: 'iChance PvP',
-    providerKey: 'ichance',
+    provider: 'LuckyArena PvP',
+    providerKey: 'luckyarena',
     live: true,
     realGame: true,
     href: '/battle-tanks',
@@ -417,10 +417,10 @@ function bindEvents() {
   if (copyBtn) {
     copyBtn.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText('ICHANCE');
-        toast('تم نسخ كود البونص: ICHANCE', 'win');
+        await navigator.clipboard.writeText('LUCKYARENA');
+        toast('تم نسخ كود البونص: LUCKYARENA', 'win');
       } catch {
-        toast('كود البونص: ICHANCE');
+        toast('كود البونص: LUCKYARENA');
       }
     });
   }
@@ -541,7 +541,7 @@ function bindEvents() {
       const type = link.dataset.type;
       const msgs = {
         'provably-fair': 'جميع ألعابنا مدعومة بنظام تشفير عشوائي Provably Fair يتيح لأي لاعب التحقق الرياضي من نزاهة الجولات.',
-        'responsible': 'iCHANCE تدعم اللعب المسؤول. الألعاب مخصصة للترفيه فقط ويجب عدم الرهان بأموال لا تستطيع تحمل خسارتها.',
+        'responsible': 'LuckyArena تدعم اللعب المسؤول. الألعاب مخصصة للترفيه فقط ويجب عدم الرهان بأموال لا تستطيع تحمل خسارتها.',
         'security': 'يتم تأمين جميع المعاملات بتشفير SSL ونظام حماية مالي متعدد الطبقات مطابق للمعايير البنكية الدولية.',
         'terms': 'شروط اللعب والسحب: السحوبات فورية وبدون أي رسوم خفية. تطبق قواعد المكافآت العامة.'
       };
