@@ -99,6 +99,10 @@ function sendJson(res, status, body) {
 }
 
 function readBody(req, limit = 8 * 1024) {
+  if (req.body) {
+    if (typeof req.body === 'object') return Promise.resolve(req.body);
+    try { return Promise.resolve(JSON.parse(req.body)); } catch {}
+  }
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -1077,7 +1081,7 @@ async function handleApi(req, res, url) {
         password: body.password,
         cashierId: body.cashierId || null,
         balance: Number(body.balance) || 0,
-        createdBy: 'admin'
+        createdBy: null
       });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);

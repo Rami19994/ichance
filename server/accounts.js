@@ -290,6 +290,25 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
 
   const { hash, salt } = hashPassword(p.value);
 
+  let creatorId = null;
+  if (createdBy && typeof createdBy === 'string' && createdBy !== 'admin' && (createdBy.startsWith('csh_') || createdBy.startsWith('mst_'))) {
+    creatorId = createdBy;
+  } else if (cashierId) {
+    creatorId = cashierId;
+  }
+
+  let playerCountry = 'IQ';
+  let playerCurrency = 'IQD';
+  if (cashierId) {
+    try {
+      const c = await cashierSelf(cashierId);
+      if (c) {
+        if (c.country) playerCountry = c.country;
+        if (c.currency) playerCurrency = c.currency;
+      }
+    } catch {}
+  }
+
   await ensureSupabase();
   if (supabaseReady) {
     try {
@@ -302,7 +321,9 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
         display_id: shortId(),
         cashier_id: cashierId || null,
         balance: balNum,
-        created_by: createdBy || cashierId || null
+        country: playerCountry,
+        currency: playerCurrency,
+        created_by: creatorId
       });
       return { ok: true, player: strip(rows[0]) };
     } catch (err) {
@@ -338,8 +359,10 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
     password_salt: salt,
     display_id: shortId(),
     cashier_id: cashierId || null,
-    created_by: createdBy || cashierId || null,
-    balance: 0,
+    created_by: creatorId,
+    balance: balNum,
+    country: playerCountry,
+    currency: playerCurrency,
     active: true,
     created_at: new Date().toISOString(),
     last_login_at: null
