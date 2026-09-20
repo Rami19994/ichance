@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>نيون فيغاس سلوتس — LuckyArena</title>
+  <meta name="description" content="ماكينة سلوتس كلاسيكية 5 بكرات بنمط نيون جذاب، 20 خط دفع، رموز Scatter و Wild ومضاعفات فورية." />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <base href="/games/neon-slots/" />
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <script>
+    // تهيئة مسبقة لمتغير إعدادات اللعبة
+    window.slotMachineConfig = {
+      minBet: 1,
+      maxBet: 100,
+      defaultBet: 1,
+      betChangeAmount: 1,
+      lineCount: 20,
+      balance: 1000
+    };
+  </script>
+  <script src="assets/js/main.js"></script>
+
+  <style>
+    :root {
+      --gold: #f5c542;
+      --gold-dark: #b8860b;
+      --neon-purple: #9d36f6;
+      --neon-pink: #ff2d87;
+      --bg: #07080f;
+      --panel: rgba(18, 14, 33, 0.95);
+      --border: rgba(245, 197, 66, 0.25);
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--bg);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+
+    /* ─── الشريط العلوي الفاخر ─── */
+    .la-topbar {
+      position: relative;
+      z-index: 100;
+      flex: 0 0 auto;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: linear-gradient(90deg, #100a20 0%, #1c0d38 50%, #0d071a 100%);
+      border-bottom: 1px solid rgba(245, 197, 66, 0.3);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    .la-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .la-btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e5d8ff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .la-btn-back:hover {
+      background: rgba(245, 197, 66, 0.2);
+      border-color: var(--gold);
+      color: #fff;
+      transform: translateX(2px);
+    }
+
+    .la-game-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 15px;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+    .la-game-title span {
+      background: linear-gradient(135deg, #fff 0%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .la-badge-neon {
+      background: linear-gradient(135deg, #7928ca, #ff0080);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(255, 0, 128, 0.4);
+    }
+
+    .la-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .la-wallet {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(245, 197, 66, 0.35);
+      padding: 5px 14px;
+      border-radius: 999px;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+    .la-wallet__lbl {
+      font-size: 11px;
+      color: #a89bb9;
+      font-weight: 600;
+    }
+    .la-wallet__val {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--gold);
+      text-shadow: 0 0 8px rgba(245, 197, 66, 0.3);
+      letter-spacing: 0.02em;
+    }
+    .la-wallet__cur {
+      font-size: 11px;
+      font-weight: 700;
+      color: #e5d8ff;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .la-btn-deposit {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+      color: #0b0714;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 3px 12px rgba(245, 197, 66, 0.3);
+      transition: all 0.2s ease;
+    }
+    .la-btn-deposit:hover {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+
+    .la-btn-icon {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e5d8ff;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    .la-btn-icon:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+
+    /* ─── حاوية اللعبة ─── */
+    #slot-machine {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      height: calc(100vh - 52px);
+      position: relative;
+    }
+
+    /* إخفاء شريط 1stake الترويجي إن ظهر داخل اللعبة */
+    .game-toolbar {
+      display: none !important;
+    }
+
+    /* تنبيه تجريبي للمستخدم غير المسجل */
+    .guest-banner {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(18, 14, 33, 0.95);
+      border: 1px solid var(--gold);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      pointer-events: auto;
+    }
+    .guest-banner a {
+      color: var(--gold);
+      text-decoration: underline;
+      font-weight: 800;
+    }
+
+    @media (max-width: 600px) {
+      .la-topbar {
+        padding: 0 10px;
+        height: 48px;
+      }
+      .la-game-title span {
+        display: none;
+      }
+      .la-wallet {
+        padding: 4px 10px;
+      }
+      .la-wallet__val {
+        font-size: 13px;
+      }
+      #slot-machine {
+        height: calc(100vh - 48px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── الشريط العلوي ─── -->
+  <header class="la-topbar">
+    <div class="la-left">
+      <a href="/" class="la-btn-back" title="الرجوع إلى كازينو LuckyArena">
+        <span>←</span>
+        <span>الردهة</span>
+      </a>
+      <div class="la-game-title">
+        <span>نيون فيغاس</span>
+        <span class="la-badge-neon">5 REELS</span>
+      </div>
+    </div>
+
+    <div class="la-right">
+      <div class="la-wallet">
+        <span class="la-wallet__lbl">الرصيد:</span>
+        <span class="la-wallet__val" id="laBalance">—</span>
+        <span class="la-wallet__cur" id="laCurrency">IQD</span>
+      </div>
+      <a href="/" class="la-btn-deposit" id="laDepositBtn" title="شحن الرصيد">+ شحن</a>
+      <button class="la-btn-icon" id="laFullscreenBtn" title="ملء الشاشة">⛶</button>
+    </div>
+  </header>
+
+  <!-- ─── ماكينة اللعب ─── -->
+  <div id="slot-machine"></div>
+
+  <!-- تنبيه الزائر غير المسجل -->
+  <div id="guestBanner" class="guest-banner" style="display:none;">
+    <span>⚡ أنت تلعب الآن في الوضع التجريبي.</span>
+    <a href="/login">سجّل دخولك</a>
+    <span>للّعب والفوز بأموال حقيقية!</span>
+  </div>
+
+  <script>
+    (function() {
+      const token = localStorage.getItem('ichance.token') || '';
+      const balEl = document.getElementById('laBalance');
+      const curEl = document.getElementById('laCurrency');
+      const bannerEl = document.getElementById('guestBanner');
+
+      let currentBalance = 0;
+      let userCurrency = 'IQD';
+      let isGuest = !token;
+
+      // تنسيق الأرقام
+      function fmt(n) {
+        return Math.floor(n || 0).toLocaleString('en-US');
+      }
+
+      // جلب رصيد اللاعب من الخادم
+      async function syncWallet() {
+        if (!token) {
+          balEl.textContent = '1,000';
+          curEl.textContent = 'DEMO';
+          if (bannerEl) bannerEl.style.display = 'flex';
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/me', {
+            headers: { 'x-player-token': token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.player) {
+              currentBalance = data.player.balance || 0;
+              userCurrency = data.player.currency || 'IQD';
+              balEl.textContent = fmt(currentBalance);
+              curEl.textContent = userCurrency;
+
+              // تحديث رصيد اللعبة في localStorage
+              try {
+                localStorage.setItem('slot-machine-balance', String(currentBalance));
+              } catch {}
+            }
+          } else if (res.status === 401) {
+            isGuest = true;
+            if (bannerEl) bannerEl.style.display = 'flex';
+          }
+        } catch (err) {
+          console.warn('[NeonSlots] Wallet sync error:', err.message);
+        }
+      }
+
+      syncWallet();
+
+      // مزامنة دورية كل 8 ثوانٍ
+      setInterval(syncWallet, 8000);
+
+      // زر ملء الشاشة
+      const fsBtn = document.getElementById('laFullscreenBtn');
+      if (fsBtn) {
+        fsBtn.addEventListener('click', () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+            fsBtn.textContent = '✖';
+          } else {
+            document.exitFullscreen().catch(() => {});
+            fsBtn.textContent = '⛶';
+          }
+        });
+      }
+
+      // توجيه زر الشحن للردهة
+      const depBtn = document.getElementById('laDepositBtn');
+      if (depBtn) {
+        depBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.location.href = '/?action=deposit';
+        });
+      }
+
+      // الاستماع للدورات وتحديث الرصيد عبر السيرفر
+      // نراقب نقرات زر الدوران Spin
+      document.addEventListener('click', function(e) {
+        const t = e.target;
+        if (t && (t.classList.contains('btn_spin') || t.closest('.btn_spin') || t.id === 'btn_spin')) {
+          if (!isGuest && token) {
+            // نقر على زر Spin -> سنطلب مزامنة الرصيد بعد ثانيتين
+            setTimeout(syncWallet, 2500);
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -27,6 +27,10 @@
       "destination": "/login.html"
     },
     {
+      "source": "/neon-slots",
+      "destination": "/neon-slots.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },

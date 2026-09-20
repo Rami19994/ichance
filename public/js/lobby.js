@@ -15,6 +15,22 @@ const CATEGORIES = [
 
 const GAMES = [
   {
+    id: 'neon-slots',
+    title: 'نيون فيغاس — Neon Vegas Slots',
+    cat: 'slots',
+    rtpBadge: '96.2% RTP',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/neon-slots',
+    thumb: '/assets/thumb_neon_slots.jpg',
+    tag: '5 بكرات • 20 خط دفع',
+    badge: 'NEW • SLOTS',
+    badgeClass: 'badge-tag--hot',
+    desc: 'ماكينة سلوتس كلاسيكية 5 بكرات بنمط نيون جذاب، 20 خط دفع، رموز Scatter و Wild ومضاعفات فورية.'
+  },
+  {
     id: 'bounty',
     title: 'صيّاد الجوائز — Bounty Hunter',
     cat: 'slots',

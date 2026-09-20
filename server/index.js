@@ -22,6 +22,7 @@ const siteConfig = require('./siteConfig');
 const adminGate = require('./adminGate');
 const gameRegistry = require('./gameRegistry');
 const countries = require('./countries');
+const neonSlots = require('./neonSlots');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -76,7 +77,11 @@ function sendStatic(req, res, pathname) {
       'Cache-Control': 'no-cache',
       ETag: etag,
       'Last-Modified': new Date(stat.mtimeMs).toUTCString(),
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-XSS-Protection': '1; mode=block',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
     });
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(full).pipe(res);
@@ -91,9 +96,12 @@ function sendJson(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Gate, Authorization'
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Gate, Authorization, X-Player-Token'
   });
   res.end(payload);
 }
@@ -292,7 +300,8 @@ async function isAdminAllowed(req, url) {
 const ROUTE_GAME = {
   '/api/join': 'cards', '/api/pick': 'cards',
   '/api/slot/spin': 'slots', '/api/slot/buy': 'slots',
-  '/api/tank/start': 'tank'
+  '/api/tank/start': 'tank',
+  '/api/neon-slots/spin': 'neon-slots'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -866,6 +875,33 @@ async function handleApi(req, res, url) {
     const state = tankGame.stateFor(player);
     if (state.active) return sendJson(res, 400, { error: 'لا يمكن تدوير البذرة أثناء معركة' });
     return sendJson(res, 200, tankGame.rotateSeed(player));
+  }
+
+  // ------------------------------------------------------------- نيون فيغاس سلوتس
+  const neonRoutes = ['/api/neon-slots/state', '/api/neon-slots/spin'];
+  if (neonRoutes.includes(route) && !player) {
+    return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+  }
+
+  if (route === '/api/neon-slots/state' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      player: store.publicProfile(player),
+      symbols: neonSlots.SYMBOLS,
+      paylines: neonSlots.PAYLINES
+    });
+  }
+
+  if (route === '/api/neon-slots/spin' && req.method === 'POST') {
+    if (!rateLimit(`neon-spin:${player.id}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'دورات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = neonSlots.playSpin(player, {
+      bet: body.bet,
+      lineCount: body.lines || body.lineCount
+    });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
   }
 
   // ------------------------------------------------------------------ الإدارة
