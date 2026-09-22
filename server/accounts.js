@@ -830,7 +830,12 @@ async function allPlayers({ limit = 200 } = {}) {
   await ensureSupabase();
   if (supabaseReady) {
     try {
-      return await sb.select('player_summary', `select=*&order=created_at.desc&limit=${Number(limit) || 200}`);
+      const rows = await sb.select('player_summary', `select=*&order=created_at.desc&limit=${Number(limit) || 200}`);
+      if (Array.isArray(rows) && rows.length > 0) return rows;
+    } catch { /* تجاهل */ }
+    try {
+      const rows = await sb.select('accounts', `role=eq.player&order=created_at.desc&limit=${Number(limit) || 200}`);
+      if (Array.isArray(rows) && rows.length > 0) return rows.map(strip);
     } catch { /* تجاهل */ }
   }
   const db = getLocal();

@@ -1340,18 +1340,22 @@ async function handleApi(req, res, url) {
 
     if (route === '/api/admin/overview' && req.method === 'GET') {
       const ledger = store.ledgerSummary();
-      const rounds = game.adminHistory(60);
+      const rounds = store.rounds(60);
       // جلب اللاعبين الحقيقيين من قاعدة البيانات (Supabase أو محلي)
       const realAccounts = await accounts.allPlayers({ limit: 200 }).catch(() => []);
       // دمج بيانات اللعب مع بيانات الحسابات
       const gamePlayersMap = {};
-      for (const p of store.allPlayers()) gamePlayersMap[p.id] = p;
+      for (const p of store.allPlayers()) {
+        if (p.id) gamePlayersMap[p.id] = p;
+        if (p.accountId) gamePlayersMap[p.accountId] = p;
+      }
       const mergedPlayers = realAccounts.map((acc) => {
         const gp = gamePlayersMap[acc.id] || gamePlayersMap[acc.display_id] || {};
+        const liveBalance = (gp.balance !== undefined && gp.balance !== null) ? gp.balance : Number(acc.balance || 0);
         return {
           id: acc.display_id || acc.id,
           realId: acc.id,
-          balance: Number(acc.balance || 0),
+          balance: liveBalance,
           rounds: gp.rounds || 0,
           wagered: gp.wagered || 0,
           won: gp.won || 0,
@@ -1367,7 +1371,23 @@ async function handleApi(req, res, url) {
       // أضف أي لاعبين في الجلسة غير موجودين في Supabase (ضيوف)
       const realIds = new Set(realAccounts.map((a) => a.id).concat(realAccounts.map((a) => a.display_id)));
       for (const p of store.allPlayers()) {
-        if (!realIds.has(p.id)) mergedPlayers.push(p);
+        if (!realIds.has(p.id) && (!p.accountId || !realIds.has(p.accountId))) {
+          mergedPlayers.push({
+            id: p.id,
+            realId: p.accountId || p.id,
+            balance: p.balance,
+            rounds: p.rounds || 0,
+            wagered: p.wagered || 0,
+            won: p.won || 0,
+            houseNet: p.houseNet || 0,
+            username: p.username || p.id,
+            cashierId: null,
+            cashierName: null,
+            masterId: null,
+            masterName: null,
+            country: 'IQ'
+          });
+        }
       }
       return sendJson(res, 200, {
         ledger,

@@ -232,15 +232,10 @@ function playSpin(player, { bet, lineCount = 20 }) {
     store.adjustBalance(player, totalWin);
   }
 
-  // تسجيل الجولة في السجل المالي للنظام
-  store.recordLedger({
-    real: {
-      wagered: totalBet,
-      paid: totalWin,
-      bets: 1
-    },
-    bot: null,
-    game: 'neon-slots'
+  // تسجيل الجولة في السجل المالي للنظام وتحديث إحصاءات اللاعب وسجل الإدارة
+  store.recordNeonSlots(player, {
+    bet: totalBet,
+    win: totalWin
   });
 
   return {

@@ -487,8 +487,30 @@
           banner('<span>💎 أنت تلعب الآن برصيدك الحقيقي — الرهانات والأرباح مرتبطة بمحفظتك مباشرة.</span>');
         } else {
           banner('<span>⚡ وضع تجريبي للتسلية. </span>'
-               + '<a href="/login">سجّل دخولك</a>'
+               + '<a href="/login?next=/neon-slots">سجّل دخولك</a>'
                + '<span> للّعب برصيدك الحقيقي وسحب الأرباح.</span>');
+        }
+      }
+
+      async function initSessionIfGuest() {
+        if (!token) {
+          try {
+            var res = await fetch('/api/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}'
+            });
+            if (res.ok) {
+              var data = await res.json();
+              if (data && data.token) {
+                token = data.token;
+                try { localStorage.setItem('ichance.token', token); } catch (e) {}
+                syncWallet();
+              }
+            }
+          } catch (e) {
+            console.warn('[NeonSlots] Guest session init failed:', e);
+          }
         }
       }
 
@@ -527,7 +549,7 @@
       }
 
       updateStatusBanner();
-      syncWallet();
+      initSessionIfGuest().then(syncWallet);
       setInterval(syncWallet, 10000);
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden) syncWallet();
@@ -550,6 +572,15 @@
         }
         game.updateUIText();
 
+        // ربط حدث إيقاف البكرة الرابعة بمحرك التحقق من النتيجة
+        if (game.reels && game.reels[4]) {
+          game.reels[4].onspinned = function() {
+            if (typeof game.game_result_request === 'function') {
+              game.game_result_request();
+            }
+          };
+        }
+
         // اعتراض نقرة زر الدوران (Spin Button)
         var origSpinClick = game.btn_spin_click.bind(game);
 
@@ -558,8 +589,8 @@
 
           // 1. إذا كان زائر غير مسجل
           if (!token) {
-            toast('أنت في الوضع التجريبي — سجّل دخولك للّعب بالرصيد الحقيقي', 'info');
-            origSpinClick();
+            toast('يرجى تسجيل الدخول للّعب بالرصيد الحقيقي', 'info');
+            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
             return;
           }
 
@@ -577,6 +608,8 @@
           // 3. خصم الرهان فوراً من رصيد اللاعب وتحديث الشريط العلوي
           currentBalance -= totalBet;
           balEl.textContent = fmt(currentBalance);
+          game.balance = currentBalance;
+          game.updateUIText();
 
           // 4. إرسال طلب الدوران الحقيقي المشفر للخادم ذرياً
           pendingSpinPromise = fetch('/api/neon-slots/spin', {
@@ -684,6 +717,11 @@
           }, 1000);
         };
       };
+
+      // إذا كانت ماكينة السلوتس قد اكتمل تحميلها بالفعل قبل هذا السكربت
+      if (window.__neonSlotInstance && typeof window.onNeonSlotsReady === 'function') {
+        window.onNeonSlotsReady(window.__neonSlotInstance);
+      }
 
       // زر ملء الشاشة
       var fsBtn = document.getElementById('laFullscreenBtn');

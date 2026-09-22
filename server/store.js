@@ -125,6 +125,18 @@ function recordLedger({ real, bot, game = 'cards' }) {
   if (touched) persistSoon();
 }
 
+function updatePlayerTotalStats(player, wagered, won) {
+  if (!player.stats) {
+    player.stats = { rounds: 0, wagered: 0, won: 0, best: 0, bestMultiplier: 0 };
+  }
+  player.stats.rounds = (player.stats.rounds || 0) + 1;
+  player.stats.wagered = (player.stats.wagered || 0) + wagered;
+  player.stats.won = (player.stats.won || 0) + won;
+  if (won > (player.stats.best || 0)) player.stats.best = won;
+  const mult = wagered > 0 ? (won / wagered) : 0;
+  if (mult > (player.stats.bestMultiplier || 0)) player.stats.bestMultiplier = mult;
+}
+
 /**
  * دورة سلوتس واحدة. لعبة فردية لا جولات جماعية، فتُسجَّل دورة بدورة.
  * الدورات المجانية تُسجَّل برهان صفر: هي صرف بلا مقابل جديد.
@@ -155,6 +167,30 @@ function recordSlot(player, { bet, win, free, buy }) {
   else { st.spins += 1; st.wagered += bet; }
   st.won += win;
   if (win > st.best) st.best = win;
+
+  updatePlayerTotalStats(player, wagered, win);
+
+  recordRoundLog({
+    roundId: `slot-${Date.now().toString(36).toUpperCase()}`,
+    ts: Date.now(),
+    game: 'slots',
+    patternName: 'صيّاد الجوائز سلوتس',
+    cards: [],
+    seats: [{
+      id: player.id,
+      stake: wagered,
+      cardIndex: 0,
+      cardValue: wagered > 0 ? (win / wagered) : 0,
+      net: win - wagered,
+      multiplier: wagered > 0 ? (win / wagered) : 0,
+      isBot: false
+    }],
+    house: {
+      real: { wagered, paid: win, profit: wagered - win, bets: free ? 0 : 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered, paid: win, profit: wagered - win, bets: free ? 0 : 1 }
+    }
+  });
 
   persistSoon();
 }
@@ -199,6 +235,139 @@ function recordTank(player, { bet, win, difficulty, won }) {
     st.streak = 0;
   }
   if (win > st.best) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  recordRoundLog({
+    roundId: `tank-${Date.now().toString(36).toUpperCase()}`,
+    ts: Date.now(),
+    game: 'tank',
+    patternName: `معركة دبابات (${difficulty})`,
+    cards: [],
+    seats: [{
+      id: player.id,
+      stake: bet,
+      cardIndex: 0,
+      cardValue: bet > 0 ? (win / bet) : 0,
+      net: win - bet,
+      multiplier: bet > 0 ? (win / bet) : 0,
+      isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
+/**
+ * دورة نيون فيغاس سلوتس واحدة.
+ * 20 خط دفع، رموز Wild وScatter، أرباح ومضاعفات فورية.
+ */
+function recordNeonSlots(player, { bet, win }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  const g = ledger.games['neon-slots'];
+  if (g) {
+    g.wagered += bet;
+    g.paid += win;
+    g.bets += 1;
+    g.rounds += 1;
+  }
+
+  if (!player.neonStats) {
+    player.neonStats = { spins: 0, wagered: 0, won: 0, best: 0 };
+  }
+  const st = player.neonStats;
+  st.spins = (st.spins || 0) + 1;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  const mult = bet > 0 ? (win / bet) : 0;
+  recordRoundLog({
+    roundId: `neon-${Date.now().toString(36).toUpperCase()}`,
+    ts: Date.now(),
+    game: 'neon-slots',
+    patternName: 'نيون فيغاس سلوتس',
+    cards: [],
+    seats: [{
+      id: player.id,
+      stake: bet,
+      cardIndex: 0,
+      cardValue: mult,
+      net: win - bet,
+      multiplier: mult,
+      isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
+/**
+ * جولة مناجم الحظ (Stake Mines) واحدة.
+ */
+function recordMines(player, { bet, win }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  const g = ledger.games.mines;
+  if (g) {
+    g.wagered += bet;
+    g.paid += win;
+    g.bets += 1;
+    g.rounds += 1;
+  }
+
+  if (!player.minesStats) {
+    player.minesStats = { games: 0, wagered: 0, won: 0, best: 0 };
+  }
+  const st = player.minesStats;
+  st.games = (st.games || 0) + 1;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  const mult = bet > 0 ? (win / bet) : 0;
+  recordRoundLog({
+    roundId: `mines-${Date.now().toString(36).toUpperCase()}`,
+    ts: Date.now(),
+    game: 'mines',
+    patternName: 'مناجم الحظ',
+    cards: [],
+    seats: [{
+      id: player.id,
+      stake: bet,
+      cardIndex: 0,
+      cardValue: mult,
+      net: win - bet,
+      multiplier: mult,
+      isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
 
   persistSoon();
 }
@@ -455,19 +624,33 @@ function leaderboard(limit = 10) {
 /** كل اللاعبين مع أرصدتهم وإحصاءاتهم — للوحة الإدارة فقط. */
 function allPlayers() {
   return [...players.values()]
-    .map((p) => ({
-      id: p.id,
-      balance: p.balance,
-      rounds: p.stats.rounds,
-      wagered: p.stats.wagered,
-      won: p.stats.won,
-      net: p.stats.won - p.stats.wagered,
-      houseNet: p.stats.wagered - p.stats.won,
-      best: p.stats.best,
-      bestMultiplier: p.stats.bestMultiplier,
-      createdAt: p.createdAt,
-      lastSeen: p.lastSeen
-    }))
+    .map((p) => {
+      const s = p.stats || { rounds: 0, wagered: 0, won: 0, best: 0, bestMultiplier: 0 };
+      const slot = p.slotStats || { spins: 0, wagered: 0, won: 0 };
+      const tank = p.tankStats || { battles: 0, wagered: 0, won: 0 };
+      const neon = p.neonStats || { spins: 0, wagered: 0, won: 0 };
+      const mines = p.minesStats || { games: 0, wagered: 0, won: 0 };
+
+      const totalRounds = Math.max(s.rounds || 0, (slot.spins || 0) + (tank.battles || 0) + (neon.spins || 0) + (mines.games || 0));
+      const totalWagered = Math.max(s.wagered || 0, (slot.wagered || 0) + (tank.wagered || 0) + (neon.wagered || 0) + (mines.wagered || 0));
+      const totalWon = Math.max(s.won || 0, (slot.won || 0) + (tank.won || 0) + (neon.won || 0) + (mines.won || 0));
+
+      return {
+        id: p.id,
+        accountId: p.accountId || null,
+        username: p.username || null,
+        balance: p.balance,
+        rounds: totalRounds,
+        wagered: totalWagered,
+        won: totalWon,
+        net: totalWon - totalWagered,
+        houseNet: totalWagered - totalWon,
+        best: s.best || 0,
+        bestMultiplier: s.bestMultiplier || 0,
+        createdAt: p.createdAt,
+        lastSeen: p.lastSeen
+      };
+    })
     .sort((a, b) => b.wagered - a.wagered);
 }
 
@@ -488,6 +671,6 @@ if (flushTimer.unref) flushTimer.unref();
 module.exports = {
   createPlayer, byToken, byId, adjustBalance, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
-  recordLedger, recordSlot, recordTank, ledgerSummary,
+  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size
 };

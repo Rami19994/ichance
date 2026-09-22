@@ -164,12 +164,8 @@ function revealTile(player, tileIndex) {
     session.status = 'exploded';
     activeSessions.delete(player.id);
 
-    // تسجيل الخسارة في دفتر أرباح الموقع
-    store.recordLedger({
-      real: { wagered: session.bet, paid: 0, bets: 1 },
-      bot: null,
-      game: 'mines'
-    });
+    // تسجيل الخسارة في دفتر أرباح الموقع وتحديث إحصاءات اللاعب وسجل الإدارة
+    store.recordMines(player, { bet: session.bet, win: 0 });
 
     const allMines = Array.from(session.minePositions);
 
@@ -203,11 +199,7 @@ function revealTile(player, tileIndex) {
 
     store.adjustBalance(player, cashoutAmount);
 
-    store.recordLedger({
-      real: { wagered: session.bet, paid: cashoutAmount, bets: 1 },
-      bot: null,
-      game: 'mines'
-    });
+    store.recordMines(player, { bet: session.bet, win: cashoutAmount });
 
     return {
       ok: true,
@@ -269,12 +261,8 @@ function cashOut(player) {
   // إضافة الأرباح لرصيد اللاعب
   store.adjustBalance(player, winAmount);
 
-  // تسجيل النتيجة في دفتر أرباح الموقع
-  store.recordLedger({
-    real: { wagered: session.bet, paid: winAmount, bets: 1 },
-    bot: null,
-    game: 'mines'
-  });
+  // تسجيل النتيجة في دفتر أرباح الموقع وتحديث إحصاءات اللاعب وسجل الإدارة
+  store.recordMines(player, { bet: session.bet, win: winAmount });
 
   return {
     ok: true,
