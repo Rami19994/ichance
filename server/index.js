@@ -23,6 +23,7 @@ const adminGate = require('./adminGate');
 const gameRegistry = require('./gameRegistry');
 const countries = require('./countries');
 const neonSlots = require('./neonSlots');
+const minesGame = require('./minesGame');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -301,7 +302,8 @@ const ROUTE_GAME = {
   '/api/join': 'cards', '/api/pick': 'cards',
   '/api/slot/spin': 'slots', '/api/slot/buy': 'slots',
   '/api/tank/start': 'tank',
-  '/api/neon-slots/spin': 'neon-slots'
+  '/api/neon-slots/spin': 'neon-slots',
+  '/api/mines/start': 'mines'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -903,6 +905,75 @@ async function handleApi(req, res, url) {
     });
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
+  }
+
+  // ------------------------------------------------------------- مناجم الحظ (Stake Mines)
+  if (route === '/api/mines/config' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      totalTiles: minesGame.TOTAL_TILES,
+      minMines: minesGame.MIN_MINES,
+      maxMines: minesGame.MAX_MINES,
+      rtp: Number((minesGame.DEFAULT_RTP * 100).toFixed(1)),
+      minStake: minesGame.MIN_STAKE,
+      maxStake: minesGame.MAX_STAKE
+    });
+  }
+
+  const minesRoutes = [
+    '/api/mines/state',
+    '/api/mines/start',
+    '/api/mines/reveal',
+    '/api/mines/cashout',
+    '/api/mines/random-pick'
+  ];
+  if (minesRoutes.includes(route) && !player) {
+    return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+  }
+
+  if (route === '/api/mines/state' && req.method === 'GET') {
+    return sendJson(res, 200, minesGame.stateFor(player));
+  }
+
+  if (route === '/api/mines/start' && req.method === 'POST') {
+    if (!rateLimit(`mines-start:${player.id}`, 20, 10_000)) {
+      return sendJson(res, 429, { error: 'طلبات كثيرة — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = minesGame.startGame(player, {
+      bet: body.bet,
+      minesCount: body.minesCount || body.mines,
+      clientSeed: body.clientSeed
+    });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/mines/reveal' && req.method === 'POST') {
+    if (!rateLimit(`mines-act:${player.id}`, 60, 10_000)) {
+      return sendJson(res, 429, { error: 'نقرات سريعة جداً' });
+    }
+    const body = await readBody(req);
+    const result = minesGame.revealTile(player, body.tileIndex !== undefined ? body.tileIndex : body.tile);
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/mines/cashout' && req.method === 'POST') {
+    if (!rateLimit(`mines-act:${player.id}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'طلبات كثيرة' });
+    }
+    const result = minesGame.cashOut(player);
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/mines/random-pick' && req.method === 'POST') {
+    if (!rateLimit(`mines-act:${player.id}`, 60, 10_000)) {
+      return sendJson(res, 429, { error: 'نقرات سريعة جداً' });
+    }
+    const result = minesGame.randomPick(player);
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
   }
 
   // ------------------------------------------------------------------ الإدارة
@@ -1509,6 +1580,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/bounty-hunter') return sendStatic(req, res, '/slot.html');
   if (url.pathname === '/battle-tanks') return sendStatic(req, res, '/tank.html');
   if (url.pathname === '/neon-slots') return sendStatic(req, res, '/neon-slots.html');
+  if (url.pathname === '/mines') return sendStatic(req, res, '/mines.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

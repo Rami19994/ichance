@@ -46,7 +46,7 @@ const ledger = {
   real: emptyBucket(),
   bot: emptyBucket(),
   // ربحية كل لعبة على حدة — بدونها لا يعرف المالك أي لعبة تكسب وأيها تخسر
-  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket() },
+  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket() },
   // شراء الميزة صفقة واحدة بمبلغ يعادل مئات الدورات. لو خُلط مع الدورات
   // العادية في عدّاد واحد لقفز "متوسط الرهان" وصار التقرير مضلّلاً.
   slotBuys: { count: 0, wagered: 0 },

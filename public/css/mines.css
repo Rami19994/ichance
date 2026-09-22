@@ -1,0 +1,638 @@
+/* ==========================================================================
+   LuckyArena — مناجم الحظ (Stake Mines Clone CSS)
+   تصميم فاخر وعصري مطابق لأفضل معايير Stake Originals
+   ========================================================================== */
+
+:root {
+  --mines-bg: #0f1923;
+  --mines-sidebar: #1a242d;
+  --mines-panel: #212d38;
+  --mines-tile-bg: #2f4553;
+  --mines-tile-hover: #557086;
+  --mines-tile-active: #243441;
+  --mines-green: #00e701;
+  --mines-green-glow: rgba(0, 231, 1, 0.4);
+  --mines-gold: #f5c542;
+  --mines-gold-glow: rgba(245, 197, 66, 0.4);
+  --mines-red: #ff3344;
+  --mines-red-glow: rgba(255, 51, 68, 0.5);
+}
+
+body.mines-page {
+  background-color: #0b0e14;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(26, 36, 45, 0.8) 0%, transparent 60%),
+    linear-gradient(180deg, #0b0e14 0%, #080a0f 100%);
+  color: #e9eef8;
+  font-family: 'Tajawal', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ═══════════ شريط علوي أنيق ═══════════ */
+.mines-navbar {
+  height: 64px;
+  background: rgba(15, 25, 35, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.mines-navbar__left,
+.mines-navbar__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mines-navbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+
+.mines-navbar__badge {
+  background: linear-gradient(135deg, rgba(245, 197, 66, 0.2), rgba(245, 197, 66, 0.05));
+  border: 1px solid rgba(245, 197, 66, 0.4);
+  color: #f5c542;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.mines-wallet-chip {
+  display: flex;
+  align-items: center;
+  background: #1a242d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 4px 6px 4px 14px;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.mines-wallet-chip__val {
+  color: #00e701;
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
+  direction: ltr;
+}
+
+.mines-wallet-chip__cur {
+  color: #92a4b8;
+  font-size: 0.75rem;
+  margin-right: 4px;
+}
+
+.btn-deposit-chip {
+  background: linear-gradient(135deg, #00e701, #00b001);
+  color: #000;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  text-decoration: none;
+}
+.btn-deposit-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--mines-green-glow);
+}
+
+.mines-icon-btn {
+  background: #1a242d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #92a4b8;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1.1rem;
+}
+.mines-icon-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #243441;
+}
+
+/* ═══════════ الحاوية الرئيسية ═══════════ */
+.mines-container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 30px auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  flex: 1;
+}
+
+/* ═══════════ لوحة التحكم الجانبية (Sidebar) ═══════════ */
+.mines-controls {
+  background: #1a242d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.mines-ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mines-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8fa1b4;
+}
+
+.mines-input-box {
+  background: #0f1923;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  transition: border-color 0.2s;
+}
+.mines-input-box:focus-within {
+  border-color: #2f4553;
+  background: #0b1219;
+}
+
+.mines-input-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.15rem;
+  padding: 8px 12px;
+  width: 100%;
+  direction: ltr;
+  text-align: right;
+  font-family: inherit;
+}
+
+.mines-quick-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.mines-btn-quick {
+  background: #243441;
+  border: none;
+  color: #92a4b8;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mines-btn-quick:hover {
+  background: #2f4553;
+  color: #fff;
+}
+
+.mines-select-box select {
+  background: #0f1923;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.mines-select-box select:focus {
+  border-color: #2f4553;
+}
+
+/* إحصائيات الجواهر والألغام */
+.mines-counts-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mines-count-card {
+  background: #0f1923;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mines-count-card img,
+.mines-count-card svg {
+  width: 26px;
+  height: 26px;
+}
+
+.mines-count-card__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.mines-count-card__label {
+  font-size: 0.72rem;
+  color: #798a9c;
+}
+
+.mines-count-card__num {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.mines-count-card--gem .mines-count-card__num { color: #00e701; }
+.mines-count-card--mine .mines-count-card__num { color: #ff4757; }
+
+/* زر الإجراء الأساسي الضخم (Bet / Cashout) */
+.mines-main-btn {
+  background: linear-gradient(180deg, #00e701 0%, #00b001 100%);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 1.15rem;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: 0 6px 20px rgba(0, 231, 1, 0.35);
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+  user-select: none;
+  min-height: 64px;
+}
+.mines-main-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 231, 1, 0.5);
+  background: linear-gradient(180deg, #0bf70c 0%, #00c701 100%);
+}
+.mines-main-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.mines-main-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  box-shadow: none;
+}
+
+.mines-main-btn--cashout {
+  background: linear-gradient(180deg, #f5c542 0%, #d49f13 100%) !important;
+  color: #0b0e14 !important;
+  box-shadow: 0 6px 22px rgba(245, 197, 66, 0.45) !important;
+  animation: pulse-cashout 1.8s infinite;
+}
+.mines-main-btn--cashout:hover:not(:disabled) {
+  box-shadow: 0 10px 30px rgba(245, 197, 66, 0.6) !important;
+}
+
+@keyframes pulse-cashout {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.mines-main-btn__sub {
+  font-size: 0.82rem;
+  opacity: 0.9;
+  font-weight: 700;
+}
+
+/* زر الاختيار العشوائي */
+.mines-btn-random {
+  background: #243441;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e9eef8;
+  border-radius: 10px;
+  padding: 12px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.mines-btn-random:hover:not(:disabled) {
+  background: #2f4553;
+  color: #00e701;
+  border-color: rgba(0, 231, 1, 0.3);
+}
+
+/* صندوق الأرباح الحالية والتالية */
+.mines-stats-panel {
+  background: #0f1923;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mines-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.mines-stat-row span { color: #8fa1b4; }
+.mines-stat-row b { font-weight: 800; }
+.mines-stat-row--profit b { color: #00e701; font-size: 1.05rem; }
+.mines-stat-row--mult b { color: #f5c542; }
+
+/* ═══════════ ساحة اللعبة الرئيسية (Grid Area) ═══════════ */
+.mines-board-area {
+  background: #0f1923;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+  min-height: 520px;
+}
+
+.mines-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 1 / 1;
+}
+
+/* المربعات التفاعلية */
+.mines-tile {
+  background: var(--mines-tile-bg);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 5px solid #1c2b36;
+  transition: transform 0.15s, background-color 0.2s, box-shadow 0.2s;
+  perspective: 600px;
+}
+
+.mines-tile:hover:not(.revealed):not(.disabled) {
+  background: var(--mines-tile-hover);
+  transform: translateY(-3px);
+  border-bottom-width: 7px;
+}
+
+.mines-tile:active:not(.revealed):not(.disabled) {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+
+.mines-tile.disabled {
+  cursor: default;
+}
+
+/* كشف المربع */
+.mines-tile.revealed {
+  cursor: default;
+  border-bottom-width: 2px;
+  background: #1e2c38;
+}
+
+.mines-tile.revealed.gem-tile {
+  background: radial-gradient(circle, rgba(0, 231, 1, 0.2) 0%, #15222b 100%);
+  border-color: rgba(0, 231, 1, 0.4);
+  box-shadow: 0 0 16px rgba(0, 231, 1, 0.35);
+  animation: pop-reveal 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mines-tile.revealed.bomb-tile {
+  background: radial-gradient(circle, rgba(255, 51, 68, 0.3) 0%, #1a1518 100%);
+  border-color: rgba(255, 51, 68, 0.5);
+  box-shadow: 0 0 24px rgba(255, 51, 68, 0.6);
+  animation: bomb-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.mines-tile.revealed.faded {
+  opacity: 0.35;
+  filter: grayscale(0.5);
+}
+
+.mines-tile img {
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+  pointer-events: none;
+  animation: zoom-in 0.25s ease-out;
+}
+
+@keyframes pop-reveal {
+  0% { transform: scale(0.6) rotate(-10deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes zoom-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bomb-shake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
+}
+
+/* ═══════════ شارة الاحتفال بالفوز (Win Banner) ═══════════ */
+.mines-win-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: rgba(15, 25, 35, 0.92);
+  border: 2px solid #f5c542;
+  border-radius: 20px;
+  padding: 24px 36px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px var(--mines-gold-glow);
+  backdrop-filter: blur(10px);
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.mines-win-overlay.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+
+.mines-win-overlay__mult {
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: #00e701;
+  text-shadow: 0 0 20px var(--mines-green-glow);
+}
+
+.mines-win-overlay__val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  margin-top: 4px;
+}
+
+.mines-win-overlay__sub {
+  color: #92a4b8;
+  font-size: 0.88rem;
+  margin-top: 6px;
+}
+
+/* ═══════════ بنر الوضع التجريبي ═══════════ */
+.mines-banner {
+  background: rgba(26, 36, 45, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: #92a4b8;
+}
+.mines-banner a {
+  color: #f5c542;
+  font-weight: 700;
+  text-decoration: underline;
+  margin: 0 4px;
+}
+
+/* ═══════════ نافذة العدالة المثبتة (Provably Fair Modal) ═══════════ */
+.pf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 20px;
+}
+
+.pf-modal {
+  background: #1a242d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  max-width: 520px;
+  width: 100%;
+  padding: 28px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pf-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pf-modal__title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.pf-modal__close {
+  background: transparent;
+  border: none;
+  color: #92a4b8;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-field label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #92a4b8;
+}
+
+.pf-field input {
+  background: #0f1923;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: monospace;
+  direction: ltr;
+}
+
+/* ═══════════ التجاوب مع الجوال (Responsive) ═══════════ */
+@media (max-width: 860px) {
+  .mines-container {
+    grid-template-columns: 1fr;
+    margin: 15px auto;
+  }
+  .mines-controls {
+    order: 2;
+  }
+  .mines-board-area {
+    order: 1;
+    padding: 20px;
+    min-height: auto;
+  }
+  .mines-grid {
+    max-width: 360px;
+    gap: 8px;
+  }
+}

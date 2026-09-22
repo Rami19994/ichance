@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>مناجم الحظ — Stake Mines | LuckyArena</title>
+  <meta name="description" content="العب لعبة مناجم الحظ الأصلية على LuckyArena. اكشف الجواهر الثمينة وضاعف أرباحك واسحب في أي وقت بنسبة عائد 97%!">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/theme.css?v=26">
+  <link rel="stylesheet" href="/css/mines.css?v=26">
+</head>
+<body class="mines-page">
+
+  <!-- ===================== شريط التنقل العلوي ===================== -->
+  <header class="mines-navbar">
+    <div class="mines-navbar__left">
+      <a class="mines-navbar__brand" href="/">
+        <span style="background:linear-gradient(135deg,#f5c542,#d49f13);color:#0b0e14;font-weight:900;padding:4px 8px;border-radius:6px;font-size:0.95rem;">LA</span>
+        <span>مناجم الحظ</span>
+      </a>
+      <span class="mines-navbar__badge">STAKE ORIGINALS • 97.0% RTP</span>
+    </div>
+
+    <div class="mines-navbar__right">
+      <div class="mines-wallet-chip">
+        <span class="mines-wallet-chip__cur" id="walletCurrency">IQD</span>
+        <span class="mines-wallet-chip__val" id="walletBalance">0</span>
+        <a class="btn-deposit-chip" href="/cashier.html" id="depositBtn">شحن</a>
+      </div>
+
+      <button class="mines-icon-btn" id="soundBtn" title="كتم/تشغيل الصوت">🔊</button>
+      <button class="mines-icon-btn" id="pfBtn" title="العدالة المثبتة">🛡️</button>
+      <button class="mines-icon-btn" id="fullscreenBtn" title="ملء الشاشة">⛶</button>
+      <a class="mines-icon-btn" href="/" title="الرئيسية" style="text-decoration:none;">✕</a>
+    </div>
+  </header>
+
+  <!-- بنر الوضع التجريبي -->
+  <div class="mines-banner" id="demoBanner">
+    ⚡ وضع تجريبي للتسلية. <a href="/login">سجّل دخولك</a> للّعب برصيدك الحقيقي وسحب الأرباح.
+  </div>
+
+  <!-- ===================== الحاوية الأساسية للعبة ===================== -->
+  <main class="mines-container">
+
+    <!-- لوحة التحكم الجانبية (Sidebar) -->
+    <aside class="mines-controls">
+      <!-- قيمة الرهان -->
+      <div class="mines-ctrl-group">
+        <div class="mines-label">
+          <span>مبلغ الرهان</span>
+          <span style="color:#798a9c;font-size:0.75rem;">الحد الأدنى: 100</span>
+        </div>
+        <div class="mines-input-box">
+          <input id="betAmount" type="number" min="100" max="1000000" step="100" value="1000">
+          <div class="mines-quick-btns">
+            <button type="button" class="mines-btn-quick" data-action="half">½</button>
+            <button type="button" class="mines-btn-quick" data-action="double">2×</button>
+            <button type="button" class="mines-btn-quick" data-action="max">Max</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- اختيار عدد الألغام -->
+      <div class="mines-ctrl-group">
+        <div class="mines-label">
+          <span>عدد الألغام في الشبكة</span>
+          <span style="color:#f5c542;font-size:0.75rem;">1 إلى 24 لغماً</span>
+        </div>
+        <div class="mines-select-box">
+          <select id="minesCount">
+            <option value="1">1 لغم (24 جوهرة)</option>
+            <option value="2">2 لغم (23 جوهرة)</option>
+            <option value="3" selected>3 ألغام (22 جوهرة) — الشائع</option>
+            <option value="4">4 ألغام (21 جوهرة)</option>
+            <option value="5">5 ألغام (20 جوهرة)</option>
+            <option value="6">6 ألغام (19 جوهرة)</option>
+            <option value="7">7 ألغام (18 جوهرة)</option>
+            <option value="8">8 ألغام (17 جوهرة)</option>
+            <option value="9">9 ألغام (16 جوهرة)</option>
+            <option value="10">10 ألغام (15 جوهرة)</option>
+            <option value="12">12 لغم (13 جوهرة)</option>
+            <option value="15">15 لغم (10 جواهر)</option>
+            <option value="18">18 لغم (7 جواهر)</option>
+            <option value="20">20 لغم (5 جواهر)</option>
+            <option value="22">22 لغم (3 جواهر)</option>
+            <option value="24">24 لغم (جوهرة واحدة فقط • ×24.25)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- عدادات الجواهر والألغام -->
+      <div class="mines-counts-bar">
+        <div class="mines-count-card mines-count-card--gem">
+          <img src="/assets/mines/diamond.svg" alt="Gems">
+          <div class="mines-count-card__info">
+            <span class="mines-count-card__label">الجواهر المتبقية</span>
+            <span class="mines-count-card__num" id="gemsCountDisplay">22</span>
+          </div>
+        </div>
+        <div class="mines-count-card mines-count-card--mine">
+          <img src="/assets/mines/bomb.svg" alt="Mines">
+          <div class="mines-count-card__info">
+            <span class="mines-count-card__label">الألغام المخفية</span>
+            <span class="mines-count-card__num" id="minesCountDisplay">3</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- زر الإجراء الرئيسي الضخم -->
+      <button class="mines-main-btn" id="mainActionBtn">
+        <span id="actionBtnText">ابدأ الرهان (Bet)</span>
+        <span class="mines-main-btn__sub" id="actionBtnSub">اختر رهانك والألغام وابدأ اللعب</span>
+      </button>
+
+      <!-- زر الاختيار العشوائي -->
+      <button class="mines-btn-random" id="randomPickBtn" disabled>
+        <span>🎲</span>
+        <span>اختيار عشوائي (Random Pick)</span>
+      </button>
+
+      <!-- صندوق الأرباح الحالية والتالية -->
+      <div class="mines-stats-panel">
+        <div class="mines-stat-row mines-stat-row--profit">
+          <span>الربح عند السحب الآن:</span>
+          <b id="statCurrentProfit">0 IQD</b>
+        </div>
+        <div class="mines-stat-row mines-stat-row--mult">
+          <span>المضاعف الحالي:</span>
+          <b id="statCurrentMult">×1.00</b>
+        </div>
+        <div class="mines-stat-row">
+          <span>الربح في الخطوة القادمة:</span>
+          <b id="statNextProfit" style="color:#22d3ee;">—</b>
+        </div>
+        <div class="mines-stat-row">
+          <span>المضاعف التالي:</span>
+          <b id="statNextMult">—</b>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ساحة المربعات 5×5 (Board Area) -->
+    <section class="mines-board-area">
+      <div class="mines-grid" id="minesGrid">
+        <!-- يتم توليد الـ 25 مربعاً برمجياً عبر mines.js -->
+      </div>
+
+      <!-- شارة الاحتفال بالفوز -->
+      <div class="mines-win-overlay" id="winOverlay">
+        <div style="font-size:0.9rem;font-weight:800;color:#f5c542;letter-spacing:1px;text-transform:uppercase;">🎉 مبروك! تم سحب الأرباح</div>
+        <div class="mines-win-overlay__mult" id="winMultiplier">×1.45</div>
+        <div class="mines-win-overlay__val" id="winValue">14,500 IQD</div>
+        <div class="mines-win-overlay__sub">أُضيفت الأرباح لمحفظتك مباشرة بنجاح!</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== نافذة العدالة المثبتة (Provably Fair) ===================== -->
+  <div class="pf-modal-backdrop" id="pfModal" hidden>
+    <div class="pf-modal">
+      <div class="pf-modal__header">
+        <h3 class="pf-modal__title">🛡️ العدالة المثبتة (Provably Fair)</h3>
+        <button class="pf-modal__close" id="pfClose">✕</button>
+      </div>
+      <p style="color:#92a4b8;font-size:0.88rem;margin:0;line-height:1.6;">
+        توزيع الألغام مشتق حسابياً باستخدام خوارزمية SHA-256 و HMAC قبل أن تبدأ باللعب. يتم نشر بصمة البذرة أولاً لمنع تغيير النتيجة لاحقاً، وتكشف البذرة الأصلية عند انتهاء الجولة لتمكينك من التحقق يدوياً.
+      </p>
+      <div class="pf-field">
+        <label>بصمة بذرة الخادم المشفرة (Server Seed Hash):</label>
+        <input id="pfServerHash" readonly value="تبدأ مع أول جولة">
+      </div>
+      <div class="pf-field">
+        <label>بذرة الخادم المكشوفة بعد انتهاء الجولة (Server Seed):</label>
+        <input id="pfServerSeed" readonly placeholder="تظهر تلقائياً عند انتهاء الجولة للتحقق">
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/mines.js?v=26"></script>
+</body>
+</html>

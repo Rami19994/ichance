@@ -15,6 +15,23 @@ const CATEGORIES = [
 
 const GAMES = [
   {
+    id: 'mines',
+    title: 'مناجم الحظ — Stake Mines',
+    cat: 'crash',
+    cats: ['crash', 'skill', 'table'],
+    rtpBadge: '97.0% RTP',
+    provider: 'Stake Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/mines',
+    thumb: '/assets/thumb_mines.jpg',
+    tag: 'لعبة الألغام الأصلية • 5×5',
+    badge: 'HOT • STAKE',
+    badgeClass: 'badge-tag--gold',
+    desc: 'لعبة مناجم الحظ الأصلية: اختر عدد الألغام واكشف الجواهر الخضراء اللامعة وضاعف أرباحك مع كل خطوة، واسحب أرباحك في أي لحظة قبل الانفجار!'
+  },
+  {
     id: 'neon-slots',
     title: 'نيون فيغاس — Neon Vegas Slots',
     cat: 'slots',

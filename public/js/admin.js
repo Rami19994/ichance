@@ -399,7 +399,9 @@ function renderKpis(d) {
 const GAME_META = {
   cards: { name: 'كروت الحظ', emoji: '🎴', rtp: 88.17 },
   slots: { name: 'صيّاد الجوائز', emoji: '🤠', rtp: 87.2 },
-  tank:  { name: 'معركة الدبابات', emoji: '🛡️', rtp: 79.8 }
+  tank:  { name: 'معركة الدبابات', emoji: '🛡️', rtp: 79.8 },
+  'neon-slots': { name: 'نيون فيغاس', emoji: '🎰', rtp: 71.0 },
+  mines: { name: 'مناجم الحظ', emoji: '💣', rtp: 97.0 }
 };
 
 function renderGames(d) {
