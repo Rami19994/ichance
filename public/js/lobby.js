@@ -1,12 +1,12 @@
 /* ==========================================================================
-   iCHANCE — الردهة الفاخرة (High-Fidelity Casino Lobby Engine)
+   LuckyArena — الردهة الفاخرة (High-Fidelity Casino Lobby Engine)
    تحكم كامل بالكتالوج والتصفية والتفاعل بدون أرقام أو إحصاءات وهمية
    ========================================================================== */
 'use strict';
 
 const CATEGORIES = [
   { key: 'all',       name: '⭐ كل الألعاب',           en: 'All Games' },
-  { key: 'slots',     name: '🎰 High RTP Slots',      en: 'Slots' },
+  { key: 'slots',     name: '🎰 Vegas Slots',         en: 'Slots' },
   { key: 'table',     name: '🎡 Live Roulette',       en: 'Roulette' },
   { key: 'blackjack', name: '♠️ Blackjack & Tables',   en: 'Blackjack' },
   { key: 'crash',     name: '🚀 Crash Games',         en: 'Crash' },
@@ -19,7 +19,7 @@ const GAMES = [
     title: 'مناجم الحظ — Stake Mines',
     cat: 'crash',
     cats: ['crash', 'skill', 'table'],
-    rtpBadge: '97.0% RTP',
+    rtpBadge: 'PROVABLY FAIR',
     provider: 'Stake Originals',
     providerKey: 'luckyarena',
     live: true,
@@ -35,7 +35,7 @@ const GAMES = [
     id: 'neon-slots',
     title: 'نيون فيغاس — Neon Vegas Slots',
     cat: 'slots',
-    rtpBadge: '96.2% RTP',
+    rtpBadge: 'VEGAS SLOTS',
     provider: 'LuckyArena Originals',
     providerKey: 'luckyarena',
     live: true,
@@ -51,7 +51,7 @@ const GAMES = [
     id: 'bounty',
     title: 'صيّاد الجوائز — Bounty Hunter',
     cat: 'slots',
-    rtpBadge: 'HIGH RTP',
+    rtpBadge: 'BOUNTY HUNTER',
     provider: 'LuckyArena Originals',
     providerKey: 'luckyarena',
     live: true,
@@ -287,8 +287,8 @@ function openGameLauncherModal(game, isDemo) {
 
       <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:20px">
         <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:10px; border-radius:10px">
-          <div style="font-size:11px; color:#94a3b8">نظام العوائد</div>
-          <div style="font-size:15px; font-weight:800; color:#00ff87">High RTP</div>
+          <div style="font-size:11px; color:#94a3b8">فئة اللعبة</div>
+          <div style="font-size:15px; font-weight:800; color:#00ff87">Casino Pro</div>
         </div>
         <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:10px; border-radius:10px">
           <div style="font-size:11px; color:#94a3b8">المزوّد المعتمد</div>
