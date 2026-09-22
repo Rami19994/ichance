@@ -31,6 +31,14 @@
       "destination": "/neon-slots.html"
     },
     {
+      "source": "/mines",
+      "destination": "/mines.html"
+    },
+    {
+      "source": "/master",
+      "destination": "/master.html"
+    },
+    {
       "source": "/play/:slug",
       "destination": "/play.html"
     },

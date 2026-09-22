@@ -37,7 +37,7 @@
   var statNextMult = document.getElementById('statNextMult');
 
   // ------------------------- حالة اللعبة -------------------------
-  var token = localStorage.getItem('ichance_token') || '';
+  var token = localStorage.getItem('ichance.token') || localStorage.getItem('ichance_token') || '';
   var balance = 1000;
   var currency = 'IQD';
   var isGameActive = false;
@@ -123,10 +123,13 @@
   // ------------------------- مزامنة المحفظة والحالة -------------------------
   async function syncWallet() {
     if (!token) {
+      token = localStorage.getItem('ichance.token') || localStorage.getItem('ichance_token') || '';
+    }
+    if (!token) {
       balValEl.textContent = fmt(balance);
       balCurEl.textContent = 'DEMO';
       if (bannerEl) {
-        bannerEl.innerHTML = '⚡ وضع تجريبي للتسلية. <a href="/login">سجّل دخولك</a> للّعب برصيدك الحقيقي وسحب الأرباح.';
+        bannerEl.innerHTML = '⚡ وضع تجريبي للتسلية. <a href="/login?next=/mines">سجّل دخولك</a> للّعب برصيدك الحقيقي وسحب الأرباح.';
       }
       return;
     }
@@ -149,6 +152,7 @@
         }
       } else if (res.status === 401) {
         token = '';
+        localStorage.removeItem('ichance.token');
         localStorage.removeItem('ichance_token');
         syncWallet();
       }
