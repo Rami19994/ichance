@@ -92,7 +92,10 @@ function sendStatic(req, res, pathname) {
 // ---------------------------------------------------------------------------
 // أدوات مساعدة
 // ---------------------------------------------------------------------------
-function sendJson(res, status, body) {
+async function sendJson(res, status, body) {
+  if (store.isDirty()) {
+    try { await store.flush(); } catch (e) { console.error('[store] flush error:', e.message); }
+  }
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -315,6 +318,7 @@ async function resolveMaster(req, url) {
 }
 
 async function handleApi(req, res, url) {
+  await store.ensureDbLoaded();
   const route = url.pathname;
   const token = tokenFrom(req, url);
   const player = await resolvePlayer(token);
@@ -1339,6 +1343,7 @@ async function handleApi(req, res, url) {
     }
 
     if (route === '/api/admin/overview' && req.method === 'GET') {
+      await store.syncWithDb({ force: true });
       const ledger = store.ledgerSummary();
       const rounds = store.rounds(60);
       // جلب اللاعبين الحقيقيين من قاعدة البيانات (Supabase أو محلي)

@@ -13,7 +13,9 @@ const { WALLET, SERVER } = require('./config');
  * الدخول بالرمز (token) المحفوظ في المتصفح، بدون كلمات مرور.
  */
 
-const DATA_FILE = SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json');
+const DATA_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'ichance_players.json')
+  : (SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
 
 /** @type {Map<string, any>} id -> player */
 const players = new Map();
@@ -54,53 +56,87 @@ const ledger = {
   since: Date.now()
 };
 
+function applyStorePayload(raw) {
+  if (!raw) return;
+  if (Array.isArray(raw.rounds)) {
+    roundLog.length = 0;
+    roundLog.push(...raw.rounds.slice(0, SERVER.historySize));
+  }
+  if (raw.ledger) {
+    const L = raw.ledger;
+    if (L.real || L.bot) {
+      for (const bucket of ['real', 'bot']) {
+        if (L[bucket]) {
+          for (const k of Object.keys(ledger[bucket])) {
+            if (Number.isFinite(L[bucket][k])) ledger[bucket][k] = L[bucket][k];
+          }
+        }
+      }
+    } else {
+      for (const k of Object.keys(ledger.real)) {
+        if (Number.isFinite(L[k])) ledger.real[k] = L[k];
+      }
+    }
+    if (L.tankByDifficulty && typeof L.tankByDifficulty === 'object') {
+      ledger.tankByDifficulty = L.tankByDifficulty;
+    }
+    if (L.games) {
+      for (const g of Object.keys(ledger.games)) {
+        if (L.games[g]) {
+          for (const k of Object.keys(ledger.games[g])) {
+            if (Number.isFinite(L.games[g][k])) ledger.games[g][k] = L.games[g][k];
+          }
+        }
+      }
+    }
+    if (L.slotBuys) {
+      if (Number.isFinite(L.slotBuys.count)) ledger.slotBuys.count = L.slotBuys.count;
+      if (Number.isFinite(L.slotBuys.wagered)) ledger.slotBuys.wagered = L.slotBuys.wagered;
+    }
+    if (Number.isFinite(L.faucet)) ledger.faucet = L.faucet;
+    if (Number.isFinite(L.since)) ledger.since = L.since;
+  }
+  if (raw.playerStats && typeof raw.playerStats === 'object') {
+    for (const [id, st] of Object.entries(raw.playerStats)) {
+      if (!st) continue;
+      let p = players.get(id);
+      if (!p) {
+        p = normalize({
+          id,
+          token: st.token || '',
+          balance: Number.isFinite(st.balance) ? st.balance : WALLET.startingBalance,
+          createdAt: st.createdAt || Date.now()
+        });
+        p.accountId = st.accountId || null;
+        p.username = st.username || null;
+        players.set(id, p);
+        if (p.token) tokenIndex.set(p.token, id);
+      }
+      if (st.stats) p.stats = { ...p.stats, ...st.stats };
+      if (st.neonStats) p.neonStats = { ...st.neonStats };
+      if (st.tankStats) p.tankStats = { ...st.tankStats };
+      if (st.minesStats) p.minesStats = { ...st.minesStats };
+      if (st.slotStats) p.slotStats = { ...st.slotStats };
+    }
+  }
+}
+
 function load() {
   try {
-    if (!fs.existsSync(DATA_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    for (const p of raw.players || []) {
-      if (!p || !p.id || !p.token) continue;
-      players.set(p.id, normalize(p));
-      tokenIndex.set(p.token, p.id);
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+      for (const p of raw.players || []) {
+        if (!p || !p.id || !p.token) continue;
+        players.set(p.id, normalize(p));
+        tokenIndex.set(p.token, p.id);
+      }
+      applyStorePayload(raw);
+      console.log(`[store] تم تحميل ${players.size} لاعب من الملف`);
     }
-    if (Array.isArray(raw.rounds)) {
-      roundLog.push(...raw.rounds.slice(0, SERVER.historySize));
-    }
-    if (raw.ledger) {
-      const L = raw.ledger;
-      if (L.real || L.bot) {
-        for (const bucket of ['real', 'bot']) {
-          for (const k of Object.keys(ledger[bucket])) {
-            if (Number.isFinite(L[bucket]?.[k])) ledger[bucket][k] = L[bucket][k];
-          }
-        }
-      } else {
-        // ترحيل الصيغة القديمة: كانت تسجّل البشر فقط في المستوى الأعلى
-        for (const k of Object.keys(ledger.real)) {
-          if (Number.isFinite(L[k])) ledger.real[k] = L[k];
-        }
-      }
-      if (L.tankByDifficulty && typeof L.tankByDifficulty === 'object') {
-        ledger.tankByDifficulty = L.tankByDifficulty;
-      }
-      if (L.games) {
-        for (const g of Object.keys(ledger.games)) {
-          for (const k of Object.keys(ledger.games[g])) {
-            if (Number.isFinite(L.games[g]?.[k])) ledger.games[g][k] = L.games[g][k];
-          }
-        }
-      }
-      if (L.slotBuys) {
-        if (Number.isFinite(L.slotBuys.count)) ledger.slotBuys.count = L.slotBuys.count;
-        if (Number.isFinite(L.slotBuys.wagered)) ledger.slotBuys.wagered = L.slotBuys.wagered;
-      }
-      if (Number.isFinite(L.faucet)) ledger.faucet = L.faucet;
-      if (Number.isFinite(L.since)) ledger.since = L.since;
-    }
-    console.log(`[store] تم تحميل ${players.size} لاعب`);
   } catch (err) {
     console.error('[store] فشل تحميل الملف، سنبدأ من جديد:', err.message);
   }
+  syncWithDb().catch(() => {});
 }
 
 /** يُستدعى مرة واحدة في نهاية كل جولة بمجاميع البشر والبوتات منفصلة. */
@@ -470,12 +506,108 @@ function normalize(p) {
   };
 }
 
-function persistSoon() { dirty = true; }
+function extractPlayerStats() {
+  const map = {};
+  for (const [id, p] of players.entries()) {
+    if (!p) continue;
+    map[id] = {
+      id: p.id,
+      accountId: p.accountId || null,
+      username: p.username || null,
+      balance: p.balance,
+      stats: p.stats,
+      neonStats: p.neonStats,
+      tankStats: p.tankStats,
+      minesStats: p.minesStats,
+      slotStats: p.slotStats
+    };
+  }
+  return map;
+}
 
-async function flush() {
-  if (!dirty || writing) return;
+let savingDb = false;
+let dbSavePending = false;
+let lastDbSync = 0;
+let dbInitialSyncDone = false;
+const DB_SYNC_INTERVAL_MS = 3000;
+
+async function syncWithDb({ force = false } = {}) {
+  if (!supabase.configured()) return false;
+  const now = Date.now();
+  if (!force && dbInitialSyncDone && (now - lastDbSync < DB_SYNC_INTERVAL_MS)) {
+    return true;
+  }
+
+  try {
+    const row = await supabase.selectOne('site_secrets', 'key=eq.store_data');
+    if (row && row.value) {
+      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      applyStorePayload(parsed);
+      lastDbSync = now;
+      dbInitialSyncDone = true;
+      return true;
+    }
+    dbInitialSyncDone = true;
+  } catch (err) {
+    console.warn('[store] تعذّرت مزامنة البيانات من Supabase:', err.message);
+  }
+  return false;
+}
+
+async function ensureDbLoaded() {
+  if (!dbInitialSyncDone) {
+    await syncWithDb({ force: true });
+  }
+}
+
+async function saveToDb() {
+  if (!supabase.configured()) return false;
+  if (savingDb) {
+    dbSavePending = true;
+    return false;
+  }
+  savingDb = true;
+  dbSavePending = false;
+
+  try {
+    const payload = {
+      savedAt: Date.now(),
+      ledger,
+      rounds: roundLog.slice(0, 100),
+      playerStats: extractPlayerStats()
+    };
+
+    await supabase.request('/rest/v1/site_secrets?on_conflict=key', {
+      method: 'POST',
+      body: [{
+        key: 'store_data',
+        value: JSON.stringify(payload),
+        updated_at: new Date().toISOString()
+      }],
+      prefer: 'resolution=merge-duplicates,return=minimal'
+    });
+    lastDbSync = Date.now();
+    return true;
+  } catch (err) {
+    console.error('[store] فشل الحفظ في Supabase:', err.message);
+    dbSavePending = true;
+    return false;
+  } finally {
+    savingDb = false;
+    if (dbSavePending) {
+      setTimeout(() => saveToDb().catch(() => {}), 1000);
+    }
+  }
+}
+
+function persistSoon() {
+  dirty = true;
+  saveToDb().catch(() => {});
+}
+
+async function flushLocal() {
+  if (writing) return;
   writing = true;
-  dirty = false;
   const payload = JSON.stringify({
     savedAt: Date.now(),
     ledger,
@@ -488,11 +620,20 @@ async function flush() {
     await fs.promises.writeFile(tmp, payload, 'utf8');
     await fs.promises.rename(tmp, DATA_FILE);
   } catch (err) {
-    console.error('[store] فشل الحفظ:', err.message);
-    dirty = true; // نعيد المحاولة في الدورة القادمة
+    if (!process.env.VERCEL) {
+      console.warn('[store] تعذر الحفظ المحلي:', err.message);
+    }
   } finally {
     writing = false;
   }
+}
+
+async function flush() {
+  dirty = false;
+  await Promise.allSettled([
+    flushLocal(),
+    saveToDb()
+  ]);
 }
 
 function shortId() {
@@ -567,7 +708,12 @@ function adjustBalance(player, amount) {
   player.balance = next;
   // نتائج اللعب تُجمَّع وتُدفع دفعات: الكتابة الفورية تضيف ~450مللي ثانية
   // على كل دورة سلوتس. الفرق نسبي لا مطلق، فلا يمحو تعبئةً حدثت في الأثناء.
-  if (player.accountId) accounts.queueDelta(player.accountId, Math.round(amount));
+  if (player.accountId) {
+    accounts.queueDelta(player.accountId, Math.round(amount));
+    if (process.env.VERCEL) {
+      accounts.flushDeltas().catch((e) => console.error('[store] flushDeltas error:', e.message));
+    }
+  }
   persistSoon();
   return true;
 }
@@ -672,5 +818,6 @@ module.exports = {
   createPlayer, byToken, byId, adjustBalance, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
   recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, ledgerSummary,
-  tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size
+  tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size,
+  syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty
 };
