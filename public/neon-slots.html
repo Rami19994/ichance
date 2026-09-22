@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>نيون فيغاس سلوتس — LuckyArena</title>
-  <meta name="description" content="ماكينة سلوتس كلاسيكية 5 بكرات بنمط نيون جذاب، 20 خط دفع، رموز Scatter و Wild ومضاعفات فورية." />
+  <meta name="description" content="ماكينة سلوتس كلاسيكية 5 بكرات بنمط نيون جذاب، 20 خط دفع، رموز Scatter و Wild ومضاعفات فورية بالمال الحقيقي." />
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
 
   <!-- كل مسارات اللعبة النسبية تُحلّ من مجلّدها -->
@@ -14,60 +14,28 @@
   <script>
     /**
      * إعدادات اللعبة — يجب أن تُعرَّف قبل تحميل main.js.
-     *
-     * ⚠ `balance` هنا رصيد **داخل اللعبة** لا علاقة له بمحفظة اللاعب على
-     * الموقع. اللعبة مغلقة المصدر وتحسب نتائجها في المتصفح، فلا يجوز أن
-     * تُصرَف منها أموال حقيقية. المحفظة في الشريط العلوي للعرض فقط.
+     * يتم استبدال الرصيد تلقائياً برصيد محفظة اللاعب الحقيقي عبر خطاف onNeonSlotsReady.
      */
     window.slotMachineConfig = {
       minBet: 1,
-      maxBet: 100,
-      defaultBet: 1,
+      maxBet: 1000,
+      defaultBet: 5,
       betChangeAmount: 1,
       lineCount: 20,
       balance: 1000
     };
 
-    /**
-     * اللعبة تحفظ رصيدها التجريبي في localStorage تحت smg-balance، وقيمة
-     * `balance` أعلاه تُستعمل أوّل مرّة فقط. فإن نفد الرصيد بقي صفراً إلى
-     * الأبد وردّت على كل ضغطة «Insufficient balance» بلا أي طريق للخروج.
-     * نعيد تعبئته ما دام تجريبياً — لا شيء حقيقي يُفقد.
-     */
     (function () {
       try {
-        var SPIN_FLOOR = 20;   // أقل رهان (1) × 20 خطاً = دورة واحدة
+        var SPIN_FLOOR = 20;
         var saved = parseInt(localStorage.getItem('smg-balance'), 10);
         if (!isFinite(saved) || saved < SPIN_FLOOR) {
           localStorage.setItem('smg-balance', String(window.slotMachineConfig.balance));
         }
-      } catch (e) { /* تخزين محجوب: اللعبة تبدأ من قيمة الإعدادات */ }
+      } catch (e) { /* تخزين محجوب */ }
     })();
-
-    /*
-     * ⚠ لا تضف هنا أي تعديل على HTMLImageElement.prototype.
-     *
-     * كان هنا «إصلاح» عامّ يعترض src وonload لكل الصور ويستدعي onload
-     * يدوياً بعد 50ms. وهو نفسه سبب تجمّد «LOADING…100%»:
-     *
-     *   • خاصية onload ليست ملكاً لـHTMLImageElement.prototype بل
-     *     لـHTMLElement.prototype، فشرط `if (origOnloadDesc)` كان يفشل
-     *     بصمت وتبقى راية _onloadFired غير معرّفة أبداً — فيُستدعى
-     *     onload يدوياً **فوق** الحدث الحقيقي: مرّتان لكل صورة (مُقاس).
-     *   • ومحمّل اللعبة متسلسل: كل onload يزيد العدّاد ويجدول الخطوة
-     *     التالية. فمضاعفة الاستدعاء تُفرّع سلسلة التحميل إلى سلسلتين ثم
-     *     أربع… قياساً: 621 خطوة تحميل بدل 180.
-     *
-     * وحُصِّن محمّل الخلفية داخل الحزمة نفسها (onerror + راية خطوة واحدة)،
-     * والتفصيل في games/neon-slots/PATCH-LUCKYARENA.md.
-     */
   </script>
 
-  <!--
-    مكتبات CreateJS يحمّلها main.js بنفسه ديناميكياً — أُزيلت وسوم التحميل
-    المسبق هنا لأنها كانت تحمّلها مرّة ثانية، وتحميل soundjs مرّتين يعيد
-    تعريف createjs.Sound وقد يمسح الأصوات المسجَّلة.
-  -->
   <script src="assets/js/main.js"></script>
 
   <style>
@@ -251,7 +219,7 @@
       position: relative;
     }
 
-    /* ─── رسالة تعذّر التحميل بدل شاشة متجمّدة ─── */
+    /* ─── رسالة تعذّر التحميل ─── */
     .la-loadfail {
       position: absolute;
       inset: 0;
@@ -281,7 +249,7 @@
       cursor: pointer;
     }
 
-    /* ─── شريط التنبيه ─── */
+    /* ─── شريط التنبيه المباشر ─── */
     .guest-banner {
       position: absolute;
       top: 60px;
@@ -307,6 +275,43 @@
       color: var(--gold);
       text-decoration: underline;
       font-weight: 800;
+    }
+
+    /* ─── التنبيهات المنبثقة Toast ─── */
+    .la-toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .la-toast {
+      background: rgba(22, 10, 36, 0.95);
+      border: 1px solid var(--gold);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.8);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: auto;
+      text-align: center;
+      direction: rtl;
+    }
+    .la-toast--error {
+      border-color: #ff3366;
+      background: rgba(45, 10, 22, 0.96);
+      color: #ffb3c6;
+    }
+    .la-toast--success {
+      border-color: #00ffaa;
+      background: rgba(10, 40, 25, 0.96);
+      color: #b3ffe0;
     }
 
     @media (max-width: 600px) {
@@ -366,21 +371,28 @@
   <!-- تنبيه حالة اللعب -->
   <div id="guestBanner" class="guest-banner"></div>
 
+  <!-- حاوية التنبيهات المنبثقة -->
+  <div id="laToastContainer" class="la-toast-container"></div>
+
   <script>
     'use strict';
 
-    /* ══════════════ مراقبة تحميل اللعبة ══════════════
-     * اللعبة تضيف الصنف smg-loaded على حاويتها عند انتهاء التحميل.
-     * نخفي شاشة التحميل عندها، وإن لم تنتهِ خلال مهلة معقولة نعرض رسالة
-     * وزرّ إعادة محاولة بدل شاشة متجمّدة لا يفهمها اللاعب.
-     *
-     * المهلة لا تُحسب بالوقت الجاري بل بالوقت الذي كان المتصفّح فيه **يرسم
-     * فعلاً**: محمّل اللعبة يتقدّم خطوةً في كل إطار رسم، والمتصفّح يجمّد
-     * الإطارات في التبويب الخلفي وحتى في نافذة مغطّاة بالكامل — بينما تبقى
-     * document.hidden تساوي false. فالاكتفاء بها يتّهم اللعبة بالفشل وهي
-     * سليمة. لذلك نتحقّق في كل نبضة أن إطاراً قد سُلِّم؛ وإلّا فالمتصفّح هو
-     * المتوقّف لا اللعبة، فلا نعدّ تلك الفترة.
-     */
+    /* ══════════════ نظام التنبيهات Toast ══════════════ */
+    function toast(msg, type) {
+      var container = document.getElementById('laToastContainer');
+      if (!container) return;
+      var el = document.createElement('div');
+      el.className = 'la-toast' + (type === 'error' ? ' la-toast--error' : type === 'success' ? ' la-toast--success' : '');
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(function() {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
+        setTimeout(function() { el.remove(); }, 300);
+      }, 3500);
+    }
+
+    /* ══════════════ مراقبة تحميل اللعبة ══════════════ */
     (function () {
       var PAINTING_TIMEOUT_MS = 30000;
       var root = document.getElementById('slot-machine');
@@ -440,7 +452,7 @@
       }, 400);
     })();
 
-    /* ══════════════ الشريط العلوي والمحفظة ══════════════ */
+    /* ══════════════ ربط المحفظة والدوران الحقيقي بالسيرفر ══════════════ */
     (function () {
       var token = '';
       try { token = localStorage.getItem('ichance.token') || ''; } catch (e) { token = ''; }
@@ -448,6 +460,12 @@
       var balEl = document.getElementById('laBalance');
       var curEl = document.getElementById('laCurrency');
       var bannerEl = document.getElementById('guestBanner');
+
+      var currentBalance = 0;
+      var currentCurrency = 'IQD';
+      var machineInstance = null;
+      var isSpinActive = false;
+      var pendingSpinPromise = null;
 
       function fmt(n) {
         return Math.floor(n || 0).toLocaleString('en-US');
@@ -458,19 +476,13 @@
         bannerEl.style.display = 'flex';
       }
 
-      /**
-       * ⚠ هذه اللعبة تحسب نتائجها في المتصفح ولا تنادي الخادم.
-       * فالرهان لا يُخصم من المحفظة والربح لا يُضاف إليها — أرقام اللعبة
-       * أرصدة تجريبية. الشريط العلوي يعرض المحفظة الحقيقية للاطمئنان، وهي
-       * لا تتغيّر باللعب هنا. نقول ذلك للّاعب صراحةً بدل أن يكتشفه بنفسه.
-       */
-      function markDemo(loggedIn) {
-        if (loggedIn) {
-          banner('<span>🎲 هذه اللعبة للتسلية برصيد تجريبي — لا يُخصم من محفظتك ولا يُضاف إليها.</span>');
+      function updateStatusBanner() {
+        if (token) {
+          banner('<span>💎 أنت تلعب الآن برصيدك الحقيقي — الرهانات والأرباح مرتبطة بمحفظتك مباشرة.</span>');
         } else {
-          banner('<span>⚡ أنت تلعب الآن في الوضع التجريبي.</span>'
+          banner('<span>⚡ وضع تجريبي للتسلية. </span>'
                + '<a href="/login">سجّل دخولك</a>'
-               + '<span>لرؤية محفظتك.</span>');
+               + '<span> للّعب برصيدك الحقيقي وسحب الأرباح.</span>');
         }
       }
 
@@ -478,33 +490,176 @@
         if (!token) {
           balEl.textContent = '1,000';
           curEl.textContent = 'DEMO';
+          updateStatusBanner();
           return;
         }
         try {
-          var res = await fetch('/api/me', { headers: { 'x-player-token': token } });
+          var res = await fetch('/api/neon-slots/state', { headers: { 'x-player-token': token } });
           if (res.ok) {
             var data = await res.json();
             if (data.player) {
-              balEl.textContent = fmt(data.player.balance);
-              curEl.textContent = data.player.currency || 'IQD';
+              currentBalance = Number(data.player.balance) || 0;
+              currentCurrency = data.player.currency || 'IQD';
+              balEl.textContent = fmt(currentBalance);
+              curEl.textContent = currentCurrency;
+
+              if (machineInstance) {
+                machineInstance.balance = currentBalance;
+                machineInstance.updateUIText();
+              }
+              updateStatusBanner();
             }
           } else if (res.status === 401) {
+            token = '';
             balEl.textContent = '1,000';
             curEl.textContent = 'DEMO';
-            markDemo(false);
+            updateStatusBanner();
           }
         } catch (err) {
-          console.warn('[NeonSlots] تعذّرت مزامنة المحفظة:', err.message);
+          console.warn('[NeonSlots] Wallet sync error:', err.message);
         }
       }
 
-      markDemo(!!token);
+      updateStatusBanner();
       syncWallet();
-      setInterval(syncWallet, 8000);
+      setInterval(syncWallet, 10000);
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden) syncWallet();
       });
 
+      // ─── استقبال كائن ماكينة السلوتس عند اكتمال جاهزيتها ───
+      window.onNeonSlotsReady = function(game) {
+        machineInstance = game;
+        console.log('[NeonSlots] Machine ready. Binding server-side spin engine.');
+
+        if (token && currentBalance > 0) {
+          game.balance = currentBalance;
+          game.updateUIText();
+        }
+
+        // اعتراض نقرة زر الدوران (Spin Button)
+        var origSpinClick = game.btn_spin_click.bind(game);
+
+        game.btn_spin_click = function() {
+          if (isSpinActive) return;
+
+          // 1. إذا كان زائر غير مسجل
+          if (!token) {
+            toast('أنت في الوضع التجريبي — سجّل دخولك للّعب بالرصيد الحقيقي', 'info');
+            origSpinClick();
+            return;
+          }
+
+          var lineBet = Math.max(1, Math.floor(Number(game.bet) || 1));
+          var lineCount = Math.max(1, Math.floor(Number(game.lines_count) || 20));
+          var totalBet = lineBet * lineCount;
+
+          // 2. التحقق من كفاية الرصيد الحقيقي
+          if (currentBalance < totalBet) {
+            toast('رصيدك لا يكفي لإتمام هذه الدورة (الرهان: ' + fmt(totalBet) + ' ' + currentCurrency + '). يرجى شحن الرصيد للمتابعة.', 'error');
+            return;
+          }
+
+          isSpinActive = true;
+
+          // 3. إرسال طلب الدوران الحقيقي المشفر للخادم ذرياً
+          pendingSpinPromise = fetch('/api/neon-slots/spin', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-player-token': token
+            },
+            body: JSON.stringify({
+              bet: lineBet,
+              lines: lineCount
+            })
+          }).then(function(res) {
+            return res.json();
+          }).catch(function(err) {
+            console.error('[NeonSlots] Spin network error:', err);
+            return { ok: false, error: 'تعذّر الاتصال بالخادم' };
+          });
+
+          // 4. إطلاق الرسوميات والمؤثرات الصوتية للدوران فوراً
+          origSpinClick();
+        };
+
+        // اعتراض مرحلة التوقف وتحديد النتيجة (game_result_request)
+        game.game_result_request = async function() {
+          // إذا كان زائر تجريبي (بدون توكن)، يُترك المحرك المحلي يحدد التوقف
+          if (!token || !pendingSpinPromise) {
+            var localStops = game.reels.map(function(r) {
+              return Math.floor(Math.random() * (r.strip_length || 11));
+            });
+            for (var i = 0; i < 5; i++) {
+              (function(idx) {
+                setTimeout(function() { game.reels[idx].stopSpin(localStops[idx]); }, idx * 250);
+              })(i);
+            }
+            return;
+          }
+
+          var result = null;
+          try {
+            result = await pendingSpinPromise;
+          } catch(e) {
+            result = null;
+          }
+          pendingSpinPromise = null;
+
+          if (!result || !result.ok) {
+            toast(result && result.error ? result.error : 'فشل تنفيذ الدورة، تم إرجاع الرهان', 'error');
+            isSpinActive = false;
+            for (var r = 0; r < 5; r++) {
+              game.reels[r].stopSpin(0);
+            }
+            syncWallet();
+            return;
+          }
+
+          // تحديث الرصيد الحقيقي في المحفظة
+          currentBalance = result.balance;
+          balEl.textContent = fmt(currentBalance);
+
+          // إعداد كائن النتيجة بالقيم الواردة من السيرفر
+          var stops = result.stops;
+          game.game_result = {
+            gameable: {
+              reel_positions: stops.join(','),
+              scatters_count: result.scatterCount || 0,
+              win_scatters_ttl: result.scatterWin || 0,
+              win_scatters: (result.gameable && result.gameable.win_scatters) ? result.gameable.win_scatters : [[],[],[],[],[]],
+              lines_win: result.linesWinCount || 0,
+              win_lines_ttl: result.winningLines || {},
+              win_lines: (result.gameable && result.gameable.win_lines) ? result.gameable.win_lines : {}
+            },
+            win: result.win || 0,
+            account: {
+              balance: result.balance
+            }
+          };
+
+          // إيقاف البكرات تدريجياً وبسلاسة تامة بالترتيب
+          setTimeout(function() { game.reels[0].stopSpin(stops[0]); }, 0);
+          setTimeout(function() { game.reels[1].stopSpin(stops[1]); }, 250);
+          setTimeout(function() { game.reels[2].stopSpin(stops[2]); }, 500);
+          setTimeout(function() { game.reels[3].stopSpin(stops[3]); }, 750);
+          setTimeout(function() {
+            game.reels[4].stopSpin(stops[4]);
+            isSpinActive = false;
+            setTimeout(function() {
+              game.balance = currentBalance;
+              game.updateUIText();
+              balEl.textContent = fmt(currentBalance);
+              if (result.win > 0) {
+                toast('🎉 مبروك! فزت بـ ' + fmt(result.win) + ' ' + currentCurrency, 'success');
+              }
+            }, 800);
+          }, 1000);
+        };
+      };
+
+      // زر ملء الشاشة
       var fsBtn = document.getElementById('laFullscreenBtn');
       if (fsBtn) {
         fsBtn.addEventListener('click', function () {
@@ -518,6 +673,7 @@
         });
       }
 
+      // زر الشحن السريع
       var depBtn = document.getElementById('laDepositBtn');
       if (depBtn) {
         depBtn.addEventListener('click', function (e) {

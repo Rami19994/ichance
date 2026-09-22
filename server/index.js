@@ -887,7 +887,8 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, {
       player: store.publicProfile(player),
       symbols: neonSlots.SYMBOLS,
-      paylines: neonSlots.PAYLINES
+      paylines: neonSlots.PAYLINES,
+      reels: neonSlots.REEL_STRIPS
     });
   }
 

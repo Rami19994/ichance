@@ -58,3 +58,12 @@ if (container_bg.complete) container_bg.onload();
   **621 خطوة بدل 180**.
 
 الإصلاح هنا جراحي وفي موضعه، بلا أثر على بقيّة الصفحة.
+
+## التعديل الثاني: خطاف ربط المحفظة (Wallet Bridge Hook)
+
+عند اكتمال إقلاع الماكينة (`loaded`) يتم تصدير نسخة الكائن إلى:
+```js
+window.__neonSlotInstance = _0x2fbefa;
+if (typeof window.onNeonSlotsReady === 'function') window.onNeonSlotsReady(_0x2fbefa);
+```
+يسمح هذا لصفحة `neon-slots.html` بربط زر الدوران بمحرك السيرفر والتحقق من رصيد محفظة اللاعب وخصم الرهان وإيداع الأرباح ذرياً.
