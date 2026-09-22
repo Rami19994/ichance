@@ -17,20 +17,24 @@
      * يتم استبدال الرصيد تلقائياً برصيد محفظة اللاعب الحقيقي عبر خطاف onNeonSlotsReady.
      */
     window.slotMachineConfig = {
-      minBet: 1,
-      maxBet: 1000,
-      defaultBet: 5,
-      betChangeAmount: 1,
+      minBet: 200,
+      maxBet: 8000,
+      defaultBet: 200,
+      betChangeAmount: 200,
       lineCount: 20,
-      balance: 1000
+      balance: 10000
     };
 
     (function () {
       try {
-        var SPIN_FLOOR = 20;
+        var SPIN_FLOOR = 200;
         var saved = parseInt(localStorage.getItem('smg-balance'), 10);
         if (!isFinite(saved) || saved < SPIN_FLOOR) {
           localStorage.setItem('smg-balance', String(window.slotMachineConfig.balance));
+        }
+        var savedBet = parseInt(localStorage.getItem('smg-bet'), 10);
+        if (!isFinite(savedBet) || savedBet < 200 || savedBet > 8000 || savedBet % 200 !== 0) {
+          localStorage.setItem('smg-bet', '200');
         }
       } catch (e) { /* تخزين محجوب */ }
     })();
@@ -455,7 +459,9 @@
     /* ══════════════ ربط المحفظة والدوران الحقيقي بالسيرفر ══════════════ */
     (function () {
       var token = '';
-      try { token = localStorage.getItem('ichance.token') || ''; } catch (e) { token = ''; }
+      try {
+        token = localStorage.getItem('ichance.token') || localStorage.getItem('ichance_token') || '';
+      } catch (e) { token = ''; }
 
       var balEl = document.getElementById('laBalance');
       var curEl = document.getElementById('laCurrency');
@@ -488,7 +494,7 @@
 
       async function syncWallet() {
         if (!token) {
-          balEl.textContent = '1,000';
+          balEl.textContent = '10,000';
           curEl.textContent = 'DEMO';
           updateStatusBanner();
           return;
@@ -511,7 +517,7 @@
             }
           } else if (res.status === 401) {
             token = '';
-            balEl.textContent = '1,000';
+            balEl.textContent = '10,000';
             curEl.textContent = 'DEMO';
             updateStatusBanner();
           }
@@ -532,10 +538,17 @@
         machineInstance = game;
         console.log('[NeonSlots] Machine ready. Binding server-side spin engine.');
 
+        game.min_bet = 200;
+        game.max_bet = 8000;
+        game.bet_change_amount = 200;
+        if (!game.bet || game.bet < 200 || game.bet > 8000 || game.bet % 200 !== 0) {
+          game.bet = 200;
+        }
+
         if (token && currentBalance > 0) {
           game.balance = currentBalance;
-          game.updateUIText();
         }
+        game.updateUIText();
 
         // اعتراض نقرة زر الدوران (Spin Button)
         var origSpinClick = game.btn_spin_click.bind(game);
@@ -550,9 +563,8 @@
             return;
           }
 
-          var lineBet = Math.max(1, Math.floor(Number(game.bet) || 1));
-          var lineCount = Math.max(1, Math.floor(Number(game.lines_count) || 20));
-          var totalBet = lineBet * lineCount;
+          var rawBet = Math.floor(Number(game.bet) || 200);
+          var totalBet = Math.max(200, Math.min(8000, Math.round(rawBet / 200) * 200));
 
           // 2. التحقق من كفاية الرصيد الحقيقي
           if (currentBalance < totalBet) {
@@ -562,7 +574,11 @@
 
           isSpinActive = true;
 
-          // 3. إرسال طلب الدوران الحقيقي المشفر للخادم ذرياً
+          // 3. خصم الرهان فوراً من رصيد اللاعب وتحديث الشريط العلوي
+          currentBalance -= totalBet;
+          balEl.textContent = fmt(currentBalance);
+
+          // 4. إرسال طلب الدوران الحقيقي المشفر للخادم ذرياً
           pendingSpinPromise = fetch('/api/neon-slots/spin', {
             method: 'POST',
             headers: {
@@ -570,8 +586,8 @@
               'x-player-token': token
             },
             body: JSON.stringify({
-              bet: lineBet,
-              lines: lineCount
+              bet: totalBet,
+              lines: 20
             })
           }).then(function(res) {
             return res.json();
@@ -580,8 +596,11 @@
             return { ok: false, error: 'تعذّر الاتصال بالخادم' };
           });
 
-          // 4. إطلاق الرسوميات والمؤثرات الصوتية للدوران فوراً
+          // 5. إطلاق الرسوميات والمؤثرات الصوتية للدوران فوراً
           origSpinClick();
+          // مزامنة رصيد الماكينة مع رصيد المحفظة الفعلي بعد الخصم فوراً
+          game.balance = currentBalance;
+          game.updateUIText();
         };
 
         // اعتراض مرحلة التوقف وتحديد النتيجة (game_result_request)
@@ -610,6 +629,13 @@
           if (!result || !result.ok) {
             toast(result && result.error ? result.error : 'فشل تنفيذ الدورة، تم إرجاع الرهان', 'error');
             isSpinActive = false;
+            // استرجاع الرهان فوراً
+            var rawBetFail = Math.floor(Number(game.bet) || 200);
+            var betToRefund = Math.max(200, Math.min(8000, Math.round(rawBetFail / 200) * 200));
+            currentBalance += betToRefund;
+            game.balance = currentBalance;
+            game.updateUIText();
+            balEl.textContent = fmt(currentBalance);
             for (var r = 0; r < 5; r++) {
               game.reels[r].stopSpin(0);
             }

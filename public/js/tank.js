@@ -76,13 +76,13 @@ const Sound = {
 /* ============================== لوحة الرهان ============================== */
 function buildStakes() {
   el('stakes').innerHTML = stakes
-    .map((s, i) => `<button type="button" data-i="${i}" class="${i === betIndex ? 'is-on' : ''}">${fmt(s)}</button>`)
+    .map((s, i) => `<button type="button" data-i="${i}" class="${i === betIndex ? 'is-on' : ''}" ${running ? 'disabled' : ''}>${fmt(s)}</button>`)
     .join('');
 }
 
 function buildDiffs() {
   el('diffs').innerHTML = CFG.difficulties.map((d) => `
-    <button type="button" data-k="${d.key}" class="${d.key === diffKey ? 'is-on' : ''}">
+    <button type="button" data-k="${d.key}" class="${d.key === diffKey ? 'is-on' : ''}" ${running ? 'disabled' : ''}>
       <span>
         <span class="d-name">${d.name}</span>
         <span class="d-meta">${d.enemies} دبابات · ${d.armor} درع · ${d.seconds}ث</span>
@@ -99,6 +99,10 @@ function paintPayout() {
   const d = currentDiff();
   const bet = stakes[betIndex] || 0;
   el('payoutPreview').textContent = fmt(Math.floor(bet * d.payout));
+  const betEl = el('curtainBetVal');
+  const diffEl = el('curtainDiffVal');
+  if (betEl) betEl.textContent = fmt(bet);
+  if (diffEl) diffEl.textContent = d.name;
 }
 
 function paintStats(stats) {
@@ -419,7 +423,9 @@ async function startBattle() {
   if (running) return;
   const bet = stakes[betIndex];
   el('startBtn').disabled = true;
+  el('startBtn').textContent = 'المعركة جارية...';
   el('curtainBtn').disabled = true;
+  if (el('curtainChangeBtn')) el('curtainChangeBtn').disabled = true;
 
   try {
     session = await API.post('/api/tank/start', {
@@ -429,7 +435,9 @@ async function startBattle() {
   } catch (err) {
     toast(err.message, 'error');
     el('startBtn').disabled = false;
+    el('startBtn').textContent = 'ابدأ المعركة';
     el('curtainBtn').disabled = false;
+    if (el('curtainChangeBtn')) el('curtainChangeBtn').disabled = false;
     return;
   }
 
@@ -452,6 +460,8 @@ async function startBattle() {
 
   Sound.ensure();
   running = true;
+  buildStakes();
+  buildDiffs();
   lastFrame = performance.now();
   startWall = lastFrame;
   rafId = requestAnimationFrame(loop);
@@ -464,12 +474,19 @@ async function endBattle() {
   clearInput();
   render(0);
   paintHud();
+  buildStakes();
+  buildDiffs();
+  el('startBtn').disabled = false;
+  el('startBtn').textContent = 'ابدأ المعركة';
   let result;
   try {
     result = await API.post('/api/tank/finish', { inputs });
   } catch (err) {
     toast(err.message, 'error');
     el('startBtn').disabled = false;
+    el('startBtn').textContent = 'ابدأ المعركة';
+    el('curtainBtn').disabled = false;
+    if (el('curtainChangeBtn')) el('curtainChangeBtn').disabled = false;
     return;
   }
 
@@ -479,7 +496,9 @@ async function endBattle() {
   paintFair(result.fair, result.seed);
   showResult(result);
   el('startBtn').disabled = false;
+  el('startBtn').textContent = 'ابدأ المعركة';
   el('curtainBtn').disabled = false;
+  if (el('curtainChangeBtn')) el('curtainChangeBtn').disabled = false;
   el('touch').hidden = true;
 }
 
@@ -509,6 +528,7 @@ function showResult(r) {
     <span>رصيدك <b>${fmt(r.balance)}</b></span>`;
 
   el('curtainBtn').textContent = 'معركة جديدة';
+  if (el('curtainChangeBtn')) el('curtainChangeBtn').hidden = false;
   el('curtainHint').innerHTML = r.won
     ? 'ارفع الصعوبة لمضاعف أعلى — أو ثبّت على ما تتقنه.'
     : 'الحركة: الأسهم أو <b>WASD</b> · الإطلاق: <b>مسافة</b>';
@@ -546,7 +566,11 @@ async function boot() {
 
   el('stakes').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-i]');
-    if (!b || running) return;
+    if (!b) return;
+    if (running) {
+      toast('لا يمكن تغيير الرهان أثناء المعركة الجارية', 'info');
+      return;
+    }
     betIndex = Number(b.dataset.i);
     buildStakes();
     paintPayout();
@@ -554,7 +578,11 @@ async function boot() {
 
   el('diffs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-k]');
-    if (!b || running) return;
+    if (!b) return;
+    if (running) {
+      toast('لا يمكن تغيير مستوى الصعوبة أثناء المعركة الجارية', 'info');
+      return;
+    }
     diffKey = b.dataset.k;
     buildDiffs();
     paintPayout();
@@ -562,6 +590,15 @@ async function boot() {
 
   el('startBtn').addEventListener('click', startBattle);
   el('curtainBtn').addEventListener('click', startBattle);
+
+  const changeBtn = el('curtainChangeBtn');
+  if (changeBtn) {
+    changeBtn.addEventListener('click', () => {
+      el('curtain').hidden = true;
+      el('betbox').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      toast('اختر مبلغ الرهان ومستوى الصعوبة من اللوحة ثم اضغط ابدأ المعركة', 'info', 4000);
+    });
+  }
 
   if (el('rotateBtn')) el('rotateBtn').addEventListener('click', async () => {
     try {

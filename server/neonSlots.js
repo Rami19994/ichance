@@ -195,9 +195,11 @@ function generateGrid() {
  * معالجة طلب الدوران من اللاعب وخصم الرصيد وصرف الأرباح
  */
 function playSpin(player, { bet, lineCount = 20 }) {
-  const cleanLineBet = Math.max(1, Math.min(1000, Math.floor(Number(bet) || 1)));
-  const cleanLines = Math.max(1, Math.min(20, Math.floor(Number(lineCount) || 20)));
-  const totalBet = cleanLineBet * cleanLines;
+  // الرهان الكلي: مضاعفات 200 إلى 8000
+  const rawBet = Math.floor(Number(bet) || 200);
+  const totalBet = Math.max(200, Math.min(8000, Math.round(rawBet / 200) * 200));
+  const cleanLines = 20;
+  const lineBet = totalBet / cleanLines;
 
   if (player.balance < totalBet) {
     return { ok: false, error: 'رصيدك لا يكفي لإتمام هذه الدورة' };
@@ -222,7 +224,7 @@ function playSpin(player, { bet, lineCount = 20 }) {
     grid,
     stops,
     lineCount: cleanLines,
-    lineBet: cleanLineBet
+    lineBet: lineBet
   });
 
   // إضافة الربح إلى الرصيد
@@ -245,7 +247,7 @@ function playSpin(player, { bet, lineCount = 20 }) {
     ok: true,
     balance: player.balance,
     bet: totalBet,
-    lineBet: cleanLineBet,
+    lineBet: lineBet,
     lineCount: cleanLines,
     win: totalWin,
     netProfit: totalWin - totalBet,
