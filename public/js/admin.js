@@ -1561,6 +1561,34 @@ async function openCashierNetworkModal(c) {
   }
 }
 
+function renderTiers() {
+  const tbody = el('tiersBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!Array.isArray(TIERS) || !TIERS.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:12px">لا توجد شرائح عمولة محددة</td></tr>';
+    return;
+  }
+  TIERS.forEach((t, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input type="number" class="tier-input" data-t="${idx}" data-f="min_burn" value="${Number(t.min_burn) || 0}" min="0" step="1000" style="width:120px;padding:4px 8px;background:#111827;border:1px solid #374151;color:#fff;border-radius:4px">
+      </td>
+      <td>
+        <input type="number" class="tier-input" data-t="${idx}" data-f="rate" value="${Number(t.rate) || 0}" min="0" max="100" step="0.5" style="width:75px;padding:4px 8px;background:#111827;border:1px solid #374151;color:#fff;border-radius:4px"> %
+      </td>
+      <td>
+        <input type="text" class="tier-input" data-t="${idx}" data-f="label" value="${escapeHtml(t.label || '')}" placeholder="وصف الشريحة" style="width:100%;max-width:200px;padding:4px 8px;background:#111827;border:1px solid #374151;color:#fff;border-radius:4px">
+      </td>
+      <td style="text-align:center">
+        ${idx === 0 ? '<span style="color:#6b7280;font-size:0.75rem">أساسي</span>' : `<button type="button" class="btn btn--del btn--sm" data-del="${idx}" title="حذف الشريحة" style="padding:2px 8px;color:#ef4444;background:transparent;border:none;cursor:pointer;font-size:1.1rem">✕</button>`}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 el('tiersBody').addEventListener('input', (e) => {
   const inp = e.target.closest('.tier-input');
   if (!inp) return;
