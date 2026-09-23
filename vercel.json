@@ -35,6 +35,10 @@
       "destination": "/mines.html"
     },
     {
+      "source": "/plinko",
+      "destination": "/plinko.html"
+    },
+    {
       "source": "/master",
       "destination": "/master.html"
     },
