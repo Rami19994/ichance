@@ -24,6 +24,7 @@ const gameRegistry = require('./gameRegistry');
 const countries = require('./countries');
 const neonSlots = require('./neonSlots');
 const minesGame = require('./minesGame');
+const plinkoGame = require('./plinkoGame');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -660,14 +661,14 @@ async function handleApi(req, res, url) {
   if (route === '/api/join' && req.method === 'POST') {
     if (!rateLimit(`act:${player.id}`, 40, 10_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
     const body = await readBody(req);
-    const result = game.join(player.id, Number(body.stake));
+    const result = await game.join(player.id, Number(body.stake));
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
   }
 
   if (route === '/api/leave' && req.method === 'POST') {
     if (!rateLimit(`act:${player.id}`, 40, 10_000)) return sendJson(res, 429, { error: 'طلبات كثيرة' });
-    const result = game.leave(player.id);
+    const result = await game.leave(player.id);
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, { ...result, player: store.publicProfile(player) });
   }
@@ -736,7 +737,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'دورات كثيرة جداً — تمهّل قليلاً' });
     }
     const body = await readBody(req);
-    const result = slotSession.spin(player, body.bet);
+    const result = await slotSession.spin(player, body.bet);
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, result);
   }
@@ -746,7 +747,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'طلبات كثيرة' });
     }
     const body = await readBody(req);
-    const result = slotSession.buyFeature(player, Number(body.bet));
+    const result = await slotSession.buyFeature(player, Number(body.bet));
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, result);
   }
@@ -861,7 +862,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'معارك كثيرة بسرعة — تمهّل قليلاً' });
     }
     const body = await readBody(req);
-    const result = tankGame.start(player, {
+    const result = await tankGame.start(player, {
       bet: body.bet, difficulty: body.difficulty, clientSeed: body.clientSeed
     });
     if (!result.ok) return sendJson(res, 400, { error: result.error });
@@ -872,7 +873,7 @@ async function handleApi(req, res, url) {
     // سجلّ الضغطات أكبر بكثير من أي طلب آخر: 2400 نبضة قد تحمل تغيّراً في كلٍّ
     // منها. الحدّ الافتراضي 8 كيلوبايت يقطع المعارك الطويلة، فنرفعه هنا وحده.
     const body = await readBody(req, 96 * 1024);
-    const result = tankGame.finish(player, { inputs: body.inputs });
+    const result = await tankGame.finish(player, { inputs: body.inputs });
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, result);
   }
@@ -903,7 +904,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'دورات سريعة جداً — تمهّل قليلاً' });
     }
     const body = await readBody(req);
-    const result = neonSlots.playSpin(player, {
+    const result = await neonSlots.playSpin(player, {
       bet: body.bet,
       lineCount: body.lines || body.lineCount
     });
@@ -943,7 +944,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'طلبات كثيرة — تمهّل قليلاً' });
     }
     const body = await readBody(req);
-    const result = minesGame.startGame(player, {
+    const result = await minesGame.startGame(player, {
       bet: body.bet,
       minesCount: body.minesCount || body.mines,
       clientSeed: body.clientSeed
@@ -957,7 +958,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'نقرات سريعة جداً' });
     }
     const body = await readBody(req);
-    const result = minesGame.revealTile(player, body.tileIndex !== undefined ? body.tileIndex : body.tile);
+    const result = await minesGame.revealTile(player, body.tileIndex !== undefined ? body.tileIndex : body.tile);
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, result);
   }
@@ -966,7 +967,7 @@ async function handleApi(req, res, url) {
     if (!rateLimit(`mines-act:${player.id}`, 30, 10_000)) {
       return sendJson(res, 429, { error: 'طلبات كثيرة' });
     }
-    const result = minesGame.cashOut(player);
+    const result = await minesGame.cashOut(player);
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, result);
   }
@@ -975,7 +976,23 @@ async function handleApi(req, res, url) {
     if (!rateLimit(`mines-act:${player.id}`, 60, 10_000)) {
       return sendJson(res, 429, { error: 'نقرات سريعة جداً' });
     }
-    const result = minesGame.randomPick(player);
+    const result = await minesGame.randomPick(player);
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  // ------------------------------------------------------------- بلينكو (Plinko)
+  if (route === '/api/plinko/state' && req.method === 'GET') {
+    return sendJson(res, 200, plinkoGame.stateFor(player));
+  }
+
+  if (route === '/api/plinko/drop' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    if (!rateLimit(`plinko-drop:${player.id}`, 20, 10_000)) {
+      return sendJson(res, 429, { error: 'طلبات كثيرة — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = await plinkoGame.dropBall(player, { bet: body.bet, clientSeed: body.clientSeed });
     if (!result.ok) return sendJson(res, 400, { error: result.error });
     return sendJson(res, 200, result);
   }

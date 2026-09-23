@@ -86,14 +86,14 @@ function publicFeature(f) {
  * دورة واحدة. إن كانت هناك ميزة جارية فهي دورة مجانية (بلا خصم)،
  * وإلا فدورة أساسية تُخصم من الرصيد.
  */
-function spin(player, bet) {
+async function spin(player, bet) {
   const feature = activeFeatures.get(player.id) || null;
 
-  if (feature) return freeSpin(player, feature);
-  return baseSpin(player, Number(bet));
+  if (feature) return await freeSpin(player, feature);
+  return await baseSpin(player, Number(bet));
 }
 
-function baseSpin(player, bet) {
+async function baseSpin(player, bet) {
   if (!validBet(bet)) return { ok: false, error: 'مبلغ غير مسموح' };
   if (player.balance < bet) return { ok: false, error: 'رصيدك لا يكفي لهذا الرهان' };
 
@@ -102,11 +102,15 @@ function baseSpin(player, bet) {
   f.nonce += 1;
   const nonce = `s${f.nonce}`;
 
-  if (!store.adjustBalance(player, -bet)) return { ok: false, error: 'تعذّر خصم الرهان' };
+  const txRef = 'slot-spin-' + player.id + '-' + Date.now();
+  if (!(await store.gameDebit('slots', player, bet, txRef))) return { ok: false, error: 'تعذّر خصم الرهان (رصيد غير كافٍ أو خطأ بالاتصال)' };
 
   const result = slots.playSpin({ seedHex: f.seed, nonce, bet, free: false, multiplier: 1 });
   const win = result.win;
-  if (win > 0) store.adjustBalance(player, win);
+  if (win > 0) {
+    const txRefWin = 'slot-win-' + player.id + '-' + Date.now();
+    await store.gameCredit('slots', player, win, txRefWin);
+  }
 
   // هل فتحت هذه الدورة الميزة؟
   let opened = null;
@@ -133,7 +137,7 @@ function baseSpin(player, bet) {
   };
 }
 
-function freeSpin(player, feature) {
+async function freeSpin(player, feature) {
   const bet = feature.bet;
   fairState(player);
   const f = player.slotFair;
@@ -152,7 +156,10 @@ function freeSpin(player, feature) {
   feature.spinsLeft -= 1;
   feature.spinsUsed += 1;
   feature.totalWin += win;
-  if (win > 0) store.adjustBalance(player, win);
+  if (win > 0) {
+    const txRefWin = 'slot-win-free-' + player.id + '-' + Date.now();
+    await store.gameCredit('slots', player, win, txRefWin);
+  }
 
   // العدّاد: يتقدّم مع الربح، ويعود إلى ×1 عند الخسارة
   feature.multiplier = slots.stepMultiplier(feature.multiplier, win);
@@ -213,7 +220,7 @@ function startFeature(player, bet, spins, bought) {
 }
 
 /** شراء الميزة بسعر ثابت من الرهان. */
-function buyFeature(player, bet) {
+async function buyFeature(player, bet) {
   if (activeFeatures.has(player.id)) return { ok: false, error: 'لديك ميزة جارية بالفعل' };
   if (!validBet(bet)) return { ok: false, error: 'مبلغ غير مسموح' };
 
@@ -221,7 +228,8 @@ function buyFeature(player, bet) {
   if (player.balance < cost) {
     return { ok: false, error: `شراء الميزة يكلّف ${cost.toLocaleString('en-US')} — رصيدك لا يكفي` };
   }
-  if (!store.adjustBalance(player, -cost)) return { ok: false, error: 'تعذّر خصم السعر' };
+  const txRef = 'slot-buy-' + player.id + '-' + Date.now();
+  if (!(await store.gameDebit('slots', player, cost, txRef))) return { ok: false, error: 'تعذّر خصم السعر' };
 
   store.recordSlot(player, { bet: cost, win: 0, free: false, buy: true });
   const feature = startFeature(player, Number(bet), slots.FREE_SPINS.base, true);

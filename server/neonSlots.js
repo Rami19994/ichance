@@ -194,7 +194,7 @@ function generateGrid() {
 /**
  * معالجة طلب الدوران من اللاعب وخصم الرصيد وصرف الأرباح
  */
-function playSpin(player, { bet, lineCount = 20 }) {
+async function playSpin(player, { bet, lineCount = 20 }) {
   // الرهان الكلي: مضاعفات 200 إلى 8000
   const rawBet = Math.floor(Number(bet) || 200);
   const totalBet = Math.max(200, Math.min(8000, Math.round(rawBet / 200) * 200));
@@ -206,7 +206,8 @@ function playSpin(player, { bet, lineCount = 20 }) {
   }
 
   // خصم الرهان فوراً من رصيد اللاعب
-  if (!store.adjustBalance(player, -totalBet)) {
+  const txRef = 'neon-spin-' + player.id + '-' + Date.now();
+  if (!(await store.gameDebit('neon-slots', player, totalBet, txRef))) {
     return { ok: false, error: 'تعذّر خصم الرهان' };
   }
 
@@ -229,7 +230,8 @@ function playSpin(player, { bet, lineCount = 20 }) {
 
   // إضافة الربح إلى الرصيد
   if (totalWin > 0) {
-    store.adjustBalance(player, totalWin);
+    const txRefWin = 'neon-win-' + player.id + '-' + Date.now();
+    await store.gameCredit('neon-slots', player, totalWin, txRefWin);
   }
 
   // تسجيل الجولة في السجل المالي للنظام وتحديث إحصاءات اللاعب وسجل الإدارة

@@ -140,7 +140,7 @@ function stateFor(player) {
 }
 
 // ---------------------------------------------------------------- البدء
-function start(player, { bet, difficulty, clientSeed }) {
+async function start(player, { bet, difficulty, clientSeed }) {
   if (sessions.has(player.id)) {
     return { error: 'لديك معركة جارية — أنهِها أولاً' };
   }
@@ -160,7 +160,10 @@ function start(player, { bet, difficulty, clientSeed }) {
 
   const seed = battleSeed(player, f.nonce);
   // الخصم عند البدء لا عند النهاية: من يهجر معركة خاسرة لا يستعيد رهانه
-  store.adjustBalance(player, -stake);
+  const txRef = 'tank-start-' + player.id + '-' + Date.now();
+  if (!(await store.gameDebit('tank', player, stake, txRef))) {
+    return { error: 'تعذّر خصم الرهان (رصيد غير كافٍ أو خطأ بالاتصال)' };
+  }
 
   const session = {
     playerId: player.id,
@@ -195,10 +198,13 @@ function validateInputs(inputs) {
   return null;
 }
 
-function settle(player, session, { won, replay, rejected }) {
+async function settle(player, session, { won, replay, rejected }) {
   const diff = T.DIFFICULTY[session.difficulty];
   const win = won ? Math.floor(session.bet * diff.payout / 100) : 0;
-  if (win > 0) store.adjustBalance(player, win);
+  if (win > 0) {
+    const txRefWin = 'tank-win-' + player.id + '-' + Date.now();
+    await store.gameCredit('tank', player, win, txRefWin);
+  }
 
   store.recordTank(player, {
     bet: session.bet, win, difficulty: session.difficulty, won
@@ -223,40 +229,40 @@ function settle(player, session, { won, replay, rejected }) {
   };
 }
 
-function finish(player, { inputs }) {
+async function finish(player, { inputs }) {
   const session = sessions.get(player.id);
   if (!session) return { error: 'لا توجد معركة جارية' };
 
   const bad = validateInputs(inputs);
   // سجلّ فاسد = خسارة، لا خطأ يُعاد معه الرهان: وإلا صار إرسال سجلّ فاسد
   // طريقةً لإلغاء كل معركة خاسرة.
-  if (bad) return settle(player, session, { won: false, rejected: bad });
+  if (bad) return await settle(player, session, { won: false, rejected: bad });
 
   const replay = T.runReplay(session.seed, session.difficulty, inputs);
   if (!replay.valid) {
-    return settle(player, session, { won: false, rejected: replay.error });
+    return await settle(player, session, { won: false, rejected: replay.error });
   }
 
   // فحص الزمن الحقيقي: معركة طولها 40 ثانية لا تصل نتيجتها بعد ثانيتين
   const elapsed = Date.now() - session.startedAt;
   const needed = (replay.ticks / T.TICK_HZ) * 1000 * MIN_REAL_TIME_RATIO;
   if (replay.won && elapsed < needed) {
-    return settle(player, session, {
+    return await settle(player, session, {
       won: false, replay,
       rejected: 'المعركة وصلت أسرع من الممكن لعبها'
     });
   }
 
-  return settle(player, session, { won: replay.won, replay });
+  return await settle(player, session, { won: replay.won, replay });
 }
 
 /** ينهي الجلسات المهجورة: من أغلق الصفحة وهو خاسر لا يترك رهانه معلّقاً. */
-function sweep() {
+async function sweep() {
   const now = Date.now();
   for (const [id, s] of sessions) {
     if (s.expiresAt > now) continue;
     const player = store.byId(id);
-    if (player) settle(player, s, { won: false, replay: null });
+    if (player) await settle(player, s, { won: false, replay: null });
     else sessions.delete(id);
   }
 }

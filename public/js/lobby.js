@@ -32,6 +32,23 @@ const GAMES = [
     desc: 'لعبة مناجم الحظ الأصلية: اختر عدد الألغام واكشف الجواهر الخضراء اللامعة وضاعف أرباحك مع كل خطوة، واسحب أرباحك في أي لحظة قبل الانفجار!'
   },
   {
+    id: 'plinko',
+    title: 'بلينكو — Plinko',
+    cat: 'crash',
+    cats: ['crash'],
+    rtpBadge: 'PROVABLY FAIR',
+    provider: 'Stake Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/plinko',
+    thumb: '/assets/thumb_plinko.jpg',
+    tag: 'كرة السقوط الحر • 16 صف',
+    badge: 'NEW • PLINKO',
+    badgeClass: 'badge-tag--hot',
+    desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 1000 ضعف رهانك.'
+  },
+  {
     id: 'neon-slots',
     title: 'نيون فيغاس — Neon Vegas Slots',
     cat: 'slots',

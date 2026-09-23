@@ -56,13 +56,14 @@ class LuckyCards extends EventEmitter {
     this.timer = null;
   }
 
-  tick() {
+  async tick() {
     if (Date.now() < this.phaseEndsAt) return;
     if (this.phase === 'betting') {
       if (this.seats.size === 0) this.startBetting(); // لا مشتركين: جولة جديدة فوراً
       else this.startPlaying();
     } else if (this.phase === 'playing') {
-      this.finishRound();
+      this.phase = 'processing';
+      await this.finishRound();
     } else if (this.phase === 'results') {
       this.startBetting();
     }
@@ -98,7 +99,7 @@ class LuckyCards extends EventEmitter {
   // ------------------------------------------------------------------ أفعال اللاعبين
 
   /** مشاركة لاعب حقيقي بمبلغ من الجدول. */
-  join(playerId, stake) {
+  async join(playerId, stake) {
     const player = store.byId(playerId);
     if (!player) return { ok: false, error: 'لم يتم العثور على حسابك' };
 
@@ -107,8 +108,9 @@ class LuckyCards extends EventEmitter {
     if (this.seats.has(playerId)) return { ok: false, error: 'أنت مشارك في هذه الجولة بالفعل' };
     if (player.balance < stake) return { ok: false, error: 'رصيدك لا يكفي لهذا المبلغ' };
 
-    if (!store.adjustBalance(player, -stake)) {
-      return { ok: false, error: 'تعذّر خصم المبلغ' };
+    const txRef = 'cards-join-' + player.id + '-' + this.roundId;
+    if (!(await store.gameDebit('lucky-cards', player, stake, txRef))) {
+      return { ok: false, error: 'تعذّر خصم المبلغ (رصيد غير كافٍ أو خطأ بالاتصال)' };
     }
     this.seatPlayer({ id: player.id, isBot: false, stake });
     return { ok: true, balance: player.balance, roundId: this.roundId };
@@ -158,12 +160,15 @@ class LuckyCards extends EventEmitter {
   }
 
   /** الانسحاب قبل انطلاق الجولة مع استرداد المبلغ. */
-  leave(playerId) {
+  async leave(playerId) {
     if (this.phase !== 'betting') return { ok: false, error: 'لا يمكن الانسحاب بعد بدء الجولة' };
     const seat = this.seats.get(playerId);
     if (!seat) return { ok: false, error: 'أنت غير مشارك' };
     const player = store.byId(playerId);
-    if (player) store.adjustBalance(player, seat.stake);
+    if (player) {
+      const txRef = 'cards-leave-' + player.id + '-' + this.roundId;
+      await store.gameCredit('lucky-cards', player, seat.stake, txRef);
+    }
     this.seats.delete(playerId);
     this.emit('update', { reason: 'leave', playerId });
     return { ok: true, balance: player ? player.balance : null };
@@ -225,7 +230,7 @@ class LuckyCards extends EventEmitter {
 
   // ------------------------------------------------------------------ إنهاء الجولة
 
-  finishRound() {
+  async finishRound() {
     // من لم يختر (انقطع اتصاله أو تأخر) يحصل على كرت عشوائي من المتبقي
     for (const seat of this.seats.values()) {
       if (seat.cardIndex !== null) continue;
@@ -248,7 +253,10 @@ class LuckyCards extends EventEmitter {
       }
       const player = store.byId(seat.id);
       if (!player) continue;
-      if (seat.payout > 0) store.adjustBalance(player, seat.payout);
+      if (seat.payout > 0) {
+        const txRef = 'cards-win-' + player.id + '-' + this.roundId;
+        await store.gameCredit('lucky-cards', player, seat.payout, txRef);
+      }
       store.recordRound(player, {
         stake: seat.stake,
         payout: seat.payout,

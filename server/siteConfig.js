@@ -18,11 +18,12 @@ const GAMES = {
   slots: { key: 'slots', name: 'صيّاد الجوائز', href: '/bounty-hunter' },
   tank:  { key: 'tank',  name: 'معركة الدبابات', href: '/battle-tanks' },
   'neon-slots': { key: 'neon-slots', name: 'نيون فيغاس', href: '/neon-slots' },
-  mines: { key: 'mines', name: 'مناجم الحظ', href: '/mines' }
+  mines: { key: 'mines', name: 'مناجم الحظ', href: '/mines' },
+  plinko: { key: 'plinko', name: 'بلينكو', href: '/plinko' }
 };
 
 const DEFAULTS = {
-  games: { cards: true, slots: true, tank: true, 'neon-slots': true, mines: true },
+  games: { cards: true, slots: true, tank: true, 'neon-slots': true, mines: true, plinko: true },
   adminDomain: null
 };
 

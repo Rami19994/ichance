@@ -9,6 +9,7 @@
   // ------------------------- عناصر الواجهة -------------------------
   var balValEl = document.getElementById('walletBalance');
   var balCurEl = document.getElementById('walletCurrency');
+  var depositBtn = document.getElementById('depositBtn');
   var betInput = document.getElementById('betAmount');
   var minesSelect = document.getElementById('minesCount');
   var gemsCountEl = document.getElementById('gemsCountDisplay');
@@ -146,6 +147,16 @@
         balCurEl.textContent = currency;
         if (bannerEl) bannerEl.hidden = true;
 
+        if (depositBtn) {
+          if (balance < 1000) {
+            depositBtn.innerHTML = 'ضاعف رصيدك الآن 🎁';
+            depositBtn.style.animation = 'pulse 1.5s infinite';
+          } else {
+            depositBtn.innerHTML = 'شحن';
+            depositBtn.style.animation = 'none';
+          }
+        }
+
         // استعادة جولة جارية إن وجدت
         if (data.active && !isGameActive) {
           restoreActiveGame(data);
@@ -213,8 +224,8 @@
   function updateActionBtn() {
     if (!isGameActive) {
       actionBtn.className = 'mines-main-btn';
-      actionBtnText.textContent = 'ابدأ الرهان (Bet)';
-      actionBtnSub.textContent = 'اختر رهانك والألغام وابدأ اللعب';
+      actionBtnText.textContent = 'اكتشف الجواهر واربح';
+      actionBtnSub.textContent = 'فرصة الفوز بمضاعف يصل إلى ×24';
       randomBtn.disabled = true;
       betInput.disabled = false;
       minesSelect.disabled = false;
@@ -545,6 +556,11 @@
   function showWinOverlay(mult, amount) {
     winMultEl.textContent = '×' + mult.toFixed(2);
     winValEl.textContent = fmt(amount) + ' ' + currency;
+    if (mult >= 5) {
+      toast('ضربة حظ أسطورية! 🔥 هل تجرؤ على المضاعفة؟', 'success');
+    } else {
+      toast('فوز رائع! استمر في حصد الجواهر 💎', 'success');
+    }
     winOverlay.classList.add('show');
     setTimeout(function () {
       winOverlay.classList.remove('show');

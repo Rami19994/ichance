@@ -69,7 +69,7 @@ function generateMinePositions(serverSeed, clientSeed, nonce, minesCount) {
 /**
  * بدء لعبة ألغام جديدة
  */
-function startGame(player, { bet, minesCount = 3, clientSeed = null }) {
+async function startGame(player, { bet, minesCount = 3, clientSeed = null }) {
   if (!player) return { ok: false, error: 'غير مصرح' };
 
   // إذا كان هناك جلسة نشطة بالفعل
@@ -100,8 +100,9 @@ function startGame(player, { bet, minesCount = 3, clientSeed = null }) {
   const minePositions = generateMinePositions(serverSeed, cSeed, nonce, cleanMines);
 
   // خصم الرهان فوراً من رصيد اللاعب
-  if (!store.adjustBalance(player, -cleanBet)) {
-    return { ok: false, error: 'تعذّر خصم الرهان' };
+  const txRef = 'mines-start-' + player.id + '-' + Date.now();
+  if (!(await store.gameDebit('mines', player, cleanBet, txRef))) {
+    return { ok: false, error: 'تعذّر خصم الرهان (رصيد غير كافٍ أو خطأ بالاتصال)' };
   }
 
   const session = {
@@ -142,7 +143,7 @@ function startGame(player, { bet, minesCount = 3, clientSeed = null }) {
 /**
  * كشف مربع في الشبكة
  */
-function revealTile(player, tileIndex) {
+async function revealTile(player, tileIndex) {
   if (!player) return { ok: false, error: 'غير مصرح' };
 
   const session = activeSessions.get(player.id);
@@ -197,7 +198,8 @@ function revealTile(player, tileIndex) {
     session.status = 'won';
     activeSessions.delete(player.id);
 
-    store.adjustBalance(player, cashoutAmount);
+    const txRef = 'mines-win-' + player.id + '-' + Date.now();
+    await store.gameCredit('mines', player, cashoutAmount, txRef);
 
     store.recordMines(player, { bet: session.bet, win: cashoutAmount });
 
@@ -239,7 +241,7 @@ function revealTile(player, tileIndex) {
 /**
  * سحب الأرباح فوراً (Cash Out)
  */
-function cashOut(player) {
+async function cashOut(player) {
   if (!player) return { ok: false, error: 'غير مصرح' };
 
   const session = activeSessions.get(player.id);
@@ -259,7 +261,8 @@ function cashOut(player) {
   activeSessions.delete(player.id);
 
   // إضافة الأرباح لرصيد اللاعب
-  store.adjustBalance(player, winAmount);
+  const txRef = 'mines-cashout-' + player.id + '-' + Date.now();
+  await store.gameCredit('mines', player, winAmount, txRef);
 
   // تسجيل النتيجة في دفتر أرباح الموقع وتحديث إحصاءات اللاعب وسجل الإدارة
   store.recordMines(player, { bet: session.bet, win: winAmount });
@@ -281,7 +284,7 @@ function cashOut(player) {
 /**
  * اختيار عشوائي لمربع غير مكشوف (Random Pick)
  */
-function randomPick(player) {
+async function randomPick(player) {
   if (!player) return { ok: false, error: 'غير مصرح' };
   const session = activeSessions.get(player.id);
   if (!session || session.status !== 'active') {
@@ -300,7 +303,7 @@ function randomPick(player) {
   }
 
   const randomIndex = unrevealed[crypto.randomInt(0, unrevealed.length)];
-  return revealTile(player, randomIndex);
+  return await revealTile(player, randomIndex);
 }
 
 /**

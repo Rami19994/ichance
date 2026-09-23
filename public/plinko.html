@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>بلينكو — Plinko | LuckyArena</title>
+  <meta name="description" content="العب بلينكو (Plinko) الأصلية على LuckyArena. أسقط الكرة واربح مضاعفات تصل إلى 1000 ضعف!">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/theme.css?v=26">
+  <style>
+    .mines-page {
+      background: #0b111a;
+      min-height: 100vh;
+    }
+    .plinko-board-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: radial-gradient(circle at center, #1a2333 0%, #0b111a 70%);
+      border-radius: 12px;
+      padding: 10px;
+      overflow: hidden;
+      min-height: 500px;
+    }
+    canvas#plinkoCanvas {
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 4 / 3;
+      display: block;
+    }
+  </style>
+</head>
+<body class="mines-page">
+
+  <!-- ===================== شريط التنقل العلوي ===================== -->
+  <header class="mines-navbar">
+    <div class="mines-navbar__left">
+      <a class="mines-navbar__brand" href="/">
+        <span style="background:linear-gradient(135deg,#e11d48,#9f1239);color:#fff;font-weight:900;padding:4px 8px;border-radius:6px;font-size:0.95rem;">LA</span>
+        <span>بلينكو</span>
+      </a>
+      <span class="mines-navbar__badge" style="background:#e11d4822;color:#fb7185;">STAKE ORIGINALS • PROVABLY FAIR</span>
+    </div>
+
+    <div class="mines-navbar__right">
+      <div class="mines-wallet-chip">
+        <span class="mines-wallet-chip__cur" id="walletCurrency">IQD</span>
+        <span class="mines-wallet-chip__val" id="walletBalance">0</span>
+        <a class="btn-deposit-chip" href="/cashier.html" id="depositBtn">شحن</a>
+      </div>
+
+      <button class="mines-icon-btn" id="soundBtn" title="كتم/تشغيل الصوت">🔊</button>
+      <button class="mines-icon-btn" id="pfBtn" title="العدالة المثبتة">🛡️</button>
+      <button class="mines-icon-btn" id="fullscreenBtn" title="ملء الشاشة">⛶</button>
+      <a class="mines-icon-btn" href="/" title="الرئيسية" style="text-decoration:none;">✕</a>
+    </div>
+  </header>
+
+  <!-- بنر الوضع التجريبي -->
+  <div class="mines-banner" id="demoBanner">
+    ⚡ وضع تجريبي للتسلية. <a href="/login?next=/plinko">سجّل دخولك</a> للّعب برصيدك الحقيقي وسحب الأرباح.
+  </div>
+
+  <!-- ===================== الحاوية الأساسية للعبة ===================== -->
+  <main class="mines-container">
+
+    <!-- لوحة التحكم الجانبية (Sidebar) -->
+    <aside class="mines-controls">
+      <!-- قيمة الرهان -->
+      <div class="mines-ctrl-group">
+        <div class="mines-label">
+          <span>مبلغ الرهان</span>
+          <span style="color:#798a9c;font-size:0.75rem;">الحد الأدنى: 100</span>
+        </div>
+        <div class="mines-input-box">
+          <input id="betAmount" type="number" min="100" max="1000000" step="100" value="1000">
+          <div class="mines-quick-btns">
+            <button type="button" class="mines-btn-quick" data-action="half">½</button>
+            <button type="button" class="mines-btn-quick" data-action="double">2×</button>
+            <button type="button" class="mines-btn-quick" data-action="max">Max</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mines-ctrl-group" style="opacity: 0.7; pointer-events: none;">
+        <div class="mines-label">
+          <span>المخاطرة (Volatility)</span>
+          <span style="color:#e11d48;font-size:0.75rem;">عالية 🔥</span>
+        </div>
+        <div class="mines-select-box">
+          <select disabled>
+            <option selected>عالية (High)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mines-ctrl-group" style="opacity: 0.7; pointer-events: none;">
+        <div class="mines-label">
+          <span>عدد الصفوف (Rows)</span>
+          <span style="color:#e11d48;font-size:0.75rem;">16 صف</span>
+        </div>
+        <div class="mines-select-box">
+          <select disabled>
+            <option selected>16</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- زر الإجراء الرئيسي الضخم -->
+      <button class="mines-main-btn" id="mainActionBtn" style="background: linear-gradient(to right, #e11d48, #be123c); border-color: #9f1239; box-shadow: 0 6px 0 #9f1239, 0 8px 15px rgba(225, 29, 72, 0.4);">
+        <span id="actionBtnText">أسقط الكرة الآن</span>
+        <span class="mines-main-btn__sub" id="actionBtnSub">اربح حتى ×1000!</span>
+      </button>
+
+      <!-- صندوق الأرباح الحالية والتالية -->
+      <div class="mines-stats-panel" style="margin-top: 2rem;">
+        <div class="mines-stat-row mines-stat-row--profit">
+          <span>أخر ربح:</span>
+          <b id="lastWin">0 IQD</b>
+        </div>
+        <div class="mines-stat-row mines-stat-row--mult">
+          <span>أخر مضاعف:</span>
+          <b id="lastMultiplier">×0.00</b>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ساحة المربعات 5×5 (Board Area) -->
+    <section class="plinko-board-area">
+      <canvas id="plinkoCanvas" width="800" height="600"></canvas>
+      
+      <!-- شارة الاحتفال بالفوز المخفية -->
+      <div class="mines-win-overlay" id="winOverlay" style="display: none; background: rgba(11,17,26,0.9);">
+        <div style="font-size:0.9rem;font-weight:800;color:#e11d48;letter-spacing:1px;text-transform:uppercase;">🎉 مبروك!</div>
+        <div class="mines-win-overlay__mult" id="winMultiplier" style="color: #e11d48; text-shadow: 0 0 15px rgba(225,29,72,0.5);">×1.45</div>
+        <div class="mines-win-overlay__val" id="winValue">14,500 IQD</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== نافذة العدالة المثبتة (Provably Fair) ===================== -->
+  <div class="pf-modal-backdrop" id="pfModal" hidden>
+    <div class="pf-modal">
+      <div class="pf-modal__header">
+        <h3 class="pf-modal__title">🛡️ العدالة المثبتة (Provably Fair)</h3>
+        <button class="pf-modal__close" id="pfClose">✕</button>
+      </div>
+      <p style="color:#92a4b8;font-size:0.88rem;margin:0;line-height:1.6;">
+        مسار الكرة محسوب ومضمون باستخدام خوارزمية SHA-256 و HMAC قبل أن تبدأ باللعب. يتم نشر بصمة البذرة أولاً لمنع تغيير النتيجة لاحقاً، وتكشف البذرة الأصلية عند انتهاء الجولة لتمكينك من التحقق يدوياً.
+      </p>
+      <div class="pf-field">
+        <label>بصمة بذرة الخادم المشفرة (Server Seed Hash):</label>
+        <input id="pfServerHash" readonly value="تبدأ مع أول جولة">
+      </div>
+      <div class="pf-field">
+        <label>بذرة الخادم المكشوفة بعد انتهاء الجولة (Server Seed):</label>
+        <input id="pfServerSeed" readonly placeholder="تظهر تلقائياً عند انتهاء الجولة للتحقق">
+      </div>
+    </div>
+  </div>
+
+  <!-- Toastify Notifications -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  
+  <script src="/js/plinko.js?v=26"></script>
+</body>
+</html>

@@ -48,7 +48,7 @@ const ledger = {
   real: emptyBucket(),
   bot: emptyBucket(),
   // ربحية كل لعبة على حدة — بدونها لا يعرف المالك أي لعبة تكسب وأيها تخسر
-  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket() },
+  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket() },
   // شراء الميزة صفقة واحدة بمبلغ يعادل مئات الدورات. لو خُلط مع الدورات
   // العادية في عدّاد واحد لقفز "متوسط الرهان" وصار التقرير مضلّلاً.
   slotBuys: { count: 0, wagered: 0 },
@@ -116,6 +116,7 @@ function applyStorePayload(raw) {
       if (st.neonStats) p.neonStats = { ...st.neonStats };
       if (st.tankStats) p.tankStats = { ...st.tankStats };
       if (st.minesStats) p.minesStats = { ...st.minesStats };
+      if (st.plinkoStats) p.plinkoStats = { ...st.plinkoStats };
       if (st.slotStats) p.slotStats = { ...st.slotStats };
     }
   }
@@ -408,6 +409,59 @@ function recordMines(player, { bet, win }) {
   persistSoon();
 }
 
+/**
+ * جولة بلينكو (Plinko) واحدة.
+ */
+function recordPlinko(player, { bet, win, multiplier }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  const g = ledger.games.plinko;
+  if (g) {
+    g.wagered += bet;
+    g.paid += win;
+    g.bets += 1;
+    g.rounds += 1;
+  }
+
+  if (!player.plinkoStats) {
+    player.plinkoStats = { drops: 0, wagered: 0, won: 0, best: 0 };
+  }
+  const st = player.plinkoStats;
+  st.drops = (st.drops || 0) + 1;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  recordRoundLog({
+    roundId: `plinko-${Date.now().toString(36).toUpperCase()}`,
+    ts: Date.now(),
+    game: 'plinko',
+    patternName: 'بلينكو',
+    cards: [],
+    seats: [{
+      id: player.id,
+      stake: bet,
+      cardIndex: 0,
+      cardValue: multiplier,
+      net: win - bet,
+      multiplier: multiplier,
+      isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
 /** يحفظ ملخّص جولة منتهية في أعلى السجل. */
 function recordRoundLog(summary) {
   roundLog.unshift(summary);
@@ -519,6 +573,7 @@ function extractPlayerStats() {
       neonStats: p.neonStats,
       tankStats: p.tankStats,
       minesStats: p.minesStats,
+      plinkoStats: p.plinkoStats,
       slotStats: p.slotStats
     };
   }
@@ -706,8 +761,6 @@ function adjustBalance(player, amount) {
   const next = Math.round(player.balance + amount);
   if (next < 0) return false;
   player.balance = next;
-  // نتائج اللعب تُجمَّع وتُدفع دفعات: الكتابة الفورية تضيف ~450مللي ثانية
-  // على كل دورة سلوتس. الفرق نسبي لا مطلق، فلا يمحو تعبئةً حدثت في الأثناء.
   if (player.accountId) {
     accounts.queueDelta(player.accountId, Math.round(amount));
     if (process.env.VERCEL) {
@@ -716,6 +769,50 @@ function adjustBalance(player, amount) {
   }
   persistSoon();
   return true;
+}
+
+async function gameDebit(gameId, player, amount, txRef) {
+  if (amount === 0) return true;
+  if (player.accountId && supabase.configured()) {
+    try {
+      const out = await supabase.rpc('gw_debit', {
+        p_game: gameId,
+        p_player: player.accountId,
+        p_amount: Math.round(amount),
+        p_tx_ref: txRef
+      });
+      if (out && out.ok) {
+        player.balance = out.balance;
+        return true;
+      }
+    } catch (err) {
+      console.error(`[store] gw_debit error for ${player.id}:`, err.message);
+      return false;
+    }
+  }
+  return adjustBalance(player, -amount);
+}
+
+async function gameCredit(gameId, player, amount, txRef) {
+  if (amount === 0) return true;
+  if (player.accountId && supabase.configured()) {
+    try {
+      const out = await supabase.rpc('gw_credit', {
+        p_game: gameId,
+        p_player: player.accountId,
+        p_amount: Math.round(amount),
+        p_tx_ref: txRef
+      });
+      if (out && out.ok) {
+        player.balance = out.balance;
+        return true;
+      }
+    } catch (err) {
+      console.error(`[store] gw_credit error for ${player.id}:`, err.message);
+      return false;
+    }
+  }
+  return adjustBalance(player, amount);
 }
 
 function recordRound(player, { stake, payout, multiplier }) {
@@ -815,9 +912,9 @@ const flushTimer = setInterval(flush, 1500);
 if (flushTimer.unref) flushTimer.unref();
 
 module.exports = {
-  createPlayer, byToken, byId, adjustBalance, recordRound, attachAccount,
+  createPlayer, byToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
-  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, ledgerSummary,
+  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size,
   syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty
 };

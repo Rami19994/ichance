@@ -473,6 +473,7 @@
       var balEl = document.getElementById('laBalance');
       var curEl = document.getElementById('laCurrency');
       var bannerEl = document.getElementById('guestBanner');
+      var depositBtn = document.getElementById('laDepositBtn');
 
       var currentBalance = 0;
       var currentCurrency = 'IQD';
@@ -541,6 +542,15 @@
               if (machineInstance) {
                 machineInstance.balance = currentBalance;
                 machineInstance.updateUIText();
+              }
+              if (depositBtn) {
+                if (currentBalance < 1000) {
+                  depositBtn.innerHTML = 'ضاعف رصيدك الآن 🎁';
+                  depositBtn.style.animation = 'pulse 1.5s infinite';
+                } else {
+                  depositBtn.innerHTML = '+ شحن';
+                  depositBtn.style.animation = 'none';
+                }
               }
               updateStatusBanner();
             }
@@ -790,7 +800,12 @@
                     game.updateUIText();
                     balEl.textContent = fmt(currentBalance);
                     if (result.win > 0) {
-                      toast('🎉 مبروك! فزت بـ ' + fmt(result.win) + ' ' + currentCurrency, 'success');
+                      var mult = result.win / totalBet;
+                      if (mult >= 5) {
+                        toast('ضربة حظ أسطورية! 🔥 هل تجرؤ على زيادة الرهان؟', 'success');
+                      } else {
+                        toast('فوز رائع! استمر في الدوران 🎰', 'success');
+                      }
                     }
                   }, 800);
                 }
