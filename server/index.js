@@ -307,7 +307,8 @@ const ROUTE_GAME = {
   '/api/slot/spin': 'slots', '/api/slot/buy': 'slots',
   '/api/tank/start': 'tank',
   '/api/neon-slots/spin': 'neon-slots',
-  '/api/mines/start': 'mines'
+  '/api/mines/start': 'mines',
+  '/api/plinko/drop': 'plinko'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -1623,6 +1624,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/battle-tanks') return sendStatic(req, res, '/tank.html');
   if (url.pathname === '/neon-slots') return sendStatic(req, res, '/neon-slots.html');
   if (url.pathname === '/mines') return sendStatic(req, res, '/mines.html');
+  if (url.pathname === '/plinko') return sendStatic(req, res, '/plinko.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

@@ -1,0 +1,178 @@
+/* ==========================================================================
+   LuckyArena — بلينكو (Stake Plinko Clone CSS)
+   تصميم فاخر وعصري متطابق مع هوية الموقع و Stake Originals
+   ========================================================================== */
+
+/* ساحة اللعبة الخاصة بالبلينكو */
+.plinko-board-area {
+  background: radial-gradient(circle at 50% 18%, #162436 0%, #0d1622 55%, #080c14 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 20px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  min-height: 560px;
+  overflow: hidden;
+}
+
+/* شريط سجل المضاعفات الأخيرة (Stake Plinko History Bar) */
+.plinko-history-bar {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  height: 38px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+  overflow: hidden;
+  direction: ltr;
+}
+
+.plinko-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  animation: badgePop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0.6) translateY(-8px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.plinko-badge--extreme {
+  background: linear-gradient(135deg, #ff1744, #d50000);
+  color: #fff;
+  border: 1px solid #ff5252;
+  box-shadow: 0 0 12px rgba(255, 23, 68, 0.55);
+}
+
+.plinko-badge--high {
+  background: linear-gradient(135deg, #ff6d00, #dd2c00);
+  color: #fff;
+  border: 1px solid #ff9100;
+  box-shadow: 0 0 10px rgba(255, 109, 0, 0.45);
+}
+
+.plinko-badge--medium {
+  background: linear-gradient(135deg, #ffd600, #ffab00);
+  color: #0b0e14;
+  border: 1px solid #ffe57f;
+  box-shadow: 0 0 8px rgba(255, 214, 0, 0.4);
+}
+
+.plinko-badge--low {
+  background: linear-gradient(135deg, #00e676, #00b248);
+  color: #0b0e14;
+  border: 1px solid #69f0ae;
+  box-shadow: 0 0 8px rgba(0, 230, 118, 0.35);
+}
+
+.plinko-badge--loss {
+  background: #1c2734;
+  color: #8fa1b4;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* حاوية الكانفاس المتجاوبة الفاخرة */
+.plinko-canvas-wrapper {
+  width: 100%;
+  max-width: 780px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+canvas#plinkoCanvas {
+  width: 100%;
+  max-width: 760px;
+  height: auto;
+  aspect-ratio: 4 / 3.2;
+  display: block;
+  border-radius: 14px;
+}
+
+/* رقائق الرهان السريع (Quick Bet Chips) */
+.plinko-quick-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.plinko-chip {
+  flex: 1;
+  min-width: 54px;
+  background: #243441;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #b6c5d6;
+  border-radius: 7px;
+  padding: 6px 4px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.plinko-chip:hover {
+  background: #2e4354;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.plinko-chip:active {
+  transform: translateY(1px);
+}
+
+/* تحسين الزر الرئيسي لبلينكو */
+.plinko-drop-btn {
+  background: linear-gradient(180deg, #ff2453 0%, #be0e38 100%) !important;
+  color: #fff !important;
+  border-bottom: 5px solid #8e0a29 !important;
+  box-shadow: 0 6px 20px rgba(255, 36, 83, 0.45) !important;
+}
+
+.plinko-drop-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ff3864 0%, #d41241 100%) !important;
+  box-shadow: 0 10px 28px rgba(255, 36, 83, 0.6) !important;
+}
+
+.plinko-drop-btn:active:not(:disabled) {
+  border-bottom-width: 2px !important;
+  transform: translateY(3px) !important;
+}
+
+/* حقل الرهان مع علامة العملة */
+.mines-input-box .currency-tag {
+  color: #f5c542;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0 10px;
+  user-select: none;
+}
+
+/* تفاصيل إحصائيات الجولة */
+.plinko-stat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
