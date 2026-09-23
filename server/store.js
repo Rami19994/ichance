@@ -786,7 +786,10 @@ async function gameDebit(gameId, player, amount, txRef) {
         return true;
       }
     } catch (err) {
-      console.error(`[store] gw_debit error for ${player.id}:`, err.message);
+      console.warn(`[store] gw_debit remote error, falling back to memory:`, err.message);
+      if (player.balance >= amount) {
+        return adjustBalance(player, -amount);
+      }
       return false;
     }
   }
@@ -808,8 +811,8 @@ async function gameCredit(gameId, player, amount, txRef) {
         return true;
       }
     } catch (err) {
-      console.error(`[store] gw_credit error for ${player.id}:`, err.message);
-      return false;
+      console.warn(`[store] gw_credit remote error, falling back to memory:`, err.message);
+      return adjustBalance(player, amount);
     }
   }
   return adjustBalance(player, amount);

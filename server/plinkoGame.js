@@ -4,45 +4,82 @@ const crypto = require('crypto');
 const store = require('./store');
 
 /**
- * محرك لعبة بلينكو (Plinko)
- * 16 صفاً من العوائق
+ * LuckyArena — محرك لعبة بلينكو عالي التذبذب (High-Volatility Plinko Engine)
+ * 16 صفاً من العوائق، 17 وعاءً نهائياً.
+ *
+ * التوزيع الرياضي الثنائي المثبت (Binomial Distribution n=16, p=0.5):
+ * - إجمالي المسارات الممكنة: 2^16 = 65,536 مساراً.
+ * - مصفوفة المضاعفات (17 وعاء):
+ *   [150, 100, 50, 10, 10, 0, 0, 0, 0, 0, 0, 0, 10, 10, 50, 100, 150]
+ *
+ * الإثبات الرياضي الدقيق:
+ * - الأوعية [5, 6, 7, 8, 9, 10, 11] = 0x (المنطقة الميتة: 60,502 مسار = 92.31875% احتمال الخسارة).
+ * - الأوعية [3, 4, 12, 13] = 10x (4,760 مسار = 7.263% معدل الإصابة).
+ * - الأوعية [2, 14] = 50x (240 مسار = 0.366% معدل الإصابة).
+ * - الأوعية [1, 15] = 100x (32 مسار = 0.0488% معدل الإصابة).
+ * - الأوعية [0, 16] = 150x (مساران فقط = 0.00305% معدل الإصابة بالجائزة الكبرى).
+ *
+ * القيمة المتوقعة (EV / RTP):
+ * 63,100 / 65,536 = 0.962829... (عائد اللاعب RTP = 96.28%، هامش المنصة House Edge = 3.72%).
  */
 
 const ROWS = 16;
-// Multipliers from left to right (17 buckets for 16 rows)
-const MULTIPLIERS = [1000, 130, 26, 9, 4, 2, 0.2, 0.2, 0.2, 0.2, 0.2, 2, 4, 9, 26, 130, 1000];
+// مصفوفة المضاعفات المتناظرة والدقيقة هندسياً
+const MULTIPLIERS = [150, 100, 50, 10, 10, 0, 0, 0, 0, 0, 0, 0, 10, 10, 50, 100, 150];
 const MIN_STAKE = 100;
 const MAX_STAKE = 1000000;
 
+/**
+ * توليد مسار الكرة المشفر بنظام العدالة المثبتة (Provably Fair HMAC-SHA256)
+ * @param {string} serverSeed - بذرة الخادم السرية
+ * @param {string} clientSeed - بذرة العميل
+ * @param {number} nonce - رقم تسلسل الجولة
+ * @returns {{ decisions: number[], trajectory: number[], path: number[], index: number }}
+ */
 function generatePlinkoPath(serverSeed, clientSeed, nonce) {
   const hash = crypto.createHmac('sha256', serverSeed)
     .update(`${clientSeed}:${nonce}`)
     .digest('hex');
 
-  const path = [];
-  let index = 0; // final bucket index
-  
-  let bitCount = 0;
-  for (let i = 0; i < hash.length && bitCount < ROWS; i += 2) {
-    const byte = parseInt(hash.substr(i, 2), 16);
-    for (let b = 0; b < 8 && bitCount < ROWS; b++) {
-      const bit = (byte >> b) & 1;
-      path.push(bit === 1 ? 1 : -1);
-      if (bit === 1) index++; // right
-      bitCount++;
-    }
+  const decisions = [];  // 0 (Left) or 1 (Right)
+  const trajectory = []; // -1 (Left visual bounce) or +1 (Right visual bounce)
+  let k = 0;             // final bin index: sum(decisions) in range [0, 16]
+
+  // تحويل أول 16 بايت من الهاش إلى قرارات اتجاهية متساوية الاحتمال تماماً (p = 0.5)
+  // حيث أن قيم البايت [0-255] موزعة بالتساوي (128 زوجي = 0، 128 فردي = 1)
+  for (let i = 0; i < ROWS; i++) {
+    const byte = parseInt(hash.substr(i * 2, 2), 16);
+    const decision = byte % 2; // 0 = Left, 1 = Right
+    decisions.push(decision);
+    trajectory.push(decision === 1 ? 1 : -1);
+    if (decision === 1) k++;
   }
-  
-  return { path, index };
+
+  return {
+    decisions,
+    trajectory,
+    path: trajectory, // متوافق مع العارض المرئي في الكانفاس
+    index: k          // رقم الوعاء النهائي المحسوب
+  };
 }
 
+/**
+ * إسقاط الكرة وخصم الرهان وإيداع الأرباح ذرياً
+ */
 async function dropBall(player, { bet, clientSeed = null }) {
-  if (!player) return { ok: false, error: 'غير مصرح' };
+  if (!player) return { ok: false, error: 'سجّل الدخول أولاً للّعب بالرصيد الحقيقي', needsLogin: true };
 
   const cleanBet = Math.floor(Number(bet) || 0);
-  if (cleanBet < MIN_STAKE) return { ok: false, error: `الحد الأدنى هو ${MIN_STAKE}` };
-  if (cleanBet > MAX_STAKE) return { ok: false, error: `الحد الأقصى هو ${MAX_STAKE}` };
-  if (player.balance < cleanBet) return { ok: false, error: 'رصيدك لا يكفي لإتمام هذا الرهان' };
+  if (cleanBet < MIN_STAKE) return { ok: false, error: `الحد الأدنى للرهان هو ${MIN_STAKE.toLocaleString()} IQD` };
+  if (cleanBet > MAX_STAKE) return { ok: false, error: `الحد الأقصى للرهان هو ${MAX_STAKE.toLocaleString()} IQD` };
+
+  const currentBal = Number(player.balance) || 0;
+  if (currentBal < cleanBet) {
+    return {
+      ok: false,
+      error: `رصيدك لا يكفي لإتمام هذا الرهان. رصيدك الحالي: ${currentBal.toLocaleString()} IQD`
+    };
+  }
 
   const serverSeed = crypto.randomBytes(32).toString('hex');
   const seedHash = crypto.createHash('sha256').update(serverSeed).digest('hex');
@@ -54,7 +91,7 @@ async function dropBall(player, { bet, clientSeed = null }) {
     return { ok: false, error: 'تعذّر خصم الرهان (رصيد غير كافٍ أو خطأ بالاتصال)' };
   }
 
-  const { path, index } = generatePlinkoPath(serverSeed, cSeed, nonce);
+  const { decisions, trajectory, path, index } = generatePlinkoPath(serverSeed, cSeed, nonce);
   const multiplier = MULTIPLIERS[index];
   const winAmount = Math.round(cleanBet * multiplier);
 
@@ -67,6 +104,8 @@ async function dropBall(player, { bet, clientSeed = null }) {
 
   return {
     ok: true,
+    decisions,
+    trajectory,
     path,
     index,
     multiplier,
@@ -83,8 +122,9 @@ async function dropBall(player, { bet, clientSeed = null }) {
 function stateFor(player) {
   if (!player) {
     return {
+      loggedIn: false,
       active: true,
-      balance: 1000,
+      balance: 0,
       currency: 'IQD',
       minStake: MIN_STAKE,
       maxStake: MAX_STAKE,
@@ -94,6 +134,7 @@ function stateFor(player) {
   }
 
   return {
+    loggedIn: true,
     active: true,
     balance: player.balance,
     currency: player.currency || 'IQD',
@@ -105,6 +146,11 @@ function stateFor(player) {
 }
 
 module.exports = {
-  ROWS, MULTIPLIERS, MIN_STAKE, MAX_STAKE,
-  dropBall, stateFor, generatePlinkoPath
+  ROWS,
+  MULTIPLIERS,
+  MIN_STAKE,
+  MAX_STAKE,
+  generatePlinkoPath,
+  dropBall,
+  stateFor
 };

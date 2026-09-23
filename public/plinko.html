@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>بلينكو — Plinko | LuckyArena</title>
-  <meta name="description" content="العب بلينكو (Plinko) الأصلية على LuckyArena. أسقط الكرة واربح مضاعفات تصل إلى 1000 ضعف بالمال الحقيقي!">
+  <meta name="description" content="العب بلينكو (Plinko) الأصلية على LuckyArena. أسقط الكرة واربح مضاعفات تصل إلى 150 ضعفاً بالمال الحقيقي!">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/theme.css?v=27">
-  <link rel="stylesheet" href="/css/mines.css?v=27">
-  <link rel="stylesheet" href="/css/plinko.css?v=27">
+  <link rel="stylesheet" href="/css/theme.css?v=28">
+  <link rel="stylesheet" href="/css/mines.css?v=28">
+  <link rel="stylesheet" href="/css/plinko.css?v=28">
   <!-- Toastify Notifications -->
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
@@ -84,7 +84,7 @@
         </div>
         <div class="mines-select-box">
           <select id="plinkoRisk">
-            <option value="high" selected>عالية (High 🔥) — أقصى ربح ×1000</option>
+            <option value="high" selected>عالية (High 🔥) — أقصى ربح ×150</option>
           </select>
         </div>
       </div>
@@ -93,11 +93,11 @@
       <div class="mines-ctrl-group">
         <div class="mines-label">
           <span>عدد الصفوف (Rows)</span>
-          <span style="color:#f5c542;font-size:0.75rem;">16 صفاً • 17 مضاعفاً</span>
+          <span style="color:#f5c542;font-size:0.75rem;">16 صفاً • 17 وعاءً</span>
         </div>
         <div class="mines-select-box">
           <select id="plinkoRows">
-            <option value="16" selected>16 صفاً (17 مساراً نهائياً)</option>
+            <option value="16" selected>16 صفاً (17 وعاءً نهائياً)</option>
           </select>
         </div>
       </div>
@@ -105,7 +105,7 @@
       <!-- زر الإجراء الرئيسي الضخم لإسقاط الكرة -->
       <button class="mines-main-btn plinko-drop-btn" id="mainActionBtn">
         <span id="actionBtnText">أسقط الكرة الآن</span>
-        <span class="mines-main-btn__sub" id="actionBtnSub">اربح حتى ×1000 ضعف الرهان!</span>
+        <span class="mines-main-btn__sub" id="actionBtnSub">اربح حتى ×150 ضعف الرهان!</span>
       </button>
 
       <!-- صندوق الأرباح والإحصائيات -->
@@ -162,6 +162,6 @@
   </div>
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-  <script src="/js/plinko.js?v=27"></script>
+  <script src="/js/plinko.js?v=28"></script>
 </body>
 </html>
