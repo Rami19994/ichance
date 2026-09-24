@@ -409,8 +409,11 @@ async function handleApi(req, res, url) {
     const session = await gameRegistry.resolveLaunch(body.token, game.id);
     if (!session) return sendJson(res, 401, { error: 'رمز الإقلاع منتهٍ أو غير صالح' });
 
-    // فروق اللعب الداخلي تُكتب أولاً كي لا يُحسب الرهان على رصيد قديم
-    await accounts.flushPlayer(session.player_id);
+    // فروق اللعب الداخلي تُكتب أولاً كي لا يُحسب الرهان على رصيد قديم.
+    // إن تعذّرت كتابتها فرصيد القاعدة ناقص الحقيقة — لا نتعامل عليه.
+    if (!(await accounts.flushPlayer(session.player_id))) {
+      return sendJson(res, 503, { error: 'تعذّرت مزامنة رصيد اللاعب مع قاعدة البيانات — أعد المحاولة بعد لحظات' });
+    }
 
     let out;
     if (route === '/api/gw/balance') {
@@ -589,8 +592,11 @@ async function handleApi(req, res, url) {
       const target = await accounts.byId(body.playerId);
       if (!target) return sendJson(res, 400, { error: 'اللاعب غير موجود' });
 
-      // نكتب فروق اللعب المعلّقة أولاً: بدونها قد تُحسب التعبئة على رصيد قديم
-      await accounts.flushPlayer(target.id);
+      // نكتب فروق اللعب المعلّقة أولاً: بدونها قد تُحسب التعبئة على رصيد قديم.
+      // وإن تعذّرت كتابتها لا نمضي — سحبٌ على رصيد ناقص يُخرج مالاً غير موجود.
+      if (!(await accounts.flushPlayer(target.id))) {
+        return sendJson(res, 503, { error: 'تعذّرت مزامنة رصيد اللاعب مع قاعدة البيانات — أعد المحاولة بعد لحظات' });
+      }
 
       const fn = route.endsWith('deposit') ? accounts.deposit : accounts.withdraw;
       const out = await fn({
@@ -1249,7 +1255,9 @@ async function handleApi(req, res, url) {
       if (!target || target.role !== 'player') return sendJson(res, 400, { error: 'اللاعب غير موجود' });
       if (!target.cashier_id) return sendJson(res, 400, { error: 'اللاعب بلا كاشير — اربطه بكاشير أولاً' });
 
-      await accounts.flushPlayer(target.id);
+      if (!(await accounts.flushPlayer(target.id))) {
+        return sendJson(res, 503, { error: 'تعذّرت مزامنة رصيد اللاعب مع قاعدة البيانات — أعد المحاولة بعد لحظات' });
+      }
       const fn = route.endsWith('deposit') ? accounts.deposit : accounts.withdraw;
       const out = await fn({
         cashierId: target.cashier_id, playerId: target.id,

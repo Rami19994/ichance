@@ -867,50 +867,114 @@ async function anomalies(limit = 50) {
 }
 
 // ----------------------------------------------- مزامنة رصيد اللعب
-const pending = new Map();
-let flushing = false;
+//
+// فروق اللعب (رهان/ربح) التي لم تمرّ بنداء المحفظة الذرّي تُجمَّع هنا وتُكتب
+// إلى الدفتر دفعةً واحدة.
+//
+// ── ثلاث قواعد لا تُكسر
+// 1. الفرق لا يغادر الطابور إلا بعد أن يؤكّد الدفتر كتابته. كان يُحذف قبل
+//    النداء، فأي انقطاع عابر يمحو أرباح اللاعبين وخسائرهم من القاعدة للأبد.
+// 2. للدفتر مرجع واحد: القاعدة إن كانت مضبوطة، وإلّا الملف المحلّي. لا تُكتب
+//    الفروق في الاثنين. محاولةٌ سابقة كانت تطبّقها على الملف عند الفشل ثم
+//    تبقيها في الطابور وتعيد كل 5 ثوانٍ — فيُضاف الفرق نفسه مرّة بعد مرّة.
+// 3. من يطلب الكتابة وهناك كتابة جارية ينتظرها ولا يتخطّاها. flushPlayer
+//    يسبق الإيداع والسحب؛ لو عاد فوراً لحُسبت العملية على رصيد قديم.
+//
+// ── حدّ معروف
+// apply_game_deltas لا ترفض التكرار: لو نفّذتها القاعدة ثم ضاع الردّ، تُعيد
+// المحاولةُ تطبيق الدفعة. علاجه في القاعدة نفسها (رقم دفعة يُسجَّل ويُرفض
+// تكراره). ضياع الردّ بعد التنفيذ نادر جداً: المهلة 15 ثانية لتحديث يستغرق
+// أجزاءً من الثانية.
+const RETRY_MIN_MS = 2_000;
+const RETRY_MAX_MS = 60_000;
+
+const pending = new Map();        // accountId → صافي فرق لم يؤكّده الدفتر
 let flushTimer = null;
+let inflight = null;              // الكتابة الجارية
+let retryTimer = null;
+let retryDelay = RETRY_MIN_MS;
 
 function queueDelta(accountId, delta) {
-  if (!accountId || !delta) return;
-  pending.set(accountId, (pending.get(accountId) || 0) + Math.round(delta));
-  if (!flushTimer) flushTimer = setTimeout(() => { flushTimer = null; flushDeltas(); }, FLUSH_MS);
+  const d = Math.round(delta);
+  if (!accountId || !d) return;
+  const next = (pending.get(accountId) || 0) + d;
+  if (next) pending.set(accountId, next); else pending.delete(accountId);
+  if (!flushTimer) {
+    flushTimer = setTimeout(() => { flushTimer = null; flushDeltas().catch(() => {}); }, FLUSH_MS);
+    if (flushTimer.unref) flushTimer.unref();
+  }
 }
 
 function hasPending(accountId) { return pending.has(accountId); }
 
-async function flushDeltas() {
-  if (flushing || !pending.size) return { applied: 0 };
-  flushing = true;
-
-  const batch = [...pending.entries()].map(([id, delta]) => ({ id, delta }));
-  pending.clear();
-
-  if (supabaseReady) {
-    try {
-      const out = await sb.rpc('apply_game_deltas', { p_items: batch });
-      return { applied: batch.length };
-    } catch (err) {
-      console.warn('[accounts] تعذّر دفع الفروق إلى Supabase، تطبيق محلي:', err.message);
-    }
-  }
-
-  // تطبيق محلي
-  const db = getLocal();
-  for (const item of batch) {
-    const acc = db.accounts.find((a) => a.id === item.id || a.display_id === item.id);
-    if (acc) {
-      acc.balance = Math.max(0, Math.round((acc.balance || 0) + item.delta));
-    }
-  }
-  saveLocal();
-  flushing = false;
-  return { applied: batch.length };
+/** يكتب الطابور. من يأتي أثناء كتابة جارية ينتظرها بدل أن يتخطّاها. */
+function flushDeltas() {
+  if (inflight) return inflight;
+  if (!pending.size) return Promise.resolve({ applied: 0, pending: 0 });
+  inflight = writeBatch().finally(() => { inflight = null; });
+  return inflight;
 }
 
+async function writeBatch() {
+  const batch = [...pending.entries()].map(([id, delta]) => ({ id, delta }));
+
+  if (!sb.configured()) {
+    // لا قاعدة: الملف المحلّي هو الدفتر — نطبّق مرّة واحدة ونُفرغ
+    const db = getLocal();
+    for (const { id, delta } of batch) {
+      const acc = db.accounts.find((a) => a.id === id || a.display_id === id);
+      if (acc) acc.balance = Math.max(0, Math.round((acc.balance || 0) + delta));
+    }
+    saveLocal();
+    settle(batch);
+    return { applied: batch.length, pending: pending.size };
+  }
+
+  try {
+    await sb.rpc('apply_game_deltas', { p_items: batch });
+  } catch (err) {
+    console.warn(`[accounts] تعذّرت كتابة ${batch.length} فرق رصيد — تبقى معلّقة وتُعاد المحاولة:`, err.message);
+    scheduleRetry();
+    return { applied: 0, pending: pending.size, error: err.message };
+  }
+
+  settle(batch);
+  retryDelay = RETRY_MIN_MS;
+  if (pending.size) scheduleRetry();          // فروق وصلت أثناء الكتابة
+  return { applied: batch.length, pending: pending.size };
+}
+
+/**
+ * يطرح ما كُتب ويُبقي ما وصل أثناء الكتابة.
+ * الباقي = الصافي الحالي − المكتوب — ويصحّ حتى لو صار الصافي صفراً أثناء
+ * الكتابة (رهان ثم ربح بالقيمة نفسها): حينها يبقى عكس المكتوب، وهو فعلاً
+ * ما لم يصل الدفتر بعد.
+ */
+function settle(batch) {
+  for (const { id, delta } of batch) {
+    const rest = (pending.get(id) || 0) - delta;
+    if (rest) pending.set(id, rest); else pending.delete(id);
+  }
+}
+
+function scheduleRetry() {
+  if (retryTimer) return;
+  const wait = retryDelay;
+  retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
+  retryTimer = setTimeout(() => { retryTimer = null; flushDeltas().catch(() => {}); }, wait);
+  if (retryTimer.unref) retryTimer.unref();
+}
+
+/**
+ * يكتب فروق لاعب قبل عملية تعتمد على رصيده في الدفتر.
+ * true = الدفتر محدَّث لهذا اللاعب. false = بقيت فروقه معلّقة — لا يجوز
+ * إجراء إيداع أو سحب أو رهان خارجي على رصيده الآن.
+ */
 async function flushPlayer(accountId) {
-  if (!pending.has(accountId)) return;
-  await flushDeltas();
+  if (inflight) await inflight.catch(() => {});
+  if (!pending.has(accountId)) return true;
+  await flushDeltas().catch(() => {});
+  return !pending.has(accountId);
 }
 
 async function setCashierCountry(cashierId, country) {

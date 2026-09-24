@@ -89,13 +89,20 @@ function saveConfig({ url, key }) {
 // ---------------------------------------------------------------------------
 // الطلبات
 // ---------------------------------------------------------------------------
+/**
+ * kind يحدّد ما نعرفه عن مصير الطلب — والمحفظة تبني قرارها عليه:
+ *   network  لم يصل الطلب أصلاً (لا اتصال) — لم يُنفَّذ شيء يقيناً
+ *   timeout  أُرسل ولم يعد ردّ — ربما نُفِّذ وضاع الردّ وحده
+ *   db       ردّت القاعدة بخطأ — تراجعت عن الطلب كاملاً
+ */
 class SupabaseError extends Error {
-  constructor(message, { status, code, raw } = {}) {
+  constructor(message, { status, code, raw, kind } = {}) {
     super(message);
     this.name = 'SupabaseError';
     this.status = status;
     this.code = code;
     this.raw = raw;
+    this.kind = kind;
   }
 }
 
@@ -131,7 +138,7 @@ const TIMEOUT_MS = 15_000;
 
 async function request(pathname, { method = 'GET', body, prefer } = {}) {
   const c = config();
-  if (!c) throw new SupabaseError('قاعدة البيانات غير مربوطة بعد', { status: 503 });
+  if (!c) throw new SupabaseError('قاعدة البيانات غير مربوطة بعد', { status: 503, kind: 'network' });
 
   const headers = {
     apikey: c.key,
@@ -152,9 +159,10 @@ async function request(pathname, { method = 'GET', body, prefer } = {}) {
       signal: ac.signal
     });
   } catch (err) {
+    const timeout = err.name === 'AbortError';
     throw new SupabaseError(
-      err.name === 'AbortError' ? 'انتهت مهلة الاتصال بقاعدة البيانات' : 'تعذّر الاتصال بقاعدة البيانات',
-      { status: 503, raw: err.message }
+      timeout ? 'انتهت مهلة الاتصال بقاعدة البيانات' : 'تعذّر الاتصال بقاعدة البيانات',
+      { status: 503, raw: err.message, kind: timeout ? 'timeout' : 'network' }
     );
   } finally {
     clearTimeout(timer);
@@ -166,7 +174,7 @@ async function request(pathname, { method = 'GET', body, prefer } = {}) {
 
   if (!res.ok) {
     const msg = (data && (data.message || data.hint || data.details)) || String(data || res.statusText);
-    throw new SupabaseError(translate(msg), { status: res.status, code: data && data.code, raw: msg });
+    throw new SupabaseError(translate(msg), { status: res.status, code: data && data.code, raw: msg, kind: 'db' });
   }
   return data;
 }

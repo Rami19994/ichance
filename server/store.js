@@ -739,7 +739,19 @@ function attachAccount(row) {
   player.accountId = row.id;
   player.username = row.username;
   player.cashierId = row.cashier_id || null;
-  if (!accounts.hasPending(row.id)) player.balance = Math.max(0, Math.round(row.balance));
+
+  // الرصيد: القاعدة هي الدفتر، فنأخذ رصيدها صعوداً ونزولاً — إلّا إن كان
+  // للاعب فروق لعب لم يؤكّد الدفتر كتابتها بعد، فالذاكرة حينها أحدث.
+  //
+  // ⚠ لا تأخذ «الأعلى بين الذاكرة والقاعدة». جُرِّب ذلك لمنع رصيد يعود
+  // للوراء بعد التحديث، فصار كل نقصٍ حقيقي يُتجاهل: سحب الكاشير، وخصم
+  // الألعاب الخارجية — القاعدة تنقص والذاكرة باقية على رقمها، فيراهن
+  // اللاعب بمال سُحب منه. علّة الرصيد العائد كانت في طابور الفروق
+  // (يحذف قبل الكتابة) وأُصلحت هناك.
+  if (!accounts.hasPending(row.id)) {
+    player.balance = Math.max(0, Math.round(row.balance));
+  }
+
   player.lastSeen = Date.now();
   persistSoon();
   return player;
@@ -771,51 +783,199 @@ function adjustBalance(player, amount) {
   return true;
 }
 
+// ------------------------------------------------------------ محفظة الألعاب
+//
+// كل رهان وكل ربح يمرّ على القاعدة بنداء ذرّي (gw_debit / gw_credit) يقفل
+// صفّ اللاعب ويعيد رصيده الجديد. السؤال كلّه: ماذا نفعل حين لا يعود النداء
+// بتأكيد؟ الجواب يتبع ما نعرفه يقيناً عن مصيره:
+//
+//   رفض      القاعدة قالت لا: رصيد لا يكفي، لاعب غير موجود، مبلغ غير صالح.
+//            ← لا رهان. كان الكود يعامل كل خطأ كأنه انقطاع ويخصم من الذاكرة
+//              رغم الرفض — أي رهاناً بمال قالت القاعدة إنه غير موجود.
+//   مرفوض    ردّت القاعدة بخطأ آخر (قيد، مفتاح أجنبي…) فتراجعت عن النداء
+//            كلّه. لم يُطبَّق شيء يقيناً ← عبر طابور الفروق.
+//   لم يصل   لا اتصال، لم يُرسَل شيء. الرهان: لا رهان بلا دفتر. الربح: لا
+//            يضيع، يدخل الطابور حتى تعود القاعدة.
+//   مجهول    انتهت المهلة أو خطأ خادم: ربما نُفِّذ وضاع الردّ وحده. نسأل
+//            جدول الجولات عن رقم الحركة قبل أن نقرّر، كي لا نخصم مرّتين ولا
+//            نصرف مرّتين.
+
+const REFUSALS = /INSUFFICIENT_BALANCE|PLAYER_NOT_FOUND|PLAYER_INACTIVE|AMOUNT_INVALID/;
+
+function walletOutcome(err, out) {
+  if (!err) {
+    // ردّت الدالّة بلا تأكيد. إن قالت صراحةً ok:false فهي لم تطبّق شيئاً،
+    // والسبب يحدّد أهو رفض أم خلل بنيوي. غير ذلك ردٌّ لا نفهمه ← مجهول.
+    if (out && out.ok === false) {
+      return REFUSALS.test(String(out.error || out.code || '')) ? 'refused' : 'rejected';
+    }
+    return 'unknown';
+  }
+  if (err.kind === 'network') return 'unreached';
+  if (err.kind === 'timeout') return 'unknown';
+  if (REFUSALS.test(String(err.raw || err.message || ''))) return 'refused';
+  if (err.code === '23505') return 'duplicate';   // رقم الحركة مسجّل من قبل
+  if (err.status >= 500) return 'unknown';
+  if (err.status >= 400) return 'rejected';
+  return 'unknown';
+}
+
+/** هل سُجّلت هذه الحركة في القاعدة؟ true / false، أو null إن تعذّر السؤال. */
+async function wasApplied(accountId, txRef, action) {
+  try {
+    const rows = await supabase.select('game_rounds',
+      `select=id&player_id=eq.${supabase.enc(accountId)}`
+      + `&tx_ref=eq.${supabase.enc(txRef)}&action=eq.${action}&limit=1`);
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return null;
+  }
+}
+
+const warnedOnce = new Set();
+function warnOnce(key, message) {
+  if (warnedOnce.has(key)) return;
+  warnedOnce.add(key);
+  console.error(message);
+}
+
+/**
+ * يمرّر حركة عبر طابور الفروق **وينتظر** كتابتها.
+ * على Vercel قد تُجمَّد الدالّة بعد إرسال الردّ، فكتابةٌ لم تُنتظر قد لا
+ * تكتمل أبداً — وهذا ما كان يُرجع الرصيد بعد التحديث.
+ */
+async function throughQueue(player, amount) {
+  if (!adjustBalance(player, amount)) return { ok: false, written: false };
+  const written = await accounts.flushPlayer(player.accountId);
+  return { ok: true, written };
+}
+
+function describe(err, out) {
+  if (err) return `${err.code || err.status || ''} ${err.raw || err.message || ''}`.trim();
+  return out && out.error ? String(out.error) : 'ردّ بلا تأكيد';
+}
+
+/** مفتاح تحذير واحد لكل لعبة وسبب — كي لا يغرق السجلّ برسالة لكل رهان. */
+function reasonKey(err, out) {
+  return (err && (err.code || err.status)) || (out && (out.code || out.error)) || 'unconfirmed';
+}
+
 async function gameDebit(gameId, player, amount, txRef) {
   if (amount === 0) return true;
-  if (player.accountId && supabase.configured()) {
-    try {
-      const out = await supabase.rpc('gw_debit', {
-        p_game: gameId,
-        p_player: player.accountId,
-        p_amount: Math.round(amount),
-        p_tx_ref: txRef
-      });
-      if (out && out.ok) {
-        player.balance = out.balance;
+  if (!player.accountId || !supabase.configured()) return adjustBalance(player, -amount);
+
+  let out = null, err = null;
+  try {
+    out = await supabase.rpc('gw_debit', {
+      p_game: gameId,
+      p_player: player.accountId,
+      p_amount: Math.round(amount),
+      p_tx_ref: txRef
+    });
+  } catch (e) { err = e; }
+
+  if (!err && out && out.ok) {
+    player.balance = Math.max(0, Math.round(out.balance));
+    return true;
+  }
+
+  switch (walletOutcome(err, out)) {
+    case 'refused':
+      return false;
+
+    case 'rejected': {
+      // القاعدة ترفض تسجيل الجولة لسبب بنيوي (لعبة غير مسجّلة في games مثلاً)
+      // فتراجعت عن النداء كلّه — الخصم لم يقع. نمرّره عبر الطابور ولا نقبل
+      // الرهان حتى يثبت في الدفتر.
+      warnOnce(`debit:${gameId}:${reasonKey(err, out)}`,
+        `[wallet] ${gameId}: القاعدة لا تسجّل جولاتها (${describe(err, out)}) — الرهانات تمرّ عبر طابور الفروق.`);
+      const r = await throughQueue(player, -amount);
+      if (!r.ok) return false;
+      if (!r.written) {
+        // لم يثبت في الدفتر: نلغيه كاملاً — لا رهان يعيش في الذاكرة وحدها
+        player.balance = Math.round(player.balance + amount);
+        accounts.queueDelta(player.accountId, amount);
+        persistSoon();
+        return false;
+      }
+      return true;
+    }
+
+    case 'unknown': {
+      const applied = await wasApplied(player.accountId, txRef, 'debit');
+      if (applied === true) {
+        // نُفِّذ وضاع الردّ فقط — الرهان قائم
+        player.balance = Math.max(0, Math.round(player.balance - amount));
         return true;
       }
-    } catch (err) {
-      console.warn(`[store] gw_debit remote error, falling back to memory:`, err.message);
-      if (player.balance >= amount) {
-        return adjustBalance(player, -amount);
+      if (applied === null) {
+        console.error(`[wallet] مصير خصم ${txRef} (${amount}) للّاعب ${player.accountId} مجهول — `
+          + `رُفض الرهان؛ راجعه يدوياً: قد يكون خُصم بلا جولة.`);
       }
       return false;
     }
+
+    case 'duplicate':
+      console.error(`[wallet] رقم الحركة ${txRef} مسجّل من قبل — رُفض الخصم كي لا يتكرّر.`);
+      return false;
+
+    default:                                      // unreached: لا رهان بلا دفتر
+      return false;
   }
-  return adjustBalance(player, -amount);
 }
 
 async function gameCredit(gameId, player, amount, txRef) {
   if (amount === 0) return true;
-  if (player.accountId && supabase.configured()) {
-    try {
-      const out = await supabase.rpc('gw_credit', {
-        p_game: gameId,
-        p_player: player.accountId,
-        p_amount: Math.round(amount),
-        p_tx_ref: txRef
-      });
-      if (out && out.ok) {
-        player.balance = out.balance;
-        return true;
-      }
-    } catch (err) {
-      console.warn(`[store] gw_credit remote error, falling back to memory:`, err.message);
-      return adjustBalance(player, amount);
+  if (!player.accountId || !supabase.configured()) return adjustBalance(player, amount);
+
+  let out = null, err = null;
+  try {
+    out = await supabase.rpc('gw_credit', {
+      p_game: gameId,
+      p_player: player.accountId,
+      p_amount: Math.round(amount),
+      p_tx_ref: txRef
+    });
+  } catch (e) { err = e; }
+
+  if (!err && out && out.ok) {
+    player.balance = Math.max(0, Math.round(out.balance));
+    return true;
+  }
+
+  const outcome = walletOutcome(err, out);
+
+  if (outcome === 'refused') {
+    console.error(`[wallet] القاعدة رفضت صرف ${amount} للّاعب ${player.accountId} (${txRef}): ${describe(err, out)}`);
+    return false;
+  }
+  if (outcome === 'duplicate') {
+    console.error(`[wallet] الربح ${txRef} مسجّل من قبل — لم يُصرف مرّة ثانية.`);
+    return true;
+  }
+  if (outcome === 'unknown') {
+    const applied = await wasApplied(player.accountId, txRef, 'credit');
+    if (applied === true) {
+      player.balance = Math.round(player.balance + amount);
+      return true;
+    }
+    if (applied === null) {
+      console.error(`[wallet] مصير ربح ${txRef} (${amount}) للّاعب ${player.accountId} مجهول — `
+        + `صُرف عبر الطابور؛ راجعه يدوياً فقد يكون مكرّراً.`);
     }
   }
-  return adjustBalance(player, amount);
+  if (outcome === 'rejected') {
+    warnOnce(`credit:${gameId}:${reasonKey(err, out)}`,
+      `[wallet] ${gameId}: القاعدة لا تسجّل جولاتها (${describe(err, out)}) — الأرباح تمرّ عبر طابور الفروق.`);
+  }
+
+  // الرهان أُخذ والنتيجة حُسمت: الربح لا يضيع. يدخل الطابور حتى يثبت.
+  const r = await throughQueue(player, amount);
+  if (r.ok && !r.written) {
+    console.error(`[wallet] ربح ${amount} للّاعب ${player.accountId} (${txRef}) لم يُكتب بعد — `
+      + `معلّق في الطابور ويُعاد المحاولة.`);
+  }
+  return r.ok;
 }
 
 function recordRound(player, { stake, payout, multiplier }) {
