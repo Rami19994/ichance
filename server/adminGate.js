@@ -109,12 +109,15 @@ async function writeDbPath(value) {
   }
 }
 
-const DEFAULT_GATE_PATH = '6a546f34f797ed19196b0d9392ae8979';
-const MASTER_GATE_TOKENS = [
-  '6a546f34f797ed19196b0d9392ae8979',
-  'a18b77f4a88d5b55a55f13d409700361',
-  '26b0213e43fdfe51d5c564182d6eebe3'
-];
+/*
+ * ⚠ لا مسار ثابت هنا — لا «احتياطي» ولا «معتمد للمالك».
+ *
+ * كانت هنا ثلاثة مسارات مكتوبة في الكود تفتح البوابة دائماً وقبل المسار
+ * الحقيقي. والمستودع على GitHub عامّ: فكل من قرأه فتح بوابة المالك وولّد
+ * مفتاح إدارة — أي أودع لأي لاعب ما شاء. المسار الحقيقي واحد: المحفوظ في
+ * قاعدة البيانات، ويتبدّل من الصفحة. للإنقاذ إن ضاع: متغيّر ICHANCE_GATE_PATH،
+ * أو قراءته من Supabase ← site_secrets ← gate_path.
+ */
 
 // ---------------------------------------------------------------- القراءة
 /** المسار الحالي ومصدره، بتخزين مؤقّت قصير. */
@@ -136,19 +139,23 @@ async function current({ fresh = false } = {}) {
     return cache;
   }
 
-  // استخدام المسار المعتمد للمالك وحفظه في قاعدة البيانات
-  const born = DEFAULT_GATE_PATH;
-  if (sb.configured()) await writeDbPath(born);
+  // لا مسار في أي مكان: نولّد واحداً عشوائياً ونحفظه. يُطبع في سجلّ الخادم
+  // (لا يراه إلا المالك) ويُقرأ من site_secrets.
+  const born = newPath();
+  const saved = sb.configured() ? await writeDbPath(born) : writeFilePath(born);
+  if (!saved) {
+    console.error('[gate] تعذّر حفظ المسار في أي مكان — البوابة معطّلة.');
+    return { path: null, source: 'unsaved' };
+  }
   writeFilePath(born);
+  console.log(`[gate] وُلّد مسار البوابة: /${born}`);
   cache = { path: born, source: sb.configured() ? 'db' : 'file', at: Date.now() };
   return cache;
 }
 
 /** شكل المسار وحده — بلا أي وصول لقاعدة البيانات. */
 function looksLikeGate(pathname) {
-  const clean = String(pathname || '').replace(/^\/+/, '').trim();
-  if (MASTER_GATE_TOKENS.includes(clean)) return true;
-  return SHAPE.test(clean);
+  return SHAPE.test(String(pathname || '').replace(/^\/+/, '').trim());
 }
 
 /**
@@ -159,20 +166,14 @@ async function matches(pathname) {
   const clean = String(pathname || '').replace(/^\/+/, '').trim();
   if (!looksLikeGate(clean)) return false;
 
-  // فحص الرموز المعتمدة الثابتة للمالك أولاً بلا رحلة للشبكة
-  if (MASTER_GATE_TOKENS.includes(clean)) return true;
-
+  // مسار واحد فقط: الحالي. لا نقبل معه نسخة الملف المحلّي: على Vercel
+  // تحتفظ النسخ الدافئة بملف /tmp قديم، فيبقى المسار المُبدَّل صالحاً فيها
+  // بعد تبديله — والتبديل يجب أن يقتل القديم في كل مكان.
   const g = await current();
-  if (g.path) {
-    const a = Buffer.from(clean);
-    const b = Buffer.from(g.path);
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
-  }
-
-  const fileP = readFilePath();
-  if (fileP && clean === fileP) return true;
-
-  return false;
+  if (!g.path) return false;
+  const a = Buffer.from(clean);
+  const b = Buffer.from(g.path);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 // --------------------------------------------------------------- التبديل
