@@ -11,23 +11,27 @@ const store = require('./store');
  * - الحساب يتم حصراً على الخادم باستخدام توليد عشوائي مشفّر آمن (crypto.randomBytes).
  * - لا يمكن لأي تعديل في المتصفح أو DevTools أن يتلاعب بالنتائج أو يزيد الرصيد.
  * - يتم حجز الرهان وصرف الأرباح ذرياً عبر store.adjustBalance وقاعدة بيانات Supabase.
- * - نسبة العائد للاعب (RTP) مضبوطة رياضياً عند ~71% مع هامش ربح للموقع ~29% لضمان
- *   عدم فوز اللاعب دائماً واستدامة أرباح الكازينو على المدى الطويل.
+ * - نسبة العائد للاعب 96.01% بالضبط (هامش الموقع 3.99%) — محسوبة بصيغة مغلقة لا
+ *   بالتقدير. كانت 71% ومعظمها من المبعثر لا من الخطوط.
+ * - أدنى ربح ممكن = الرهان كاملاً: ثلاثة رموز من أرخص فئة تدفع 20 رهان خط، والرهان
+ *   الكلّي 20 رهان خط. فلا «فوز» يرقص على الشاشة والرصيد ينقص.
+ * - الأشرطة والجدول مولَّدان من tools/finalNeon.js، ويُكتبان هنا وفي صفحة اللعبة
+ *   معاً بـ tools/applyNeon.js — لا تعدّلهما يدوياً في مكان واحد.
  */
 
 // قائمة الرموز ومضاعفاتها — متطابقة 100% مع أصول وملفات اللعبة الرسومية
 const SYMBOLS = [
-  { id: 0, key: 'A', filename: 'a.png', scatter: false, wild: false, pays: { 3: 5, 4: 10, 5: 20 } },
-  { id: 1, key: 'DIAMONDS', filename: 'diamonds.png', scatter: false, wild: false, pays: { 3: 10, 4: 20, 5: 30 } },
-  { id: 2, key: 'J', filename: 'j.png', scatter: false, wild: false, pays: { 3: 5, 4: 10, 5: 20 } },
-  { id: 3, key: 'CLUBS', filename: 'clubs.png', scatter: false, wild: false, pays: { 3: 10, 4: 20, 5: 30 } },
-  { id: 4, key: 'K', filename: 'k.png', scatter: false, wild: false, pays: { 3: 5, 4: 10, 5: 20 } },
-  { id: 5, key: 'HEARTS', filename: 'hearts.png', scatter: false, wild: false, pays: { 3: 10, 4: 20, 5: 30 } },
-  { id: 6, key: 'Q', filename: 'q.png', scatter: false, wild: false, pays: { 3: 5, 4: 10, 5: 20 } },
-  { id: 7, key: 'SPADES', filename: 'spades.png', scatter: false, wild: false, pays: { 3: 10, 4: 20, 5: 30 } },
-  { id: 8, key: 'SEVEN', filename: 'seven.png', scatter: false, wild: false, pays: { 3: 15, 4: 30, 5: 45 } },
+  { id: 0, key: 'A', filename: 'a.png', scatter: false, wild: false, pays: { 3: 20, 4: 60, 5: 200 } },
+  { id: 1, key: 'DIAMONDS', filename: 'diamonds.png', scatter: false, wild: false, pays: { 3: 40, 4: 120, 5: 400 } },
+  { id: 2, key: 'J', filename: 'j.png', scatter: false, wild: false, pays: { 3: 20, 4: 60, 5: 200 } },
+  { id: 3, key: 'CLUBS', filename: 'clubs.png', scatter: false, wild: false, pays: { 3: 40, 4: 120, 5: 400 } },
+  { id: 4, key: 'K', filename: 'k.png', scatter: false, wild: false, pays: { 3: 20, 4: 60, 5: 200 } },
+  { id: 5, key: 'HEARTS', filename: 'hearts.png', scatter: false, wild: false, pays: { 3: 40, 4: 120, 5: 400 } },
+  { id: 6, key: 'Q', filename: 'q.png', scatter: false, wild: false, pays: { 3: 20, 4: 60, 5: 200 } },
+  { id: 7, key: 'SPADES', filename: 'spades.png', scatter: false, wild: false, pays: { 3: 40, 4: 120, 5: 400 } },
+  { id: 8, key: 'SEVEN', filename: 'seven.png', scatter: false, wild: false, pays: { 3: 100, 4: 400, 5: 1500 } },
   { id: 9, key: 'WILD', filename: 'wild.png', scatter: false, wild: true, pays: {} },
-  { id: 10, key: 'SCATTER', filename: 'scatter.png', scatter: true, wild: false, pays: { 2: 2, 3: 5, 4: 10, 5: 20 } }
+  { id: 10, key: 'SCATTER', filename: 'scatter.png', scatter: true, wild: false, pays: { 3: 5, 4: 25, 5: 100 } }
 ];
 
 const WILD_ID = 9;
@@ -57,13 +61,15 @@ const PAYLINES = [
   [2, 2, 1, 0, 1]  // 20
 ];
 
-// توزيع أشرطة البكرات — محسوبة بدقة لمنح إثارة عالية مع ضمان ربحية الموقع ~29%
+// أشرطة البكرات — هرم ندرة 9 ← 6 ← 3 (رخيص ← متوسط ← سبعة)، مبعثران لكل
+// شريط، وثلاثة وايلد على البكرات الوسطى وحدها. الطول 65 للطرفين و68 للوسط.
+// هي ما يصنع العائد 96.01% مع الجدول أعلاه — لا يُعدَّل أحدهما دون الآخر.
 const REEL_STRIPS = [
-  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 2, 4, 6, 8, 1, 3, 5, 7],
-  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 3, 5, 7, 0, 2, 4, 6, 8],
-  [2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 4, 6, 8, 0, 1, 3, 5, 7],
-  [3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3, 5, 7, 8, 0, 2, 4, 6, 1],
-  [4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3, 4, 6, 8, 0, 2, 3, 5, 7, 1]
+  [2, 4, 6, 6, 0, 1, 3, 5, 7, 2, 4, 8, 0, 2, 4, 6, 10, 1, 3, 5, 7, 0, 2, 4, 6, 0, 2, 1, 3, 5, 7, 4, 6, 8, 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6, 6, 0, 2, 10, 1, 3, 5, 7, 8, 0, 2, 4, 4, 6, 1, 3, 5, 7, 0],
+  [4, 6, 6, 6, 0, 2, 1, 3, 5, 7, 4, 8, 9, 0, 2, 4, 6, 10, 1, 3, 5, 7, 0, 2, 4, 6, 0, 2, 1, 3, 5, 7, 4, 6, 8, 9, 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6, 6, 0, 2, 10, 1, 3, 5, 7, 4, 8, 9, 0, 2, 4, 1, 3, 5, 7, 0, 2],
+  [4, 6, 6, 6, 0, 2, 1, 3, 5, 7, 4, 8, 9, 0, 2, 4, 6, 10, 1, 3, 5, 7, 0, 2, 4, 6, 0, 2, 1, 3, 5, 7, 4, 6, 8, 9, 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6, 6, 0, 2, 10, 1, 3, 5, 7, 4, 8, 9, 0, 2, 4, 1, 3, 5, 7, 0, 2],
+  [4, 6, 6, 6, 0, 2, 1, 3, 5, 7, 4, 8, 9, 0, 2, 4, 6, 10, 1, 3, 5, 7, 0, 2, 4, 6, 0, 2, 1, 3, 5, 7, 4, 6, 8, 9, 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6, 6, 0, 2, 10, 1, 3, 5, 7, 4, 8, 9, 0, 2, 4, 1, 3, 5, 7, 0, 2],
+  [2, 4, 6, 6, 0, 1, 3, 5, 7, 2, 4, 8, 0, 2, 4, 6, 10, 1, 3, 5, 7, 0, 2, 4, 6, 0, 2, 1, 3, 5, 7, 4, 6, 8, 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6, 6, 0, 2, 10, 1, 3, 5, 7, 8, 0, 2, 4, 4, 6, 1, 3, 5, 7, 0]
 ];
 
 // توليد رقم عشوائي آمن مشفراً

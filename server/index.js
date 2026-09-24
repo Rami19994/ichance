@@ -714,9 +714,10 @@ async function handleApi(req, res, url) {
       featureBuyCost: slots.FEATURE_BUY_COST,
       maxWinMultiplier: slots.MAX_WIN_MULTIPLIER,
       maxSessionMultiplier: slots.MAX_SESSION_MULTIPLIER,
-      rtp: 80.5,
-      hitRate: 53.0,
-      featureOdds: 207,
+      // مقيسة لا مكتوبة يدوياً — انظر slots.MEASURED
+      rtp: slots.MEASURED.rtp,
+      hitRate: slots.MEASURED.hitRate,
+      featureOdds: slots.MEASURED.featureOdds,
       minReelsToWin: slots.MIN_REELS_TO_WIN,
       // الأشرطة منشورة: بدونها لا يستطيع اللاعب التحقق من أي دورة
       strips: { base: slots.STRIPS, free: slots.FREE_STRIPS }
@@ -1662,7 +1663,7 @@ if (!process.env.VERCEL) {
     console.log(line);
     console.log(`  الرابط        : http://localhost:${config.SERVER.port}`);
     console.log(`  اللعبة 1      : كروت الحظ (${config.CARD_COUNT} كرت — ${config.GRID.cols}×${config.GRID.rows})`);
-    console.log(`  اللعبة 2      : صيّاد الجوائز (سلوتس ${slots.REELS}×${slots.ROWS} — ${slots.WAYS} طريقة · عائد 80.5%)`);
+    console.log(`  اللعبة 2      : صيّاد الجوائز (سلوتس ${slots.REELS}×${slots.ROWS} — ${slots.WAYS} طريقة · عائد ${slots.MEASURED.rtp}%)`);
     console.log(`  اللعبة 3      : معركة الدبابات (مهارة · 4 مستويات · عائد 79-80%)`);
     console.log(`  نسبة العائد   : ${(check.rtp * 100).toFixed(2)}%`);
     console.log(`  مبالغ المشاركة: ${config.STAKES[0]} ← ${config.STAKES[config.STAKES.length - 1]}`);
