@@ -130,9 +130,16 @@ function saveLocal() {
 }
 
 // فحص وجاهزية Supabase
-let supabaseReady = sb.configured();
-let pingChecked = false;
+//
+// ⚠ فحصٌ فاشل واحد لا يحكم على عمر النسخة كلّه. كانت نتيجة أوّل فحص تُثبَّت
+// إلى الأبد: نسخةٌ باردة على Vercel يتأخّر أوّل اتصال لها 15 ثانية — وهذا
+// يحدث، ظهر في سجلّات الإنتاج — تبقى تخدم الدخول والحسابات من ملف محلّي فارغ
+// حتى تُعاد. اللاعب يُطرد من جلسته بلا سبب ظاهر. الآن يُعاد الفحص بعد مهلة.
+let supabaseReady = sb.configured();   // متفائل إلى أن يكتمل أوّل فحص
 let pingPromise = null;
+let pingOk = false;
+let pingFailedAt = 0;
+const PING_RETRY_MS = Number(process.env.ICHANCE_PING_RETRY_MS) || 10_000;
 
 async function checkSupabase() {
   if (!sb.configured()) {
@@ -149,20 +156,28 @@ async function ensureSupabase() {
     supabaseReady = false;
     return false;
   }
-  if (pingChecked) return supabaseReady;
-  if (!pingPromise) {
-    pingPromise = sb.ping().then((res) => {
-      pingChecked = true;
-      supabaseReady = res.ok;
-      if (res.ok) console.log('[accounts] متصل بـ Supabase بنجاح');
-      else console.warn('[accounts] تعذّر الاتصال بـ Supabase:', res.error);
-      return supabaseReady;
-    }).catch((err) => {
-      pingChecked = true;
-      supabaseReady = false;
-      return false;
-    });
-  }
+  if (pingPromise) return pingPromise;
+  // ثبت الاتصال مرّة: أخطاء ما بعده تُعالَج في كل نداء على حدة
+  if (pingOk) return supabaseReady;
+  // فشل قريباً: لا نطرق القاعدة مع كل طلب — ننتظر المهلة ثم نعيد
+  if (pingFailedAt && Date.now() - pingFailedAt < PING_RETRY_MS) return false;
+
+  pingPromise = sb.ping().then((res) => {
+    supabaseReady = !!res.ok;
+    if (res.ok) {
+      pingOk = true;
+      pingFailedAt = 0;
+      console.log('[accounts] متصل بـ Supabase بنجاح');
+    } else {
+      pingFailedAt = Date.now();
+      console.warn(`[accounts] تعذّر الاتصال بـ Supabase — يُعاد الفحص بعد ${PING_RETRY_MS / 1000} ثوانٍ:`, res.error);
+    }
+    return supabaseReady;
+  }).catch(() => {
+    supabaseReady = false;
+    pingFailedAt = Date.now();
+    return false;
+  }).finally(() => { pingPromise = null; });
   return pingPromise;
 }
 
@@ -551,18 +566,36 @@ async function setActive({ accountId, active, ownerId }) {
 }
 
 // ---------------------------------------------------------------- حركة المال
+/**
+ * خطأ عملية مالية حين تكون القاعدة هي الدفتر.
+ * رفضها نهائي، وانقطاعها يعني أن العملية لم تتمّ — لا تُنقل إلى ملف محلّي
+ * لا يراه أحد (ويُمحى على Vercel مع الدالّة). كان الإيداع والسحب يُعاد
+ * تجريبهما على الملف عند أي خطأ، حتى «عهدتك لا تكفي»، فيتخطّيان الرفض.
+ * وإن انتهت المهلة فربما تمّت وضاع الردّ وحده: نقول ذلك صراحةً كي لا يعيد
+ * الكاشير العملية فتتكرّر.
+ */
+function moneyError(err) {
+  if (err && err.kind === 'timeout') {
+    return {
+      ok: false,
+      error: 'انتهت مهلة قاعدة البيانات — قد تكون العملية تمّت. راجع رصيد اللاعب وسجلّه قبل أن تعيد المحاولة.'
+    };
+  }
+  return { ok: false, error: (err && err.message) || 'تعذّرت العملية' };
+}
+
 async function deposit({ cashierId, playerId, amount, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  // القاعدة هي الدفتر إن كانت مضبوطة — لا ملف محلّي بديلاً عنها (انظر moneyError)
+  if (sb.configured()) {
     try {
       const out = await sb.rpc('cashier_deposit', {
         p_cashier: cashierId, p_player: playerId, p_amount: a.value, p_note: note || null
       });
       return { ok: true, ...out };
     } catch (err) {
-      console.warn('[accounts] فشل الإيداع عبر Supabase، تجربة المحلي:', err.message);
+      return moneyError(err);
     }
   }
 
@@ -608,15 +641,15 @@ async function deposit({ cashierId, playerId, amount, note }) {
 async function withdraw({ cashierId, playerId, amount, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  // القاعدة هي الدفتر إن كانت مضبوطة — لا ملف محلّي بديلاً عنها (انظر moneyError)
+  if (sb.configured()) {
     try {
       const out = await sb.rpc('cashier_withdraw', {
         p_cashier: cashierId, p_player: playerId, p_amount: a.value, p_note: note || null
       });
       return { ok: true, ...out };
     } catch (err) {
-      console.warn('[accounts] فشل السحب عبر Supabase، تجربة المحلي:', err.message);
+      return moneyError(err);
     }
   }
 
@@ -662,15 +695,15 @@ async function withdraw({ cashierId, playerId, amount, note }) {
 async function adjustCashierFloat({ cashierId, amount, topup, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  // القاعدة هي الدفتر إن كانت مضبوطة — لا ملف محلّي بديلاً عنها (انظر moneyError)
+  if (sb.configured()) {
     try {
       const out = await sb.rpc('admin_adjust_cashier', {
         p_cashier: cashierId, p_amount: a.value, p_topup: !!topup, p_note: note || null
       });
       return { ok: true, ...out };
     } catch (err) {
-      console.warn('[accounts] فشل تعديل عهدة الكاشير عبر Supabase:', err.message);
+      return moneyError(err);
     }
   }
 

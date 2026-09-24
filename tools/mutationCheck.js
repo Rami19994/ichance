@@ -17,6 +17,8 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const base = process.argv[2] || 'HEAD';
 const mutations = process.argv[3];
+// ملف الاختبار: TEST_FILE=test/accounts.test.js node tools/mutationCheck.js HEAD
+const testFile = process.env.TEST_FILE || 'test/wallet.test.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'la-mut-'));
 fs.cpSync(path.join(ROOT, 'server'), path.join(dir, 'server'), { recursive: true });
@@ -47,7 +49,7 @@ if (mutations) {
   }
 }
 
-const src = fs.readFileSync(path.join(dir, 'test', 'wallet.test.js'), 'utf8');
+const src = fs.readFileSync(path.join(dir, testFile), 'utf8');
 const names = [...src.matchAll(/^test\('([^']+)'/gm)].map((m) => m[1]);
 
 let caught = 0;
@@ -55,7 +57,7 @@ for (const name of names) {
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // بعض النسخ المعيبة تُبقي مؤقّت إعادة محاولة يعيد جدولة نفسه إلى الأبد
   // فلا تنتهي العملية. التعليق فشلٌ أيضاً — نحدّه بمهلة.
-  const r = spawnSync(process.execPath, ['--test', '--test-name-pattern', `^${esc}$`, 'test/wallet.test.js'],
+  const r = spawnSync(process.execPath, ['--test', '--test-name-pattern', `^${esc}$`, testFile],
     { cwd: dir, encoding: 'utf8', timeout: 20_000 });
   const out = (r.stdout || '') + (r.stderr || '');
   const hung = !!r.error && r.error.code === 'ETIMEDOUT';
