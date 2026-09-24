@@ -25,8 +25,17 @@ const CONF_FILE = path.join(DATA_DIR, 'admin-supabase.json');
 
 let conf = null;
 
-const DEFAULT_URL = 'https://uhratfdvezypuervthak.supabase.co';
-const DEFAULT_KEY = Buffer.from('c2Jfc2VjcmV0X2JvYzY3R1pkN2VDdDdUQ3p3S18zclFfcU9HdEY1RFI=', 'base64').toString('utf8');
+/*
+ * ⚠ لا تضع هنا مفتاحاً «احتياطياً» — ولا مرمَّزاً.
+ *
+ * كان هنا مفتاح service_role مكتوباً بـbase64 «لضمان استمرار عمل قاعدة
+ * البيانات». base64 ترميز لا تشفير: يُفكّ بسطر واحد. والمستودع على GitHub
+ * عامّ، فصار المفتاح في يد كل من يفتحه — وهو يتخطّى كل صلاحيات القاعدة:
+ * يكتب أي رصيد، ويقرأ كلمات المرور المشفّرة، ويبدّل مسار بوابة الإدارة.
+ *
+ * بلا متغيّر بيئة ولا ملف إعدادات تبقى القاعدة «غير مربوطة» وتقول ذلك
+ * صراحةً عند الإقلاع — وهذا أسلم من أن تعمل بمفتاح منشور للعالم.
+ */
 
 function loadConfig() {
   const envUrl = (process.env.SUPABASE_URL || '').trim();
@@ -44,14 +53,16 @@ function loadConfig() {
     console.error('[supabase] ملف الإعدادات تالف:', err.message);
   }
 
-  // المشروع الافتراضي المعتمد للمنصة لضمان استمرار عمل قاعدة البيانات والمفاتيح في كل مكان
-  return { url: DEFAULT_URL, key: DEFAULT_KEY, source: 'default' };
+  console.error('[supabase] غير مربوطة: اضبط SUPABASE_URL و SUPABASE_SECRET_KEY '
+    + 'في إعدادات الاستضافة (أو في ملف .env محلياً).');
+  return false;
 }
 
 
 function config() {
+  // null = لم تُقرأ بعد · false = قُرئت ولا إعدادات (لا نعيد قراءة القرص مع كل طلب)
   if (conf === null) conf = loadConfig();
-  return conf;
+  return conf || null;
 }
 
 function configured() { return !!config(); }
