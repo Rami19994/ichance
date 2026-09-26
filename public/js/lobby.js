@@ -49,6 +49,23 @@ const GAMES = [
     desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 150 ضعف رهانك.'
   },
   {
+    id: 'chicken',
+    title: 'طريق الدجاجة — Chicken Road',
+    cat: 'crash',
+    cats: ['crash', 'skill'],
+    rtpBadge: 'CHICKEN ROAD',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/chicken-road',
+    thumb: '/assets/thumb_chicken.svg',
+    tag: '12 مساراً • 3 مستويات',
+    badge: 'NEW • 3D',
+    badgeClass: 'badge-tag--hot',
+    desc: 'ساعد الدجاجة على عبور الطريق السريع مساراً بعد مسار — كل خطوة ناجحة ترفع مضاعفك، واجمع جائزتك قبل أن تصدمها سيارة.'
+  },
+  {
     id: 'bullseye',
     title: 'بولزآي X — Bullseye X',
     cat: 'table',

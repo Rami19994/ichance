@@ -26,6 +26,7 @@ const neonSlots = require('./neonSlots');
 const minesGame = require('./minesGame');
 const plinkoGame = require('./plinkoGame');
 const bullseyeGame = require('./bullseyeGame');
+const chickenGame = require('./chickenGame');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -310,7 +311,9 @@ const ROUTE_GAME = {
   '/api/neon-slots/spin': 'neon-slots',
   '/api/mines/start': 'mines',
   '/api/plinko/drop': 'plinko',
-  '/api/bullseye/throw': 'bullseye', '/api/bullseye/gamble': 'bullseye'
+  '/api/bullseye/throw': 'bullseye', '/api/bullseye/gamble': 'bullseye',
+  // الإيقاف يمنع جولة جديدة فقط: جولة جارية تُكمل (خطوة/جمع) فلا يُحتجز رهان
+  '/api/chicken/start': 'chicken', '/api/chicken/demo-step': 'chicken'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -323,6 +326,7 @@ async function resolveMaster(req, url) {
 
 async function handleApi(req, res, url) {
   await store.ensureDbLoaded();
+  await siteConfig.refresh();   // تشغيل/إيقاف الألعاب ودومين الإدارة — من القاعدة
   const route = url.pathname;
   const token = tokenFrom(req, url);
   const player = await resolvePlayer(token);
@@ -1040,6 +1044,40 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, bullseyeGame.collect(player));
   }
 
+  // --------------------------------------------------------- طريق الدجاجة (Chicken Road)
+  if (route === '/api/chicken/state' && req.method === 'GET') {
+    return sendJson(res, 200, await chickenGame.stateFor(player));
+  }
+
+  if (route === '/api/chicken/demo-step' && req.method === 'POST') {
+    if (!rateLimit(`chicken-demo:${ip}`, 40, 10_000)) {
+      return sendJson(res, 429, { error: 'خطوات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    return sendJson(res, 200, chickenGame.demoStep(body.difficulty));
+  }
+
+  if (route.startsWith('/api/chicken/') && req.method === 'POST') {
+    const action = route.slice('/api/chicken/'.length);
+    if (!['start', 'cross', 'cashout'].includes(action)) return sendJson(res, 404, { error: 'مسار غير معروف' });
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    if (!rateLimit(`chicken:${player.id}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'خطوات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    let result;
+    try {
+      if (action === 'start') result = await chickenGame.start(player, { bet: body.bet, difficulty: body.difficulty });
+      else if (action === 'cross') result = await chickenGame.cross(player);
+      else result = await chickenGame.cashOut(player);
+    } catch (err) {
+      console.error('[chicken]', action, err.message);
+      return sendJson(res, 503, { error: 'تعذّر الاتصال — جولتك محفوظة، حاول مرّة أخرى', retry: true });
+    }
+    if (!result.ok) return sendJson(res, result.retry ? 409 : 400, result);
+    return sendJson(res, 200, result);
+  }
+
   // ------------------------------------------------------------------ الإدارة
   if (route === '/api/countries' && req.method === 'GET') {
     return sendJson(res, 200, { countries: countries.list() });
@@ -1116,7 +1154,7 @@ async function handleApi(req, res, url) {
 
     if (route === '/api/admin/domain' && req.method === 'POST') {
       const body = await readBody(req);
-      const out = siteConfig.setAdminDomain(body.domain);
+      const out = await siteConfig.setAdminDomain(body.domain);
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);
     }
@@ -1127,7 +1165,7 @@ async function handleApi(req, res, url) {
 
     if (route === '/api/admin/games' && req.method === 'POST') {
       const body = await readBody(req);
-      const out = siteConfig.setGame(body.game, body.enabled);
+      const out = await siteConfig.setGame(body.game, body.enabled);
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, { games: siteConfig.report() });
     }
@@ -1481,7 +1519,8 @@ async function handleApi(req, res, url) {
         'neon-slots': Number((neonSlots.THEORETICAL_RTP * 100).toFixed(2)),
         mines: Number((minesGame.DEFAULT_RTP * 100).toFixed(2)),
         plinko: Number((plinkoGame.RTP * 100).toFixed(2)),
-        bullseye: Number((bullseyeGame.RTP.classic * 100).toFixed(2))
+        bullseye: Number((bullseyeGame.RTP.classic * 100).toFixed(2)),
+        chicken: Number((chickenGame.RTP * 100).toFixed(2))
       };
       return sendJson(res, 200, {
         ledger,
@@ -1665,7 +1704,8 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 405, { error: 'طريقة غير مسموحة' });
   }
 
-  // عزل دومين الإدارة
+  // عزل دومين الإدارة (القيمة المخزّنة؛ تُحدَّث من القاعدة في الخلفية)
+  siteConfig.refresh().catch(() => {});
   const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
   const adminDomain = siteConfig.getAdminDomain();
   const isDedicatedAdminHost = !!(adminDomain && host === adminDomain);
@@ -1698,6 +1738,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/mines') return sendStatic(req, res, '/mines.html');
   if (url.pathname === '/plinko') return sendStatic(req, res, '/plinko.html');
   if (url.pathname === '/bullseye') return sendStatic(req, res, '/bullseye.html');
+  if (url.pathname === '/chicken-road') return sendStatic(req, res, '/chicken-road.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

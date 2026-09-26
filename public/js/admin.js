@@ -405,7 +405,8 @@ const GAME_META = {
   'neon-slots': { name: 'نيون فيغاس', emoji: '🎰', rtp: 96.01 },
   mines: { name: 'مناجم الحظ', emoji: '💣', rtp: 97.0 },
   plinko: { name: 'بلينكو', emoji: '🔻', rtp: 96.28 },
-  bullseye: { name: 'بولزآي X', emoji: '🎯', rtp: 96.0 }
+  bullseye: { name: 'بولزآي X', emoji: '🎯', rtp: 96.0 },
+  chicken: { name: 'طريق الدجاجة', emoji: '🐔', rtp: 96.0 }
 };
 
 function renderGames(d) {

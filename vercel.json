@@ -43,6 +43,10 @@
       "destination": "/bullseye.html"
     },
     {
+      "source": "/chicken-road",
+      "destination": "/chicken-road.html"
+    },
+    {
       "source": "/master",
       "destination": "/master.html"
     },

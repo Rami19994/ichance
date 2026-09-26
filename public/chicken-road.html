@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>طريق الدجاجة — Chicken Road | LuckyArena</title>
+    <meta name="description" content="طريق الدجاجة على LuckyArena: ساعد الدجاجة على عبور 12 مساراً واجمع جائزتك قبل أن تصدمها سيارة.">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/games/chicken-road/css/style.css?v=1">
+</head>
+<body>
+    <!-- المشهد ثلاثي الأبعاد -->
+    <div id="game-canvas-container"></div>
+
+    <!-- الشريط العلوي -->
+    <header class="hud-top">
+        <div class="hud-left">
+            <a class="btn-icon glass-btn btn-home" href="/" title="العودة للردهة" aria-label="العودة للردهة">✕</a>
+            <div class="brand-title">
+                <span class="chicken-icon">🐔</span>
+                <span class="brand-text">CHICKEN ROAD</span>
+                <span id="ui-mode-badge" class="badge-tag">تجريبي</span>
+            </div>
+        </div>
+
+        <div class="hud-center">
+            <div class="stat-pill balance-pill" title="رصيدك">
+                <span class="pill-icon">💰</span>
+                <div class="pill-info">
+                    <span class="pill-label">الرصيد <b id="ui-currency">IQD</b></span>
+                    <span id="ui-balance" class="pill-value">0</span>
+                </div>
+                <button id="btn-deposit" class="btn-deposit-pill" type="button">شحن</button>
+            </div>
+
+            <div class="stat-pill best-pill" title="أفضل جائزة">
+                <span class="pill-icon">🏆</span>
+                <div class="pill-info">
+                    <span class="pill-label">أفضل فوز</span>
+                    <span id="ui-best-score" class="pill-value">0</span>
+                </div>
+            </div>
+
+            <div class="stat-pill steps-pill" title="الخطوة الحالية">
+                <span class="pill-icon">🐾</span>
+                <div class="pill-info">
+                    <span class="pill-label">الخطوة</span>
+                    <span id="ui-current-step" class="pill-value">0 / 12</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud-right">
+            <select id="select-difficulty" class="glass-select" title="مستوى الصعوبة" aria-label="مستوى الصعوبة">
+                <option value="easy">سهل</option>
+                <option value="normal" selected>قياسي</option>
+                <option value="hard">تحدي</option>
+            </select>
+            <button id="btn-sound" class="btn-icon glass-btn" type="button" title="الصوت" aria-label="الصوت">
+                <span id="sound-icon">🔊</span>
+            </button>
+            <button id="btn-history" class="btn-icon glass-btn" type="button" title="جولاتي الأخيرة" aria-label="جولاتي الأخيرة">
+                <span>📜</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="demo-banner" class="demo-banner" hidden>
+        ⚡ وضع تجريبي برصيد وهمي. <a href="/login?next=/chicken-road">سجّل دخولك</a> للّعب برصيدك الحقيقي.
+    </div>
+
+    <!-- سلّم المضاعفات -->
+    <aside class="multiplier-ladder-panel">
+        <div class="ladder-header"><span>مضاعف الطريق</span></div>
+        <div id="ladder-list" class="ladder-list"></div>
+    </aside>
+
+    <!-- لافتة الخطوة الناجحة -->
+    <div id="safe-toast" class="safe-toast">
+        <div class="toast-glow"></div>
+        <div class="toast-content">
+            <span class="toast-badge">SAFE! ✨</span>
+            <div class="toast-details">
+                <span>الخطوة: <b id="toast-step">1</b></span>
+                <span>المضاعف: <b id="toast-mult" class="highlight-green">x1.00</b></span>
+                <span>الجائزة: <b id="toast-prize">0</b></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- تنبيهات قصيرة -->
+    <div id="cr-notice" class="cr-notice" role="status" aria-live="polite"></div>
+
+    <!-- لوحة التحكم السفلية -->
+    <footer class="hud-bottom">
+        <!-- 1. الرهان قبل الانطلاق -->
+        <div id="panel-betting" class="control-panel betting-panel">
+            <div class="bet-overview-row">
+                <div class="bet-overview-item">
+                    <span class="label">الرهان</span>
+                    <span id="ui-used-coins" class="val highlight-gold">1,000</span>
+                </div>
+                <div class="bet-overview-item">
+                    <span class="label">أول مسار</span>
+                    <span id="ui-first-mult" class="val highlight-cyan">x1.00</span>
+                </div>
+                <div class="bet-overview-item">
+                    <span class="label">جائزة أول مسار</span>
+                    <span id="ui-potential-prize" class="val highlight-green">1,000</span>
+                </div>
+            </div>
+
+            <div class="quick-bets-container">
+                <div class="quick-bets-buttons">
+                    <button class="btn-chip" type="button" data-bet="500">500</button>
+                    <button class="btn-chip active" type="button" data-bet="1000">1,000</button>
+                    <button class="btn-chip" type="button" data-bet="5000">5,000</button>
+                    <button class="btn-chip" type="button" data-bet="10000">10k</button>
+                    <button class="btn-chip" type="button" data-bet="25000">25k</button>
+                    <button class="btn-chip" type="button" data-bet="100000">100k</button>
+                </div>
+                <div class="bet-adjusters">
+                    <button id="btn-bet-half" class="btn-adj" type="button">½</button>
+                    <button id="btn-bet-double" class="btn-adj" type="button">2X</button>
+                    <button id="btn-bet-max" class="btn-adj" type="button">MAX</button>
+                </div>
+            </div>
+
+            <button id="btn-start" class="btn-primary-action btn-start-round" type="button">
+                <span class="btn-text-main">ابدأ العبور</span>
+                <span class="btn-subtext">انطلق في طريق المغامرة 🐔</span>
+            </button>
+        </div>
+
+        <!-- 2. أثناء العبور -->
+        <div id="panel-in-game" class="control-panel in-game-panel" style="display: none;">
+            <div class="in-game-stats">
+                <div class="stat-box">
+                    <span class="lbl">المضاعف الحالي</span>
+                    <span id="in-game-multiplier" class="num highlight-gold">x1.00</span>
+                </div>
+                <div class="stat-box highlight-box">
+                    <span class="lbl">الجائزة الحالية</span>
+                    <span id="in-game-prize" class="num highlight-green">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="lbl">المسار القادم</span>
+                    <span id="in-game-next-mult" class="num highlight-cyan">x1.00</span>
+                </div>
+            </div>
+
+            <div class="action-buttons-row">
+                <button id="btn-cross" class="btn-primary-action btn-cross-step" type="button">
+                    <span class="action-icon">🚀</span>
+                    <div class="btn-action-text">
+                        <span id="btn-cross-label" class="btn-text-main">تقدّم خطوة</span>
+                        <span class="btn-subtext hint-keys">المسافة [Space]</span>
+                    </div>
+                </button>
+                <button id="btn-cashout" class="btn-cashout-action" type="button" disabled>
+                    <span class="action-icon">💰</span>
+                    <div class="btn-action-text">
+                        <span class="btn-text-main">اجمع الجائزة</span>
+                        <span id="btn-cashout-amount" class="btn-subtext">0</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- جمع الجائزة -->
+    <div id="modal-cashout" class="modal-backdrop">
+        <div class="modal-card modal-celebrate">
+            <div class="modal-icon">🏆</div>
+            <h2 id="cashout-title">تم جمع الجائزة!</h2>
+            <p class="modal-desc">قررت الانسحاب في التوقيت المناسب وأُضيفت الجائزة إلى رصيدك</p>
+            <div class="result-stats-grid">
+                <div class="result-stat-card">
+                    <span class="r-label">الخطوات الناجحة</span>
+                    <span id="cashout-steps" class="r-val">0</span>
+                </div>
+                <div class="result-stat-card">
+                    <span class="r-label">المضاعف</span>
+                    <span id="cashout-mult" class="r-val highlight-gold">x1.00</span>
+                </div>
+                <div class="result-stat-card highlight-card">
+                    <span class="r-label">الجائزة</span>
+                    <span id="cashout-prize" class="r-val highlight-green">0</span>
+                </div>
+            </div>
+            <button id="btn-play-again" class="btn-primary-action" type="button">
+                <span class="btn-text-main">العب مرة أخرى</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- الاصطدام -->
+    <div id="modal-crash" class="modal-backdrop">
+        <div class="modal-card modal-crash">
+            <div class="modal-icon">💥</div>
+            <h2>صدمتها سيارة!</h2>
+            <p class="modal-desc">أوه لا! سيارة مسرعة باغتت الدجاجة أثناء العبور</p>
+            <div class="result-stats-grid">
+                <div class="result-stat-card">
+                    <span class="r-label">توقّفت عند</span>
+                    <span id="crash-step" class="r-val">المسار 1</span>
+                </div>
+                <div class="result-stat-card">
+                    <span class="r-label">الرهان</span>
+                    <span id="crash-bet" class="r-val">0</span>
+                </div>
+                <div class="result-stat-card">
+                    <span class="r-label">الجائزة</span>
+                    <span class="r-val highlight-red">0</span>
+                </div>
+            </div>
+            <button id="btn-try-again" class="btn-primary-action btn-danger-action" type="button">
+                <span class="btn-text-main">حاول مرة أخرى</span>
+                <span class="btn-subtext">الدجاجة جاهزة لتحدٍّ جديد!</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- سجل الجولات -->
+    <div id="modal-history" class="modal-backdrop">
+        <div class="modal-card modal-history-card">
+            <div class="modal-header">
+                <h2>📜 جولاتي الأخيرة</h2>
+                <button id="btn-close-history" class="btn-close" type="button" aria-label="إغلاق">✕</button>
+            </div>
+            <div class="modal-body-scroll">
+                <div id="history-list" class="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/games/chicken-road/lib/three.min.js"></script>
+    <script src="/games/chicken-road/js/config.js?v=1"></script>
+    <script src="/games/chicken-road/js/audio.js?v=1"></script>
+    <script src="/games/chicken-road/js/models.js?v=1"></script>
+    <script src="/games/chicken-road/js/world.js?v=1"></script>
+    <script src="/games/chicken-road/js/game.js?v=1"></script>
+    <script src="/games/chicken-road/js/ui.js?v=1"></script>
+</body>
+</html>

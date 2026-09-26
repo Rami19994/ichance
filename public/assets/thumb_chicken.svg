@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1222"/>
+      <stop offset="1" stop-color="#1b2438"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffeaa7"/>
+      <stop offset=".5" stop-color="#f7c948"/>
+      <stop offset="1" stop-color="#d99a0b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="55%" r="50%">
+      <stop offset="0" stop-color="#f7c948" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#f7c948" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="car" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#991b1b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <!-- city -->
+  <g fill="#0e1628">
+    <rect x="40" y="90" width="120" height="210"/><rect x="180" y="40" width="90" height="260"/>
+    <rect x="930" y="70" width="110" height="230"/><rect x="1060" y="120" width="100" height="180"/>
+  </g>
+  <g fill="#f7c948" opacity=".35">
+    <rect x="60" y="120" width="14" height="10"/><rect x="100" y="160" width="14" height="10"/><rect x="200" y="80" width="14" height="10"/>
+    <rect x="960" y="110" width="14" height="10"/><rect x="1000" y="150" width="14" height="10"/><rect x="1090" y="160" width="14" height="10"/>
+  </g>
+  <!-- road lanes -->
+  <rect x="0" y="300" width="1200" height="380" fill="#1f262f"/>
+  <rect x="0" y="300" width="1200" height="12" fill="#334155"/>
+  <rect x="0" y="668" width="1200" height="12" fill="#334155"/>
+  <g fill="#e2e8f0" opacity=".75">
+    <rect x="40" y="422" width="110" height="8"/><rect x="230" y="422" width="110" height="8"/><rect x="420" y="422" width="110" height="8"/>
+    <rect x="690" y="422" width="110" height="8"/><rect x="880" y="422" width="110" height="8"/><rect x="1070" y="422" width="110" height="8"/>
+    <rect x="40" y="548" width="110" height="8"/><rect x="230" y="548" width="110" height="8"/><rect x="420" y="548" width="110" height="8"/>
+    <rect x="690" y="548" width="110" height="8"/><rect x="880" y="548" width="110" height="8"/><rect x="1070" y="548" width="110" height="8"/>
+  </g>
+  <!-- multiplier plates -->
+  <g font-family="Arial Black, Arial, sans-serif" font-weight="900" text-anchor="middle">
+    <rect x="530" y="336" width="140" height="56" rx="12" fill="#090d16" stroke="#10b981" stroke-width="4"/>
+    <text x="600" y="376" font-size="32" fill="#10b981">x1.20</text>
+    <rect x="530" y="590" width="140" height="56" rx="12" fill="#090d16" stroke="#f7c948" stroke-width="4"/>
+    <text x="600" y="630" font-size="32" fill="#f7c948">x2.34</text>
+  </g>
+  <!-- car -->
+  <g transform="translate(160 470)">
+    <rect x="0" y="10" width="250" height="62" rx="18" fill="url(#car)"/>
+    <path d="M40 12 L80 -26 L185 -26 L220 12 Z" fill="#b91c1c"/>
+    <path d="M88 -18 L128 -18 L128 8 L62 8 Z M138 -18 L180 -18 L206 8 L138 8 Z" fill="#93c5fd" opacity=".85"/>
+    <circle cx="60" cy="74" r="22" fill="#0f172a"/><circle cx="60" cy="74" r="9" fill="#94a3b8"/>
+    <circle cx="195" cy="74" r="22" fill="#0f172a"/><circle cx="195" cy="74" r="9" fill="#94a3b8"/>
+    <rect x="238" y="28" width="16" height="14" rx="4" fill="#fff6d0"/>
+    <path d="M254 22 L360 0 L360 72 L254 48 Z" fill="#fff6d0" opacity=".16"/>
+  </g>
+  <!-- chicken -->
+  <circle cx="610" cy="520" r="210" fill="url(#glow)"/>
+  <g transform="translate(610 500)">
+    <ellipse cx="0" cy="150" rx="90" ry="16" fill="#000" opacity=".35"/>
+    <path d="M-24 118 L-34 150 M24 118 L34 150" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"/>
+    <ellipse cx="0" cy="50" rx="92" ry="84" fill="#f8fafc"/>
+    <path d="M-92 40 Q-150 20 -128 90 Q-100 80 -80 76 Z" fill="#e2e8f0"/>
+    <path d="M78 20 Q140 -10 120 70 Q100 62 84 60 Z" fill="#e2e8f0"/>
+    <ellipse cx="18" cy="-38" rx="62" ry="58" fill="#f8fafc"/>
+    <path d="M-6 -92 Q4 -128 20 -96 Q32 -130 44 -94 Q60 -120 62 -86 Z" fill="#ef4444"/>
+    <path d="M70 -40 L108 -28 L70 -18 Z" fill="#f59e0b"/>
+    <path d="M66 -16 Q76 4 62 10 Q52 -2 60 -16 Z" fill="#ef4444"/>
+    <circle cx="42" cy="-50" r="11" fill="#0f172a"/><circle cx="46" cy="-54" r="4" fill="#fff"/>
+  </g>
+  <!-- title -->
+  <text x="600" y="770" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="80" fill="url(#gold)" letter-spacing="6">CHICKEN ROAD</text>
+</svg>

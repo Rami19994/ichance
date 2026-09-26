@@ -258,6 +258,22 @@ function bullseye() {
   return Math.max(...worst);
 }
 
+// ═════════════════════════════════════════════ 5ج) طريق الدجاجة
+function chicken() {
+  const c = require('../server/chickenGame');
+  console.log('\n■ طريق الدجاجة   (حساب دقيق — العائد متساوٍ عند كل نقطة جمع)');
+  let worst = 0;
+  for (const [key, d] of Object.entries(c.DIFFICULTIES)) {
+    const rtps = c.LADDERS[key].map((_, i) => c.rtpAt(key, i + 1));
+    const hi = Math.max(...rtps), lo = Math.min(...rtps);
+    worst = Math.max(worst, hi);
+    console.log(line(d.label, pct(hi), verdict(hi)));
+    console.log(line('  أدنى نقطة جمع', pct(lo), 'التقريب لأسفل فقط'));
+    console.log(line('  المضاعفات', '×' + c.LADDERS[key][0] + ' … ×' + c.LADDERS[key][c.STEPS - 1]));
+  }
+  return worst;
+}
+
 // ═════════════════════════════════════════════ 6) معركة الدبابات
 function tanks() {
   const T = require('../public/js/tankSim.js');
@@ -288,6 +304,7 @@ const results = {
   'بلينكو': plinko(),
   'الألغام': mines(),
   'بولزآي X': bullseye(),
+  'طريق الدجاجة': chicken(),
   'الدبابات': tanks()
 };
 

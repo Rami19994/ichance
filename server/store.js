@@ -48,7 +48,7 @@ const ledger = {
   real: emptyBucket(),
   bot: emptyBucket(),
   // ربحية كل لعبة على حدة — بدونها لا يعرف المالك أي لعبة تكسب وأيها تخسر
-  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket() },
+  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket(), chicken: emptyBucket() },
   // شراء الميزة صفقة واحدة بمبلغ يعادل مئات الدورات. لو خُلط مع الدورات
   // العادية في عدّاد واحد لقفز "متوسط الرهان" وصار التقرير مضلّلاً.
   slotBuys: { count: 0, wagered: 0 },
@@ -118,6 +118,7 @@ function applyStorePayload(raw) {
       if (st.minesStats) p.minesStats = { ...st.minesStats };
       if (st.plinkoStats) p.plinkoStats = { ...st.plinkoStats };
       if (st.bullseyeStats) p.bullseyeStats = { ...st.bullseyeStats };
+      if (st.chickenStats) p.chickenStats = { ...st.chickenStats };
       if (st.slotStats) p.slotStats = { ...st.slotStats };
     }
   }
@@ -521,6 +522,57 @@ function recordBullseye(player, { bet, win, multiplier, mode }) {
   persistSoon();
 }
 
+/**
+ * جولة طريق الدجاجة منتهية (اصطدام أو جمع).
+ */
+function recordChicken(player, { bet, win, multiplier, difficulty, steps }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  const g = ledger.games.chicken;
+  if (g) {
+    g.wagered += bet;
+    g.paid += win;
+    g.bets += 1;
+    g.rounds += 1;
+  }
+
+  if (!player.chickenStats) player.chickenStats = { rounds: 0, wagered: 0, won: 0, best: 0 };
+  const st = player.chickenStats;
+  st.rounds = (st.rounds || 0) + 1;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  const DIFF = { easy: 'سهل', normal: 'قياسي', hard: 'تحدي' };
+  const name = `طريق الدجاجة — ${DIFF[difficulty] || difficulty} · ${steps} خطوة`;
+  const now = Date.now();
+  recordRoundLog({
+    roundId: `chicken-${now.toString(36).toUpperCase()}`,
+    ts: now,
+    endedAt: now,
+    game: 'chicken',
+    patternName: name,
+    templateName: name,
+    cards: [],
+    seats: [{
+      id: player.id, stake: bet, cardIndex: 0, cardValue: multiplier,
+      net: win - bet, multiplier, isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
 /** يحفظ ملخّص جولة منتهية في أعلى السجل. */
 function recordRoundLog(summary) {
   roundLog.unshift(summary);
@@ -634,6 +686,7 @@ function extractPlayerStats() {
       minesStats: p.minesStats,
       plinkoStats: p.plinkoStats,
       bullseyeStats: p.bullseyeStats,
+      chickenStats: p.chickenStats,
       slotStats: p.slotStats
     };
   }
@@ -1137,7 +1190,7 @@ if (flushTimer.unref) flushTimer.unref();
 module.exports = {
   createPlayer, byToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
-  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, ledgerSummary,
+  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size,
   syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty
 };

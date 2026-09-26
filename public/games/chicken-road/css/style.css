@@ -1,0 +1,1000 @@
+/* =========================================================
+   CHICKEN ROAD - Master Arcade Stylesheet
+   تصميم بصري راقٍ وعصري بنمط Glassmorphism وألوان نيون مبهجة
+   ========================================================= */
+
+:root {
+    --bg-dark: #090d16;
+    --card-bg: rgba(22, 30, 49, 0.85);
+    --card-border: rgba(255, 255, 255, 0.12);
+    --gold: #f7c948;
+    --gold-glow: rgba(247, 201, 72, 0.4);
+    --green: #10b981;
+    --green-glow: rgba(16, 185, 129, 0.45);
+    --cyan: #06b6d4;
+    --red: #ef4444;
+    --red-glow: rgba(239, 68, 68, 0.45);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 22px;
+    --font-ar: 'Tajawal', system-ui, -apple-system, sans-serif;
+    --font-num: 'Outfit', var(--font-ar);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--bg-dark);
+    font-family: var(--font-ar);
+    color: var(--text-main);
+}
+
+/* حاوية مشهد Three.js */
+#game-canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* =========================================================
+   1. الواجهة العلوية (Top HUD)
+   ========================================================= */
+.hud-top {
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    right: 18px;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+}
+
+.hud-left, .hud-center, .hud-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: auto;
+}
+
+/* شعار اللعبة */
+.brand-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    padding: 8px 16px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.chicken-icon {
+    font-size: 26px;
+    animation: gentleWobble 2.5s infinite ease-in-out;
+}
+
+.brand-text {
+    font-family: var(--font-num);
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #fcd34d, #f59e0b, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.badge-tag {
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.badge-tag.is-real {
+    background: rgba(247, 201, 72, 0.15);
+    color: #f7c948;
+    border-color: rgba(247, 201, 72, 0.45);
+}
+
+.btn-home {
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.pill-label b { color: var(--gold); font-weight: 800; }
+
+.btn-deposit-pill {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 12px;
+    background: linear-gradient(180deg, #ffeaa7, #f7c948 45%, #d99a0b);
+    color: #16110a;
+    font-family: var(--font-ar);
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.demo-banner {
+    position: absolute;
+    top: 78px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 12;
+    max-width: min(560px, 92vw);
+    padding: 7px 14px;
+    border-radius: 12px;
+    background: rgba(8, 47, 73, 0.88);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    color: #bdefff;
+    font-size: 12.5px;
+    text-align: center;
+}
+.demo-banner[hidden] { display: none; }
+.demo-banner a { color: var(--gold); font-weight: 800; }
+
+.cr-notice {
+    position: fixed;
+    left: 50%;
+    bottom: 50%;
+    transform: translate(-50%, 20px);
+    z-index: 120;
+    max-width: min(440px, 90vw);
+    padding: 11px 18px;
+    border-radius: 14px;
+    background: rgba(12, 16, 24, 0.95);
+    border: 1px solid rgba(247, 201, 72, 0.4);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+}
+.cr-notice.show { opacity: 1; transform: translate(-50%, 0); }
+
+.history-top { display: flex; align-items: center; gap: 8px; }
+.history-time { font-size: 11px; color: #94a3b8; }
+
+/* حبوب الإحصائيات (Stat Pills) */
+.stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    padding: 7px 14px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.stat-pill:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.pill-icon {
+    font-size: 20px;
+}
+
+.pill-info {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+}
+
+.pill-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.pill-value {
+    font-family: var(--font-num);
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.btn-icon-pill {
+    background: rgba(16, 185, 129, 0.25);
+    border: 1px solid var(--green);
+    color: #fff;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-icon-pill:hover {
+    background: var(--green);
+    transform: scale(1.15);
+}
+
+/* عناصر الزجاج والأزرار */
+.glass-btn {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    transition: all 0.2s;
+}
+
+.glass-btn:hover {
+    background: rgba(40, 53, 80, 0.9);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: translateY(-2px);
+}
+
+.glass-select {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-ar);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    transition: border-color 0.2s;
+}
+
+.glass-select:focus {
+    border-color: var(--gold);
+}
+
+.glass-select option {
+    background: #1e293b;
+    color: #fff;
+}
+
+/* =========================================================
+   2. سلم المضاعفات الجانبي (Multiplier Ladder)
+   ========================================================= */
+.multiplier-ladder-panel {
+    position: absolute;
+    left: 20px;
+    top: 85px;
+    bottom: 185px;
+    width: 98px;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.ladder-header {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.ladder-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column; /* الخانة 12 في الأعلى والخانة 1 في الأسفل */
+    gap: 4px;
+    padding: 6px;
+    overflow-y: auto;
+}
+
+.ladder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-num);
+    font-size: 12px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    border: 1px solid transparent;
+    transition: all 0.25s ease;
+}
+
+.ladder-item .lane-no {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.ladder-item.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.7));
+    border-color: #34d399;
+    color: #fff;
+    box-shadow: 0 0 14px var(--green-glow);
+    transform: scale(1.05);
+}
+
+.ladder-item.next {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.6);
+    color: #fde68a;
+    animation: pulseBorder 1.5s infinite;
+}
+
+.ladder-item.high-tier {
+    color: #f87171;
+}
+
+/* =========================================================
+   3. إشعار الهبوط الآمن العائم (Safe Toast)
+   ========================================================= */
+.safe-toast {
+    position: absolute;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px) scale(0.9);
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.safe-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.toast-content {
+    background: rgba(16, 185, 129, 0.95);
+    color: #fff;
+    padding: 12px 28px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 36px var(--green-glow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border: 2px solid #6ee7b7;
+}
+
+.toast-badge {
+    font-family: var(--font-num);
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 1px;
+}
+
+.toast-details {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   4. اللوحة السفلية وأزرار التحكم (HUD Bottom)
+   ========================================================= */
+.hud-bottom {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 94%;
+    max-width: 820px;
+    z-index: 20;
+}
+
+.control-panel {
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding: 16px 22px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* شاشة الرهان الافتراضي */
+.bet-overview-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bet-overview-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.bet-overview-item .label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.bet-overview-item .val {
+    font-family: var(--font-num);
+    font-size: 18px;
+    font-weight: 800;
+}
+
+/* أزرار اختيار العملات السريعة */
+.quick-bets-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.quick-bets-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.quick-bets-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-chip {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-num);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-chip:hover {
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateY(-2px);
+}
+
+.btn-chip.active {
+    background: linear-gradient(135deg, #ffe08a, #f7c948 45%, #d99a0b);
+    border-color: #ffeaa7;
+    color: #16110a;
+    font-weight: 900;
+    box-shadow: 0 0 14px var(--gold-glow);
+}
+
+.bet-adjusters {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-adj {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-num);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-adj:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* الأزرار الرئيسية */
+.btn-primary-action {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: 2px solid #34d399;
+    color: #fff;
+    padding: 14px 24px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-ar);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px var(--green-glow);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-primary-action:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 30px var(--green-glow);
+}
+
+.btn-primary-action:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+}
+
+.btn-primary-action:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+.btn-text-main {
+    font-size: 20px;
+    font-weight: 900;
+}
+
+.btn-subtext {
+    font-size: 12px;
+    opacity: 0.85;
+    font-weight: 600;
+}
+
+/* لوحة اللعب الفعلي (In-Game Panel) */
+.in-game-stats {
+    display: flex;
+    justify-content: space-around;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.stat-box.highlight-box {
+    background: rgba(16, 185, 129, 0.1);
+    padding: 4px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.stat-box .lbl {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.stat-box .num {
+    font-family: var(--font-num);
+    font-size: 20px;
+    font-weight: 900;
+}
+
+.action-buttons-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1.2fr;
+    gap: 14px;
+}
+
+.btn-cross-step {
+    flex-direction: row;
+    gap: 12px;
+}
+
+.btn-cashout-action {
+    background: linear-gradient(135deg, #ffe08a, #f7c948 45%, #d99a0b);
+    border: 2px solid #ffeaa7;
+    color: #16110a;
+    padding: 14px 20px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px var(--gold-glow);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-cashout-action:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 30px var(--gold-glow);
+}
+
+.btn-cashout-action:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+}
+
+.btn-cashout-action:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+}
+
+.btn-cashout-action .btn-text-main {
+    font-size: 18px;
+    color: #000;
+}
+
+.btn-cashout-action .btn-subtext {
+    font-family: var(--font-num);
+    font-weight: 900;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.action-icon {
+    font-size: 26px;
+}
+
+.btn-action-text {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+}
+
+/* =========================================================
+   5. النوافذ المنبثقة (Modals)
+   ========================================================= */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(5, 8, 15, 0.78);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.modal-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding: 30px 32px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    transform: scale(0.92);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-backdrop.open .modal-card {
+    transform: scale(1);
+}
+
+.modal-icon {
+    font-size: 56px;
+    line-height: 1;
+}
+
+.modal-card h2 {
+    font-size: 24px;
+    font-weight: 900;
+}
+
+.modal-desc {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.result-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 10px;
+    width: 100%;
+    margin: 8px 0;
+}
+
+.result-stat-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.result-stat-card.highlight-card {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.r-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.r-val {
+    font-family: var(--font-num);
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.btn-danger-action {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-color: #f87171;
+    box-shadow: 0 8px 24px var(--red-glow);
+}
+
+.btn-danger-action:hover {
+    box-shadow: 0 12px 30px var(--red-glow);
+}
+
+/* نافذة المعلومات الموسعة */
+.modal-info-card, .modal-history-card {
+    max-width: 600px;
+    align-items: stretch;
+    text-align: right;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 12px;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 22px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.btn-close:hover {
+    color: #fff;
+}
+
+.modal-body-scroll {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-left: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.modal-body-scroll h3 {
+    font-size: 16px;
+    color: var(--gold);
+    margin-top: 6px;
+}
+
+.modal-body-scroll p, .modal-body-scroll li {
+    font-size: 13px;
+    color: #cbd5e1;
+    line-height: 1.6;
+}
+
+.modal-body-scroll ul {
+    padding-right: 18px;
+}
+
+/* عناصر سجل الجولات */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-num);
+    font-size: 13px;
+}
+
+.history-item.win {
+    border-right: 4px solid var(--green);
+}
+
+.history-item.loss {
+    border-right: 4px solid var(--red);
+}
+
+.empty-history {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px 0;
+}
+
+/* ألوان التمييز (Highlights) */
+.highlight-gold { color: #f7c948; }
+.highlight-green { color: #10b981; }
+.highlight-cyan { color: #06b6d4; }
+.highlight-red { color: #ef4444; }
+
+/* أنيميشن */
+@keyframes gentleWobble {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-6deg); }
+    75% { transform: rotate(6deg); }
+}
+
+@keyframes pulseBorder {
+    0%, 100% { border-color: rgba(245, 158, 11, 0.4); }
+    50% { border-color: rgba(245, 158, 11, 1.0); }
+}
+
+/* =========================================================
+   6. الشاشات الصغيرة والهواتف
+   الأزرار الرئيسية (تقدّم / اجمع) جنباً إلى جنب في متناول الإبهام،
+   والشريط العلوي سطران مضغوطان فوق المشهد.
+   ========================================================= */
+@media (max-width: 768px) {
+    .hud-top {
+        top: calc(8px + env(safe-area-inset-top));
+        left: 8px;
+        right: 8px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .hud-left, .hud-center, .hud-right { gap: 6px; }
+    .hud-center { order: 3; width: 100%; justify-content: space-between; }
+    .brand-title { padding: 5px 10px; gap: 6px; }
+    .chicken-icon { font-size: 20px; }
+    .brand-text { font-size: 14px; letter-spacing: 0.5px; }
+    .badge-tag { font-size: 10px; padding: 1px 6px; }
+    .stat-pill { padding: 4px 8px; gap: 6px; }
+    .pill-icon { font-size: 15px; }
+    .pill-label { font-size: 9.5px; }
+    .pill-value { font-size: 14px; }
+    .best-pill { display: none; }
+    .glass-select { padding: 6px 8px; font-size: 12px; }
+    .btn-icon { width: 36px; height: 36px; }
+    .demo-banner { top: calc(104px + env(safe-area-inset-top)); font-size: 11.5px; }
+
+    .multiplier-ladder-panel { display: none; }
+
+    .hud-bottom {
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        width: calc(100% - 16px);
+    }
+    .control-panel { padding: 10px 12px; gap: 9px; }
+    .bet-overview-row, .in-game-stats { padding: 7px 8px; }
+    .bet-overview-item .val { font-size: 15px; }
+    .stat-box .num { font-size: 16px; }
+    .stat-box.highlight-box { padding: 3px 10px; }
+    .quick-bets-container { gap: 6px; }
+    .quick-bets-buttons {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 5px;
+    }
+    .btn-chip { padding: 7px 2px; font-size: 12.5px; }
+    .bet-adjusters { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+    .btn-adj { padding: 7px 4px; }
+    .btn-primary-action { padding: 11px 12px; }
+    .btn-text-main { font-size: 17px; }
+    .btn-subtext { font-size: 11px; }
+    .hint-keys { display: none; }
+    .action-buttons-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-cross-step, .btn-cashout-action { gap: 8px; padding: 12px 8px; }
+    .action-icon { font-size: 20px; }
+    .btn-cashout-action .btn-text-main { font-size: 16px; }
+    .safe-toast { top: 26%; }
+    .toast-content { padding: 9px 16px; }
+    .toast-details { gap: 10px; font-size: 12px; flex-wrap: wrap; justify-content: center; }
+    .modal-card { padding: 20px 16px; gap: 12px; }
+    .modal-card h2 { font-size: 19px; }
+    .modal-icon { font-size: 44px; }
+    .r-val { font-size: 15px; }
+}
+
+@media (max-width: 380px) {
+    .brand-text { display: none; }
+    .steps-pill .pill-label { display: none; }
+}
+
+/* الهاتف بالعرض: شريط علوي بسطر واحد ولوحة سفلية مضغوطة */
+@media (orientation: landscape) and (max-height: 500px) {
+    .hud-top { flex-wrap: nowrap; top: 6px; left: 10px; right: 10px; gap: 6px; }
+    .hud-left, .hud-center, .hud-right { gap: 6px; }
+    .hud-center { order: 0; width: auto; }
+    .brand-title { padding: 5px 10px; gap: 6px; }
+    .chicken-icon { font-size: 20px; }
+    .brand-text { display: none; }
+    .best-pill { display: none; }
+    .stat-pill { padding: 4px 9px; gap: 6px; }
+    .pill-icon { font-size: 15px; }
+    .pill-label { font-size: 9.5px; }
+    .pill-value { font-size: 14px; }
+    .glass-btn { width: 34px; height: 34px; }
+    .glass-select { padding: 6px 8px; font-size: 12px; }
+    .demo-banner { display: none; }
+    .multiplier-ladder-panel { display: none; }
+    .hud-bottom { bottom: 6px; max-width: 640px; }
+    .control-panel { padding: 8px 12px; gap: 7px; }
+    .bet-overview-row { display: none; }
+    .in-game-stats { padding: 5px 8px; }
+    .stat-box .num { font-size: 15px; }
+    .btn-primary-action { padding: 9px 12px; }
+    .btn-text-main { font-size: 16px; }
+    .btn-subtext { display: none; }
+    .btn-cashout-action .btn-subtext { display: block; }
+    .action-buttons-row { grid-template-columns: 1fr 1fr; }
+    .safe-toast { top: 22%; }
+}
