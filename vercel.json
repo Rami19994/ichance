@@ -39,6 +39,10 @@
       "destination": "/plinko.html"
     },
     {
+      "source": "/bullseye",
+      "destination": "/bullseye.html"
+    },
+    {
       "source": "/master",
       "destination": "/master.html"
     },

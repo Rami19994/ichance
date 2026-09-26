@@ -48,7 +48,7 @@ const ledger = {
   real: emptyBucket(),
   bot: emptyBucket(),
   // ربحية كل لعبة على حدة — بدونها لا يعرف المالك أي لعبة تكسب وأيها تخسر
-  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket() },
+  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket() },
   // شراء الميزة صفقة واحدة بمبلغ يعادل مئات الدورات. لو خُلط مع الدورات
   // العادية في عدّاد واحد لقفز "متوسط الرهان" وصار التقرير مضلّلاً.
   slotBuys: { count: 0, wagered: 0 },
@@ -117,6 +117,7 @@ function applyStorePayload(raw) {
       if (st.tankStats) p.tankStats = { ...st.tankStats };
       if (st.minesStats) p.minesStats = { ...st.minesStats };
       if (st.plinkoStats) p.plinkoStats = { ...st.plinkoStats };
+      if (st.bullseyeStats) p.bullseyeStats = { ...st.bullseyeStats };
       if (st.slotStats) p.slotStats = { ...st.slotStats };
     }
   }
@@ -462,6 +463,64 @@ function recordPlinko(player, { bet, win, multiplier }) {
   persistSoon();
 }
 
+/**
+ * رمية بولزآي واحدة (أو «ضاعف أو اخسر» — رهان مستقل بمبلغ الربح السابق).
+ */
+function recordBullseye(player, { bet, win, multiplier, mode }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  const g = ledger.games.bullseye;
+  if (g) {
+    g.wagered += bet;
+    g.paid += win;
+    g.bets += 1;
+    g.rounds += 1;
+  }
+
+  if (!player.bullseyeStats) {
+    player.bullseyeStats = { throws: 0, wagered: 0, won: 0, best: 0 };
+  }
+  const st = player.bullseyeStats;
+  st.throws = (st.throws || 0) + 1;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  const MODE_NAMES = { classic: 'كلاسيك', risk: 'المخاطرة', double: 'السهم المزدوج', gamble: 'ضاعف أو اخسر' };
+  const name = `بولزآي — ${MODE_NAMES[mode] || mode}`;
+  const now = Date.now();
+  recordRoundLog({
+    roundId: `bullseye-${now.toString(36).toUpperCase()}`,
+    ts: now,
+    endedAt: now,
+    game: 'bullseye',
+    patternName: name,
+    templateName: name,
+    cards: [],
+    seats: [{
+      id: player.id,
+      stake: bet,
+      cardIndex: 0,
+      cardValue: multiplier,
+      net: win - bet,
+      multiplier,
+      isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
 /** يحفظ ملخّص جولة منتهية في أعلى السجل. */
 function recordRoundLog(summary) {
   roundLog.unshift(summary);
@@ -574,6 +633,7 @@ function extractPlayerStats() {
       tankStats: p.tankStats,
       minesStats: p.minesStats,
       plinkoStats: p.plinkoStats,
+      bullseyeStats: p.bullseyeStats,
       slotStats: p.slotStats
     };
   }
@@ -1077,7 +1137,7 @@ if (flushTimer.unref) flushTimer.unref();
 module.exports = {
   createPlayer, byToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
-  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, ledgerSummary,
+  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size,
   syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty
 };

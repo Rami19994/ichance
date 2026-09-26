@@ -21,7 +21,7 @@
         <span style="background:linear-gradient(135deg,#f5c542,#d49f13);color:#0b0e14;font-weight:900;padding:4px 8px;border-radius:6px;font-size:0.95rem;">LA</span>
         <span>مناجم الحظ</span>
       </a>
-      <span class="mines-navbar__badge">STAKE ORIGINALS • PROVABLY FAIR</span>
+      <span class="mines-navbar__badge">STAKE ORIGINALS</span>
     </div>
 
     <div class="mines-navbar__right">
@@ -32,7 +32,6 @@
       </div>
 
       <button class="mines-icon-btn" id="soundBtn" title="كتم/تشغيل الصوت">🔊</button>
-      <button class="mines-icon-btn" id="pfBtn" title="العدالة المثبتة">🛡️</button>
       <button class="mines-icon-btn" id="fullscreenBtn" title="ملء الشاشة">⛶</button>
       <a class="mines-icon-btn" href="/" title="الرئيسية" style="text-decoration:none;">✕</a>
     </div>
@@ -159,27 +158,6 @@
     </section>
 
   </main>
-
-  <!-- ===================== نافذة العدالة المثبتة (Provably Fair) ===================== -->
-  <div class="pf-modal-backdrop" id="pfModal" hidden>
-    <div class="pf-modal">
-      <div class="pf-modal__header">
-        <h3 class="pf-modal__title">🛡️ العدالة المثبتة (Provably Fair)</h3>
-        <button class="pf-modal__close" id="pfClose">✕</button>
-      </div>
-      <p style="color:#92a4b8;font-size:0.88rem;margin:0;line-height:1.6;">
-        توزيع الألغام مشتق حسابياً باستخدام خوارزمية SHA-256 و HMAC قبل أن تبدأ باللعب. يتم نشر بصمة البذرة أولاً لمنع تغيير النتيجة لاحقاً، وتكشف البذرة الأصلية عند انتهاء الجولة لتمكينك من التحقق يدوياً.
-      </p>
-      <div class="pf-field">
-        <label>بصمة بذرة الخادم المشفرة (Server Seed Hash):</label>
-        <input id="pfServerHash" readonly value="تبدأ مع أول جولة">
-      </div>
-      <div class="pf-field">
-        <label>بذرة الخادم المكشوفة بعد انتهاء الجولة (Server Seed):</label>
-        <input id="pfServerSeed" readonly placeholder="تظهر تلقائياً عند انتهاء الجولة للتحقق">
-      </div>
-    </div>
-  </div>
 
   <script src="/js/mines.js?v=29"></script>
 </body>

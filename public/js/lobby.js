@@ -19,7 +19,7 @@ const GAMES = [
     title: 'مناجم الحظ — Stake Mines',
     cat: 'crash',
     cats: ['crash', 'skill', 'table'],
-    rtpBadge: 'PROVABLY FAIR',
+    rtpBadge: 'STAKE ORIGINALS',
     provider: 'Stake Originals',
     providerKey: 'luckyarena',
     live: true,
@@ -36,7 +36,7 @@ const GAMES = [
     title: 'بلينكو — Plinko',
     cat: 'crash',
     cats: ['crash'],
-    rtpBadge: 'PROVABLY FAIR',
+    rtpBadge: 'STAKE ORIGINALS',
     provider: 'Stake Originals',
     providerKey: 'luckyarena',
     live: true,
@@ -46,7 +46,24 @@ const GAMES = [
     tag: 'كرة السقوط الحر • 16 صف',
     badge: 'NEW • PLINKO',
     badgeClass: 'badge-tag--hot',
-    desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 1000 ضعف رهانك.'
+    desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 150 ضعف رهانك.'
+  },
+  {
+    id: 'bullseye',
+    title: 'بولزآي X — Bullseye X',
+    cat: 'table',
+    cats: ['table', 'crash'],
+    rtpBadge: 'BULLSEYE X',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/bullseye',
+    thumb: '/assets/thumb_bullseye.svg',
+    tag: 'قرص وسهم • 3 أوضاع',
+    badge: 'NEW • BULLSEYE',
+    badgeClass: 'badge-tag--hot',
+    desc: 'ارمِ السهم على القرص الدوّار واربح حتى ×50. كلاسيك، مخاطرة مع «ضاعف أو اخسر»، أو سهمان بنصف الرهان.'
   },
   {
     id: 'neon-slots',
@@ -171,8 +188,10 @@ let serverGameConfig = {};
 /* --------------------------- التحقق من إمكانية اللعب --------------------------- */
 function isPlayable(g) {
   if (!g.live) return false;
+  // مفاتيح إعدادات الموقع (siteConfig) — كانت ثلاث ألعاب فقط، فإيقاف نيون
+  // أو الألغام أو بلينكو من الإدارة لم يُخفِ بطاقتها (الخادم كان يمنع اللعب).
   const map = { 'lucky-cards': 'cards', bounty: 'slots', tank: 'tank' };
-  const key = map[g.id];
+  const key = map[g.id] || (Object.prototype.hasOwnProperty.call(serverGameConfig, g.id) ? g.id : null);
   return !key || serverGameConfig[key] !== false;
 }
 
@@ -202,6 +221,8 @@ function renderGrid() {
   if (!container) return;
 
   const filtered = GAMES.filter((g) => {
+    // لعبة أوقفتها الإدارة لا تظهر في الردهة (والخادم يمنع اللعب بها أيضاً)
+    if (g.realGame && !isPlayable(g)) return false;
     if (!matchCategory(g, activeCat)) return false;
     if (selectedProvider !== 'all' && g.providerKey !== selectedProvider) return false;
     if (searchQuery) {
@@ -243,7 +264,7 @@ function renderGrid() {
         <div class="gcard__info">
           <div class="gcard__title-row">
             <h4 class="gcard__title" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</h4>
-            <span class="gcard__rtp">${g.rtpBadge || 'PROVABLY FAIR'}</span>
+            <span class="gcard__rtp">${g.rtpBadge || 'LuckyArena'}</span>
           </div>
           <div class="gcard__meta">
             <span class="gcard__provider">${escapeHtml(g.provider)}</span>
@@ -312,8 +333,8 @@ function openGameLauncherModal(game, isDemo) {
           <div style="font-size:15px; font-weight:800; color:#fff">${escapeHtml(game.provider)}</div>
         </div>
         <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:10px; border-radius:10px">
-          <div style="font-size:11px; color:#94a3b8">نظام النزاهة</div>
-          <div style="font-size:15px; font-weight:800; color:var(--gold-2)">Provably Fair</div>
+          <div style="font-size:11px; color:#94a3b8">نوع اللعبة</div>
+          <div style="font-size:15px; font-weight:800; color:var(--gold-2)">${escapeHtml(game.tag)}</div>
         </div>
       </div>
 
@@ -590,12 +611,11 @@ function bindEvents() {
       e.preventDefault();
       const type = link.dataset.type;
       const msgs = {
-        'provably-fair': 'جميع ألعابنا مدعومة بنظام تشفير عشوائي Provably Fair يتيح لأي لاعب التحقق الرياضي من نزاهة الجولات.',
         'responsible': 'LuckyArena تدعم اللعب المسؤول. الألعاب مخصصة للترفيه فقط ويجب عدم الرهان بأموال لا تستطيع تحمل خسارتها.',
         'security': 'يتم تأمين جميع المعاملات بتشفير SSL ونظام حماية مالي متعدد الطبقات مطابق للمعايير البنكية الدولية.',
         'terms': 'شروط اللعب والسحب: السحوبات فورية وبدون أي رسوم خفية. تطبق قواعد المكافآت العامة.'
       };
-      toast(msgs[type] || 'معلومات الأمان والنزاهة', 'info', 5000);
+      toast(msgs[type] || 'معلومات الأمان', 'info', 5000);
     });
   });
 }

@@ -435,7 +435,6 @@ function saveBet() {
   }
 
   el('backdrop').innerHTML = BACKDROP_SVG;
-  el('rtpNote').textContent = `${CFG.rtp}%`;
   document.querySelectorAll('.ways-badge').forEach((b) => {
     b.innerHTML = `${CFG.ways}<br><b>طريقة</b>`;
   });

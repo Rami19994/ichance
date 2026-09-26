@@ -236,6 +236,28 @@ function mines() {
   return m.DEFAULT_RTP;
 }
 
+// ═════════════════════════════════════════════ 5ب) بولزآي
+function bullseye() {
+  const b = require('../server/bullseyeGame');
+  console.log('\n■ بولزآي X   (حساب دقيق — حجم القطاع = احتماله)');
+  const worst = [];
+  for (const [mode, cfg] of Object.entries({ ...b.MODES, gamble: { wheel: 'gamble', arrows: 1, label: 'ضاعف أو اخسر' } })) {
+    const wheel = b.WHEELS[cfg.wheel];
+    const W = wheel.reduce((a, s) => a + s.w, 0);
+    const ev = b.wheelRtp(wheel);
+    const hit = b.wheelHitRate(wheel);
+    const maxM = Math.max(...wheel.map((s) => s.m));
+    // التذبذب لسهم واحد؛ السهمان المستقلان بنصف الرهان يقسمانه على √2
+    const sd = Math.sqrt(wheel.reduce((a, s) => a + (s.w / W) * s.m * s.m, 0) - ev * ev) / Math.sqrt(cfg.arrows);
+    worst.push(ev);
+    console.log(line(cfg.label, pct(ev), verdict(ev)));
+    console.log(line('  تردّد الفوز', pct(cfg.arrows === 2 ? 1 - (1 - hit) ** 2 : hit),
+      cfg.arrows === 2 ? 'سهم واحد على الأقل يصيب' : ''));
+    console.log(line('  أكبر مضاعف', '×' + maxM, '  تذبذب ×' + sd.toFixed(2)));
+  }
+  return Math.max(...worst);
+}
+
 // ═════════════════════════════════════════════ 6) معركة الدبابات
 function tanks() {
   const T = require('../public/js/tankSim.js');
@@ -265,6 +287,7 @@ const results = {
   'صيّاد الجوائز': bountyHunter(Number(process.env.ROUNDS || 400000)),
   'بلينكو': plinko(),
   'الألغام': mines(),
+  'بولزآي X': bullseye(),
   'الدبابات': tanks()
 };
 

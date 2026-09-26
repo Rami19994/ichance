@@ -25,6 +25,7 @@ const countries = require('./countries');
 const neonSlots = require('./neonSlots');
 const minesGame = require('./minesGame');
 const plinkoGame = require('./plinkoGame');
+const bullseyeGame = require('./bullseyeGame');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -308,7 +309,8 @@ const ROUTE_GAME = {
   '/api/tank/start': 'tank',
   '/api/neon-slots/spin': 'neon-slots',
   '/api/mines/start': 'mines',
-  '/api/plinko/drop': 'plinko'
+  '/api/plinko/drop': 'plinko',
+  '/api/bullseye/throw': 'bullseye', '/api/bullseye/gamble': 'bullseye'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -1006,6 +1008,38 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // ------------------------------------------------------------ بولزآي (Bullseye X)
+  if (route === '/api/bullseye/state' && req.method === 'GET') {
+    return sendJson(res, 200, bullseyeGame.stateFor(player));
+  }
+
+  if (route === '/api/bullseye/throw' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    if (!rateLimit(`bullseye:${player.id}`, 20, 10_000)) {
+      return sendJson(res, 429, { error: 'رميات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = await bullseyeGame.throwArrow(player, { mode: body.mode, bet: body.bet });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/bullseye/gamble' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    if (!rateLimit(`bullseye:${player.id}`, 20, 10_000)) {
+      return sendJson(res, 429, { error: 'رميات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = await bullseyeGame.gamble(player, { amount: body.amount });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/bullseye/collect' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    return sendJson(res, 200, bullseyeGame.collect(player));
+  }
+
   // ------------------------------------------------------------------ الإدارة
   if (route === '/api/countries' && req.method === 'GET') {
     return sendJson(res, 200, { countries: countries.list() });
@@ -1439,8 +1473,19 @@ async function handleApi(req, res, url) {
           });
         }
       }
+      // العائد النظري لكل لعبة من وحدتها نفسها — لا أرقام مكتوبة يدوياً في اللوحة
+      // تتقادم بعد أي ضبط للرياضيات. (الدبابات لعبة مهارة: جدولها منفصل.)
+      const gameRtp = {
+        cards: Number((check.rtp * 100).toFixed(2)),
+        slots: slots.MEASURED.rtp,
+        'neon-slots': Number((neonSlots.THEORETICAL_RTP * 100).toFixed(2)),
+        mines: Number((minesGame.DEFAULT_RTP * 100).toFixed(2)),
+        plinko: Number((plinkoGame.RTP * 100).toFixed(2)),
+        bullseye: Number((bullseyeGame.RTP.classic * 100).toFixed(2))
+      };
       return sendJson(res, 200, {
         ledger,
+        gameRtp,
         tank: tankGame.difficultyReport(store.tankDifficultyLedger()),
         economics: buildEconomics(rounds, ledger),
         live: game.adminSnapshot(),
@@ -1652,6 +1697,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/neon-slots') return sendStatic(req, res, '/neon-slots.html');
   if (url.pathname === '/mines') return sendStatic(req, res, '/mines.html');
   if (url.pathname === '/plinko') return sendStatic(req, res, '/plinko.html');
+  if (url.pathname === '/bullseye') return sendStatic(req, res, '/bullseye.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

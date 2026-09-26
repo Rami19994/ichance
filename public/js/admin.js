@@ -396,12 +396,16 @@ function renderKpis(d) {
 }
 
 /* ------------------------------- ربحية الألعاب ------------------------------- */
+// العائد النظري يأتي من الخادم (d.gameRtp) — rtp هنا احتياط فقط لخادم أقدم.
+// الدبابات لعبة مهارة: عائدها مقيس لا مضمون (~80%، انظر جدولها).
 const GAME_META = {
-  cards: { name: 'كروت الحظ', emoji: '🎴', rtp: 88.17 },
-  slots: { name: 'صيّاد الجوائز', emoji: '🤠', rtp: 87.2 },
-  tank:  { name: 'معركة الدبابات', emoji: '🛡️', rtp: 79.8 },
-  'neon-slots': { name: 'نيون فيغاس', emoji: '🎰', rtp: 71.0 },
-  mines: { name: 'مناجم الحظ', emoji: '💣', rtp: 97.0 }
+  cards: { name: 'كروت الحظ', emoji: '🎴', rtp: 96.0 },
+  slots: { name: 'صيّاد الجوائز', emoji: '🤠', rtp: 96.2 },
+  tank:  { name: 'معركة الدبابات', emoji: '🛡️', rtp: 80.0 },
+  'neon-slots': { name: 'نيون فيغاس', emoji: '🎰', rtp: 96.01 },
+  mines: { name: 'مناجم الحظ', emoji: '💣', rtp: 97.0 },
+  plinko: { name: 'بلينكو', emoji: '🔻', rtp: 96.28 },
+  bullseye: { name: 'بولزآي X', emoji: '🎯', rtp: 96.0 }
 };
 
 function renderGames(d) {
@@ -409,7 +413,8 @@ function renderGames(d) {
   const totalWagered = Object.values(games).reduce((a, g) => a + g.wagered, 0);
 
   el('gamesProfit').innerHTML = Object.entries(games).map(([key, g]) => {
-    const meta = GAME_META[key] || { name: key, emoji: '🎲', rtp: null };
+    const base = GAME_META[key] || { name: key, emoji: '🎲', rtp: null };
+    const meta = { ...base, rtp: (d.gameRtp && d.gameRtp[key] != null) ? d.gameRtp[key] : base.rtp };
     const share = totalWagered ? (g.wagered / totalWagered) * 100 : 0;
     return `
       <div class="game-card${g.bets ? '' : ' game-card--idle'}">
@@ -614,8 +619,8 @@ function renderRounds(rounds) {
     return `
       <tr class="clickable" data-round="${r.roundId}">
         <td class="mono">${r.roundId}</td>
-        <td class="dim num">${timeOf(r.endedAt)}</td>
-        <td>${escapeHtml(r.templateName)}</td>
+        <td class="dim num">${timeOf(r.endedAt || r.ts)}</td>
+        <td>${escapeHtml(r.templateName || r.patternName || r.game || '—')}</td>
         <td>${boardMini(r.cards)}</td>
         <td class="num">${humans}<span class="dim"> / ${r.seats.length}</span></td>
         <td class="num">${fmt(h.wagered)}</td>

@@ -272,7 +272,14 @@ async function playSpin(player, { bet, lineCount = 20 }) {
   };
 }
 
+/**
+ * العائد النظري — محسوب بالصيغة المغلقة في tools/mathReport.js (96.014%).
+ * يُعاد حسابه هناك بعد أي تعديل على الأشرطة أو الجدول ثم يُحدَّث هنا.
+ */
+const THEORETICAL_RTP = 0.9601;
+
 module.exports = {
+  THEORETICAL_RTP,
   SYMBOLS,
   PAYLINES,
   REEL_STRIPS,

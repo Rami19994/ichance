@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>بولزآي X — Bullseye X | LuckyArena</title>
+<meta name="description" content="بولزآي X على LuckyArena: قرص دوّار وسهم. ارمِ السهم واربح حتى ×50 — ثلاثة أوضاع لعب.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=29">
+<link rel="stylesheet" href="/css/bullseye.css?v=1">
+</head>
+<body class="bx-page">
+
+<main class="bx">
+
+  <!-- ===================== الشريط العلوي ===================== -->
+  <header class="bx-bar">
+    <a class="bx-brand" href="/" title="الردهة">
+      <span class="bx-brand__logo">LA</span>
+      <span class="bx-brand__name">بولزآي <b>X</b></span>
+    </a>
+    <span class="bx-badge" id="modeBadge">تجريبي</span>
+
+    <span class="bx-bar__spacer"></span>
+
+    <div class="bx-wallet">
+      <span class="bx-wallet__cur" id="walletCur">IQD</span>
+      <b class="bx-wallet__val" id="walletBal">0</b>
+      <button class="bx-wallet__dep" id="depositBtn" type="button">شحن</button>
+    </div>
+
+    <div class="bx-bar__acts">
+      <button class="bx-icon" id="soundBtn" type="button" title="الصوت" aria-label="الصوت">🔊</button>
+      <button class="bx-icon" id="historyBtn" type="button" title="رمياتي" aria-label="رمياتي">📜</button>
+      <a class="bx-icon" href="/" title="الردهة" aria-label="العودة للردهة">✕</a>
+    </div>
+  </header>
+
+  <div class="bx-demo" id="demoBanner" hidden>
+    ⚡ وضع تجريبي برصيد وهمي. <a href="/login?next=/bullseye">سجّل دخولك</a> للّعب برصيدك الحقيقي.
+  </div>
+
+  <div class="bx-layout">
+
+    <!-- ===================== الساحة ===================== -->
+    <section class="bx-stage">
+      <nav class="bx-modes" id="modes" aria-label="وضع اللعب">
+        <button type="button" data-mode="classic" class="is-on"><b>كلاسيك</b><small>حتى ×25</small></button>
+        <button type="button" data-mode="risk"><b>المخاطرة</b><small>حتى ×50 + ضاعف</small></button>
+        <button type="button" data-mode="double"><b>السهم المزدوج</b><small>سهمان · نصف الرهان</small></button>
+      </nav>
+
+      <div class="bx-canvas-wrap" id="canvasWrap">
+        <canvas id="bxCanvas" aria-label="قرص بولزآي"></canvas>
+
+        <!-- نتيجة الرمية -->
+        <div class="bx-result" id="result" hidden>
+          <div class="bx-result__tier" id="resTier">فوز!</div>
+          <div class="bx-result__mult" id="resMult">×0</div>
+          <div class="bx-result__grid">
+            <div><span>الرهان</span><b id="resBet">0</b></div>
+            <div><span>العائد</span><b id="resPay">0</b></div>
+            <div><span>الربح</span><b id="resProfit">0</b></div>
+          </div>
+          <small class="bx-result__note" id="resNote"></small>
+        </div>
+      </div>
+
+      <div class="bx-ticker">
+        <span>آخر النتائج</span>
+        <div class="bx-ticker__list" id="ticker"></div>
+      </div>
+    </section>
+
+    <!-- ===================== لوحة الرهان ===================== -->
+    <section class="bx-panel">
+
+      <!-- ضاعف أو اخسر — يظهر بعد الربح في وضع المخاطرة -->
+      <div class="bx-risk" id="riskBox" hidden>
+        <p class="bx-risk__txt">
+          ربحت <b id="riskAmount">0</b> — تضاعفه إلى <b id="riskDouble">0</b>؟
+          <small>فرصة 48% · خطوة <span id="riskStep">1</span> من <span id="riskMax">5</span></small>
+        </p>
+        <div class="bx-risk__btns">
+          <button type="button" class="bx-take" id="takeBtn">💰 سحب الأرباح</button>
+          <button type="button" class="bx-gamble" id="gambleBtn">🔥 المخاطرة مجدداً</button>
+        </div>
+      </div>
+
+      <div class="bx-bet">
+        <label class="bx-bet__label" for="betInput">
+          <span>مبلغ الرهان</span>
+          <small id="betLimits">100 – 500,000</small>
+        </label>
+        <div class="bx-bet__row">
+          <button type="button" class="bx-mod" data-bet="half" aria-label="نصف الرهان">½</button>
+          <input id="betInput" type="number" inputmode="numeric" min="100" step="100" value="1000" aria-label="مبلغ الرهان">
+          <button type="button" class="bx-mod" data-bet="double" aria-label="ضعف الرهان">2×</button>
+          <button type="button" class="bx-mod" data-bet="max">MAX</button>
+        </div>
+        <div class="bx-chips" id="chips">
+          <button type="button" data-chip="500">500</button>
+          <button type="button" data-chip="1000">1,000</button>
+          <button type="button" data-chip="5000">5,000</button>
+          <button type="button" data-chip="10000">10k</button>
+          <button type="button" data-chip="25000">25k</button>
+          <button type="button" data-chip="100000">100k</button>
+        </div>
+      </div>
+
+      <button type="button" class="bx-throw" id="throwBtn">
+        <span class="bx-throw__ico" aria-hidden="true">🎯</span>
+        <span id="throwText">ارمِ السهم</span>
+      </button>
+
+      <div class="bx-last">
+        <div><span>آخر ربح</span><b id="lastWin">0</b></div>
+        <div><span>آخر مضاعف</span><b id="lastMult">—</b></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================== رمياتي ===================== -->
+<div class="bx-modal" id="historyModal" hidden>
+  <div class="bx-modal__box bx-modal__box--wide">
+    <div class="bx-modal__head">
+      <h3>📜 رمياتي الأخيرة</h3>
+      <button type="button" class="bx-modal__x" data-close aria-label="إغلاق">✕</button>
+    </div>
+    <div class="bx-modal__body">
+      <div class="bx-table-wrap">
+        <table class="bx-table">
+          <thead>
+            <tr><th>الوقت</th><th>الوضع</th><th>الرهان</th><th>المضاعف</th><th>العائد</th><th>الربح</th></tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+      <p class="bx-empty" id="historyEmpty">لا رميات بعد.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js?v=29"></script>
+<script src="/js/bullseye.js?v=1"></script>
+</body>
+</html>

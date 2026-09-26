@@ -29,6 +29,16 @@ const MULTIPLIERS = [150, 100, 50, 10, 10, 0, 0, 0, 0, 0, 0, 0, 10, 10, 50, 100,
 const MIN_STAKE = 100;
 const MAX_STAKE = 1000000;
 
+/** العائد النظري الدقيق: Σ C(16,k)·M[k] ÷ 2^16. */
+const RTP = (() => {
+  let c = 1, ev = 0;
+  for (let k = 0; k <= ROWS; k++) {
+    ev += c * MULTIPLIERS[k];
+    c = c * (ROWS - k) / (k + 1);
+  }
+  return ev / 2 ** ROWS;
+})();
+
 /**
  * توليد مسار الكرة المشفر بنظام العدالة المثبتة (Provably Fair HMAC-SHA256)
  * @param {string} serverSeed - بذرة الخادم السرية
@@ -150,6 +160,7 @@ module.exports = {
   MULTIPLIERS,
   MIN_STAKE,
   MAX_STAKE,
+  RTP,
   generatePlinkoPath,
   dropBall,
   stateFor
