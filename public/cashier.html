@@ -12,9 +12,9 @@
 <link rel="stylesheet" href="/css/theme.css?v=29">
 <link rel="stylesheet" href="/css/auth.css?v=29">
 <link rel="stylesheet" href="/css/admin.css?v=29">
-<link rel="stylesheet" href="/css/cashier.css?v=29">
+<link rel="stylesheet" href="/css/cashier.css?v=30">
 </head>
-<body>
+<body class="cashier-page">
 
 <!-- ===================== بوابة الدخول ===================== -->
 <div class="auth" id="gate">
@@ -41,109 +41,145 @@
 <!-- ===================== اللوحة ===================== -->
 <div class="cash" id="panel" hidden>
 
-  <header class="cashbar">
-    <span class="cashbar__logo">LA</span>
-    <div class="cashbar__who">
-      <b id="whoName">—</b>
-      <span>كاشير</span>
-    </div>
+  <div class="cashtop">
+    <header class="cashbar">
+      <span class="cashbar__logo">LA</span>
+      <div class="cashbar__who">
+        <b id="whoName">—</b>
+        <span>كاشير</span>
+      </div>
 
-    <div class="cashbar__float" id="floatBox">
-      <span>عهدتي</span>
-      <b id="floatAmount">0</b>
-    </div>
+      <div class="cashbar__float" id="floatBox">
+        <span>عهدتي</span>
+        <b id="floatAmount">0</b>
+      </div>
 
-    <span class="cashbar__spacer"></span>
-    <button class="btn btn--dark btn--sm" id="refreshBtn">تحديث</button>
-    <button class="btn btn--dark btn--sm" id="logoutBtn">خروج</button>
-  </header>
+      <span class="cashbar__spacer"></span>
+      <button class="btn btn--dark btn--sm" id="refreshBtn">تحديث</button>
+      <button class="btn btn--dark btn--sm" id="logoutBtn">خروج</button>
+    </header>
+
+    <!-- الأقسام: شريط تحت الرأس على الحاسوب، وشريط سفلي على الهاتف -->
+    <nav class="ctabs" id="tabs" role="tablist" aria-label="أقسام لوحة الكاشير">
+      <button type="button" role="tab" data-tab="transfer">
+        <span class="ctabs__ico" aria-hidden="true">💸</span><span>تعبئة وسحب</span>
+      </button>
+      <button type="button" role="tab" data-tab="new">
+        <span class="ctabs__ico" aria-hidden="true">➕</span><span>حساب جديد</span>
+      </button>
+      <button type="button" role="tab" data-tab="tx">
+        <span class="ctabs__ico" aria-hidden="true">📄</span><span>الكشف</span>
+      </button>
+      <button type="button" role="tab" data-tab="summary">
+        <span class="ctabs__ico" aria-hidden="true">📊</span><span>الملخّص</span>
+      </button>
+    </nav>
+  </div>
 
   <main class="cash__body">
 
-    <!-- ملخّص -->
-    <section class="kpis" id="kpis"></section>
-
-    <!-- إنشاء لاعب -->
-    <section class="panel card">
-      <div class="card__head">
-        <h2>حساب لاعب جديد</h2>
-        <span class="card__hint">الإيميل يُكتب كما تشاء بشرط أن ينتهي بـ gmail.com@</span>
-      </div>
-      <div class="card__body">
-        <form class="newplayer" id="newForm">
-          <div class="field">
-            <label for="nUser">اسم المستخدم</label>
-            <input id="nUser" type="text" spellcheck="false" placeholder="ahmad99" required>
+    <!-- ── تعبئة وسحب: كل لاعب تنشئه يظهر هنا ── -->
+    <section class="ctab" data-pane="transfer" role="tabpanel">
+      <div class="panel card">
+        <div class="card__head">
+          <div class="card__title">
+            <h2>لاعبيّ <span class="count" id="playersCount"></span></h2>
+            <span class="card__hint">كل حساب تنشئه يظهر هنا — اضغط «تعبئة» أو «سحب» بجانب اللاعب</span>
           </div>
-          <div class="field">
-            <label for="nEmail">الإيميل</label>
-            <input id="nEmail" type="text" spellcheck="false" placeholder="ahmad99@gmail.com" required>
+          <input class="search" id="search" type="search" placeholder="ابحث باسم أو إيميل أو معرّف">
+        </div>
+        <div class="card__body card__body--flush">
+          <div class="table-wrap">
+            <table class="dt dt--players">
+              <thead>
+                <tr>
+                  <th>اللاعب</th><th>المعرّف</th><th>الرصيد</th>
+                  <th>عُبّئ له</th><th>سُحب منه</th><th>آخر دخول</th><th>العمليات</th>
+                </tr>
+              </thead>
+              <tbody id="playersBody"></tbody>
+            </table>
           </div>
-          <div class="field">
-            <label for="nPass">كلمة المرور</label>
-            <input id="nPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر" required>
+          <div class="empty" id="playersEmpty" hidden>
+            <span id="playersEmptyText">لا لاعبين بعد.</span>
+            <button class="btn btn--gold btn--sm" type="button" data-goto="new" id="emptyNewBtn">➕ أنشئ أول حساب</button>
           </div>
-          <div class="field field--btn">
-            <button class="btn btn--gold btn--block" type="submit" id="newBtn">إنشاء الحساب</button>
-          </div>
-        </form>
-        <div class="newplayer__out" id="newOut" hidden></div>
+        </div>
       </div>
     </section>
 
-    <!-- اللاعبون -->
-    <section class="panel card">
-      <div class="card__head">
-        <h2>لاعبيّ</h2>
-        <input class="search" id="search" type="search" placeholder="ابحث باسم أو إيميل أو معرّف">
-      </div>
-      <div class="card__body">
-        <div class="table-wrap">
-          <table class="dt">
-            <thead>
-              <tr>
-                <th>اللاعب</th><th>المعرّف</th><th>الرصيد</th>
-                <th>عُبّئ له</th><th>سُحب منه</th><th>آخر دخول</th><th>إجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="playersBody"></tbody>
-          </table>
+    <!-- ── حساب جديد ── -->
+    <section class="ctab" data-pane="new" role="tabpanel" hidden>
+      <div class="panel card newcard">
+        <div class="card__head">
+          <div class="card__title">
+            <h2>حساب لاعب جديد</h2>
+            <span class="card__hint">بعد الإنشاء يظهر اللاعب في «تعبئة وسحب»</span>
+          </div>
         </div>
-        <div class="empty" id="playersEmpty" hidden>لا لاعبين بعد — أنشئ أول حساب من الأعلى.</div>
+        <div class="card__body">
+          <form class="newplayer" id="newForm">
+            <div class="field">
+              <label for="nUser">اسم المستخدم</label>
+              <input id="nUser" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="ahmad99" required>
+            </div>
+            <div class="field">
+              <label for="nEmail">الإيميل</label>
+              <input id="nEmail" type="email" inputmode="email" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="ahmad99@gmail.com" required>
+              <small class="field__hint">يُكتب كما تشاء بشرط أن ينتهي بـ <bdi>@gmail.com</bdi></small>
+            </div>
+            <div class="field">
+              <label for="nPass">كلمة المرور</label>
+              <input id="nPass" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="6 خانات فأكثر" required>
+            </div>
+            <button class="btn btn--gold btn--block btn--lg" type="submit" id="newBtn">إنشاء الحساب</button>
+          </form>
+          <div class="newplayer__out" id="newOut" hidden></div>
+        </div>
       </div>
     </section>
 
-    <!-- كشف الحركة -->
-    <section class="panel card">
-      <div class="card__head">
-        <h2>كشف التعبئة والسحب</h2>
-        <span class="card__hint" id="txHint"></span>
-      </div>
-      <div class="card__body">
-        <div class="txfilter" id="txFilter" hidden>
-          <span>مفلتر على: <b id="txPlayerName"></b></span>
-          <button class="btn btn--dark btn--sm" type="button" id="txClear">اعرض الكل</button>
+    <!-- ── كشف الحركة ── -->
+    <section class="ctab" data-pane="tx" role="tabpanel" hidden>
+      <div class="panel card">
+        <div class="card__head">
+          <div class="card__title">
+            <h2>كشف التعبئة والسحب</h2>
+            <span class="card__hint" id="txHint"></span>
+          </div>
         </div>
-        <div class="table-wrap">
-          <table class="dt dt--compact">
-            <thead>
-              <tr><th>الوقت</th><th>اللاعب</th><th>النوع</th><th>المبلغ</th><th>رصيده بعدها</th><th>ملاحظة</th></tr>
-            </thead>
-            <tbody id="txBody"></tbody>
-          </table>
+        <div class="card__body card__body--flush">
+          <div class="txfilter" id="txFilter" hidden>
+            <span>مفلتر على: <b id="txPlayerName"></b></span>
+            <button class="btn btn--dark btn--sm" type="button" id="txClear">اعرض الكل</button>
+          </div>
+          <div class="table-wrap">
+            <table class="dt dt--compact dt--tx">
+              <thead>
+                <tr><th>الوقت</th><th>اللاعب</th><th>النوع</th><th>المبلغ</th><th>رصيده بعدها</th><th>ملاحظة</th></tr>
+              </thead>
+              <tbody id="txBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="txEmpty" hidden>لا حركات بعد.</div>
         </div>
-        <div class="empty" id="txEmpty" hidden>لا حركات بعد.</div>
       </div>
+    </section>
+
+    <!-- ── الملخّص ── -->
+    <section class="ctab" data-pane="summary" role="tabpanel" hidden>
+      <div class="kpis" id="kpis"></div>
     </section>
 
   </main>
 </div>
 
-<!-- ===================== نافذة الإجراء ===================== -->
+<!-- ===================== نافذة التعبئة/السحب/التعديل ===================== -->
 <div class="modal" id="modal" hidden>
   <form class="modal__box" id="modalForm">
     <h3 id="modalTitle">—</h3>
     <p class="modal__who" id="modalWho">—</p>
+    <p class="modal__ctx" id="modalCtx" hidden></p>
 
     <div class="field" id="amountField">
       <label for="modalAmount">المبلغ</label>
@@ -153,17 +189,17 @@
 
     <div class="field" id="nameField" hidden>
       <label for="modalName">اسم المستخدم</label>
-      <input id="modalName" type="text" spellcheck="false">
+      <input id="modalName" type="text" spellcheck="false" autocapitalize="off">
       <label for="nameEmail" style="margin-top:10px">الإيميل</label>
-      <input id="nameEmail" type="text" spellcheck="false" placeholder="name@gmail.com">
+      <input id="nameEmail" type="email" inputmode="email" spellcheck="false" autocapitalize="off" placeholder="name@gmail.com">
     </div>
 
     <div class="field" id="passField" hidden>
       <label for="modalPass">كلمة المرور الجديدة</label>
-      <input id="modalPass" type="text" spellcheck="false" placeholder="6 خانات فأكثر">
+      <input id="modalPass" type="text" spellcheck="false" autocapitalize="off" placeholder="6 خانات فأكثر">
     </div>
 
-    <div class="field">
+    <div class="field" id="noteField">
       <label for="modalNote">ملاحظة <span class="dim">(اختياري)</span></label>
       <input id="modalNote" type="text" placeholder="مثلاً: نقداً في المحل">
     </div>
@@ -176,7 +212,23 @@
   </form>
 </div>
 
+<!-- ===================== قائمة إدارة اللاعب (⋯) ===================== -->
+<div class="modal" id="sheet" hidden>
+  <div class="modal__box">
+    <h3 id="sheetTitle">—</h3>
+    <p class="modal__who" id="sheetWho">—</p>
+    <div class="sheet__list" id="sheetList">
+      <button type="button" data-do="tx"><span aria-hidden="true">📄</span> كشف حركاته</button>
+      <button type="button" data-do="password"><span aria-hidden="true">🔑</span> تغيير كلمة المرور</button>
+      <button type="button" data-do="rename"><span aria-hidden="true">✏️</span> تعديل الاسم والإيميل</button>
+      <button type="button" data-do="toggle" id="sheetToggle">—</button>
+      <button type="button" data-do="delete" class="is-danger"><span aria-hidden="true">🗑</span> حذف الحساب</button>
+    </div>
+    <button class="btn btn--dark btn--block" type="button" id="sheetClose">إغلاق</button>
+  </div>
+</div>
+
 <script src="/js/common.js?v=29"></script>
-<script src="/js/cashier.js?v=29"></script>
+<script src="/js/cashier.js?v=30"></script>
 </body>
 </html>

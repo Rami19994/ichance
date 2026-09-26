@@ -3,6 +3,9 @@
    --------------------------------------------------------------------------
    كل صلاحية هنا يتحقّق منها الخادم من جديد: ملكية اللاعب، كفاية العهدة،
    كفاية رصيد اللاعب. ما في هذا الملف هو عرض وراحة استعمال لا أكثر.
+
+   الأقسام: تعبئة وسحب (جدول كل لاعبيه) · حساب جديد · الكشف · الملخّص.
+   القسم المفتوح في عنوان الصفحة (#new …) فيعمل زرّ الرجوع في الهاتف بينها.
    ========================================================================== */
 'use strict';
 
@@ -17,6 +20,15 @@ let players = [];
 let txs = [];
 let txPlayer = null;      // فلتر كشف الحركة
 let action = null;        // الإجراء المفتوح في النافذة
+let sheetPlayer = null;   // اللاعب المفتوحة قائمة إدارته
+let lastCreated = null;   // آخر حساب أُنشئ — لعرض بياناته مرّة واحدة
+let flashId = null;       // صفّ يُبرز بعد عملية عليه
+
+// يُبرز صفّ اللاعب مرّة بعد عملية عليه، ثم لا يعود الإبراز مع كل تحديث
+function flash(id) {
+  flashId = id;
+  setTimeout(() => { if (flashId === id) flashId = null; }, 2500);
+}
 
 /* ------------------------------- الاتصال ------------------------------- */
 async function api(method, path, body) {
@@ -46,7 +58,13 @@ function when(iso) {
   const today = new Date();
   const sameDay = d.toDateString() === today.toDateString();
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  return sameDay ? time : `${d.toLocaleDateString('en-GB')} ${time}`;
+  if (sameDay) return time;
+  // بلا السنة إن كانت الحالية — التاريخ الكامل لا يتّسع في بطاقة الهاتف
+  const sameYear = d.getFullYear() === today.getFullYear();
+  const date = d.toLocaleDateString('en-GB', sameYear
+    ? { day: '2-digit', month: '2-digit' }
+    : { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${date} ${time}`;
 }
 
 const KIND = {
@@ -55,6 +73,43 @@ const KIND = {
   cashier_topup: { label: 'عهدة واردة', cls: 'tag-in', sign: '+' },
   cashier_debit: { label: 'عهدة مسحوبة', cls: 'tag-out', sign: '−' }
 };
+
+const byId = (id) => players.find((p) => p.id === id) || null;
+
+/* -------------------------------- الأقسام -------------------------------- */
+const TABS = ['transfer', 'new', 'tx', 'summary'];
+
+function currentTab() {
+  const h = location.hash.slice(1);
+  return TABS.includes(h) ? h : 'transfer';
+}
+
+function paintTab() {
+  const name = currentTab();
+  document.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== name; });
+  document.querySelectorAll('#tabs [data-tab]').forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+function goTab(name) {
+  if (currentTab() === name && location.hash) return paintTab();
+  location.hash = name;   // hashchange يرسم القسم
+}
+
+el('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  goTab(b.dataset.tab);
+  window.scrollTo(0, 0);
+});
+window.addEventListener('hashchange', paintTab);
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-goto]');
+  if (b) goTab(b.dataset.goto);
+});
 
 /* -------------------------------- البوابة -------------------------------- */
 function showGate(message) {
@@ -68,6 +123,7 @@ function showGate(message) {
 function showPanel() {
   el('gate').hidden = true;
   el('panel').hidden = false;
+  paintTab();
 }
 
 el('gateForm').addEventListener('submit', async (e) => {
@@ -93,7 +149,9 @@ el('gateForm').addEventListener('submit', async (e) => {
 el('logoutBtn').addEventListener('click', () => {
   token = null;
   try { localStorage.removeItem(CASHIER_TOKEN_KEY); } catch { /* تجاهل */ }
-  players = []; txs = []; me = null;
+  players = []; txs = []; me = null; lastCreated = null;
+  el('newOut').hidden = true;
+  el('newOut').innerHTML = '';
   showGate();
 });
 
@@ -151,35 +209,35 @@ function visiblePlayers() {
     || (p.display_id || '').toLowerCase().includes(q));
 }
 
+// على الهاتف يصير كل صفّ بطاقة، وdata-label عنوان كل خانة فيها
 function paintPlayers() {
   const list = visiblePlayers();
+  el('playersCount').textContent = players.length ? `(${fmt(players.length)})` : '';
   el('playersEmpty').hidden = list.length > 0;
-  el('playersEmpty').textContent = players.length
+  el('playersEmptyText').textContent = players.length
     ? 'لا نتائج لهذا البحث.'
-    : 'لا لاعبين بعد — أنشئ أول حساب من الأعلى.';
+    : 'لا لاعبين بعد — كل حساب تنشئه يظهر هنا.';
+  el('emptyNewBtn').hidden = players.length > 0;
 
   el('playersBody').innerHTML = list.map((p) => `
-    <tr>
-      <td>
+    <tr class="${p.active ? '' : 'is-off'}${p.id === flashId ? ' is-flash' : ''}" data-id="${escapeHtml(p.id)}">
+      <td class="c-player">
         <span class="player-cell${p.active ? '' : ' is-off'}">
-          <b>${escapeHtml(p.username)}</b>
-          <span>${escapeHtml(p.email || '—')}</span>
+          <b>${escapeHtml(p.username)}${p.active ? '' : ' <em class="off-tag">موقوف</em>'}</b>
+          ${p.email ? `<span>${escapeHtml(p.email)}</span>` : ''}
         </span>
       </td>
-      <td class="mono">${escapeHtml(p.display_id)}</td>
-      <td><b>${fmt(p.balance)}</b></td>
-      <td class="tag-in">${fmt(p.total_deposited)}</td>
-      <td class="tag-out">${fmt(p.total_withdrawn)}</td>
-      <td class="dim">${when(p.last_login_at)}</td>
-      <td>
+      <td class="c-id mono" data-label="المعرّف">${escapeHtml(p.display_id)}</td>
+      <td class="c-bal" data-label="الرصيد"><b>${fmt(p.balance)}</b></td>
+      <td class="c-in tag-in" data-label="عُبّئ له">${fmt(p.total_deposited)}</td>
+      <td class="c-out tag-out" data-label="سُحب منه">${fmt(p.total_withdrawn)}</td>
+      <td class="c-last dim" data-label="آخر دخول">${when(p.last_login_at)}</td>
+      <td class="c-act">
         <span class="rowbtns">
-          <button class="b-in"  data-do="deposit"  data-id="${p.id}">تعبئة</button>
-          <button class="b-out" data-do="withdraw" data-id="${p.id}">سحب</button>
-          <button data-do="password" data-id="${p.id}">كلمة المرور</button>
-          <button data-do="tx"       data-id="${p.id}">كشفه</button>
-          <button data-do="rename"   data-id="${p.id}">تعديل</button>
-          <button data-do="toggle"   data-id="${p.id}">${p.active ? 'إيقاف' : 'تفعيل'}</button>
-          <button data-do="delete"   data-id="${p.id}">حذف</button>
+          <button type="button" class="b-in"  data-do="deposit"  data-id="${escapeHtml(p.id)}">تعبئة</button>
+          <button type="button" class="b-out" data-do="withdraw" data-id="${escapeHtml(p.id)}">سحب</button>
+          <button type="button" class="b-more" data-do="more" data-id="${escapeHtml(p.id)}"
+                  aria-label="إدارة حساب ${escapeHtml(p.username)}" title="إدارة الحساب">⋯</button>
         </span>
       </td>
     </tr>`).join('');
@@ -194,12 +252,12 @@ function paintTx() {
     const k = KIND[t.kind] || { label: t.kind, cls: '', sign: '' };
     return `
       <tr>
-        <td class="dim">${when(t.created_at)}</td>
-        <td>${escapeHtml(t.player_username || '—')}</td>
-        <td class="${k.cls}">${k.label}</td>
-        <td class="${k.cls}"><b>${k.sign}${fmt(t.amount)}</b></td>
-        <td>${fmt(t.player_balance_after)}</td>
-        <td class="dim">${escapeHtml(t.note || '—')}</td>
+        <td class="c-time dim">${when(t.created_at)}</td>
+        <td class="c-who">${escapeHtml(t.player_username || '—')}</td>
+        <td class="c-kind ${k.cls}">${k.label}</td>
+        <td class="c-amt ${k.cls}"><b>${k.sign}${fmt(t.amount)}</b></td>
+        <td class="c-after" data-label="رصيده بعدها">${fmt(t.player_balance_after)}</td>
+        <td class="c-note dim">${escapeHtml(t.note || '—')}</td>
       </tr>`;
   }).join('');
 }
@@ -217,30 +275,71 @@ el('newForm').addEventListener('submit', async (e) => {
 
   try {
     const r = await api('POST', '/api/cashier/player', { username, email, password });
-    out.hidden = false;
     // نعرض البيانات مرة واحدة ليسلّمها الكاشير للاعب — كلمة المرور
     // لا تُخزَّن نصّاً في أي مكان ولن تُعرض ثانية
-    out.innerHTML = `
-      <b>تمّ إنشاء الحساب.</b> سلّم اللاعب هذه البيانات — كلمة المرور لن تظهر مرة أخرى:
-      <br>المستخدم <code>${escapeHtml(r.player.username)}</code>
-      · الإيميل <code>${escapeHtml(r.player.email)}</code>
-      · كلمة المرور <code>${escapeHtml(password)}</code>
-      · المعرّف <code>${escapeHtml(r.player.display_id)}</code>`;
+    lastCreated = { id: r.player.id, username: r.player.username, email: r.player.email,
+                    display_id: r.player.display_id, password };
     el('newForm').reset();
+    flash(r.player.id);
     await refresh();
+    paintCreated();
+    out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (err) {
     out.hidden = false;
-    out.innerHTML = `<b style="color:var(--red)">تعذّر الإنشاء:</b> ${escapeHtml(err.message)}`;
+    out.classList.add('is-error');
+    out.innerHTML = `<b>تعذّر الإنشاء:</b> ${escapeHtml(err.message)}`;
   } finally {
     el('newBtn').disabled = false;
+  }
+});
+
+function paintCreated() {
+  const c = lastCreated;
+  const out = el('newOut');
+  if (!c) { out.hidden = true; return; }
+  out.classList.remove('is-error');
+  out.hidden = false;
+  out.innerHTML = `
+    <b>✓ تمّ إنشاء الحساب.</b> سلّم اللاعب هذه البيانات — كلمة المرور لن تظهر مرة أخرى:
+    <dl class="creds">
+      <dt>المستخدم</dt><dd><code>${escapeHtml(c.username)}</code></dd>
+      <dt>الإيميل</dt><dd><code>${escapeHtml(c.email)}</code></dd>
+      <dt>كلمة المرور</dt><dd><code>${escapeHtml(c.password)}</code></dd>
+      <dt>المعرّف</dt><dd><code>${escapeHtml(c.display_id)}</code></dd>
+    </dl>
+    <div class="newplayer__acts">
+      <button type="button" class="btn btn--gold" data-act="fund">💸 تعبئة رصيد له الآن</button>
+      <button type="button" class="btn btn--dark" data-act="copy">📋 نسخ البيانات</button>
+    </div>`;
+}
+
+el('newOut').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-act]');
+  if (!b || !lastCreated) return;
+  if (b.dataset.act === 'fund') {
+    const p = byId(lastCreated.id);
+    if (!p) { toast('حدّث الصفحة ثم حاول', 'error'); return; }
+    openModal('deposit', p, { then: 'transfer' });
+    return;
+  }
+  if (b.dataset.act === 'copy') {
+    const c = lastCreated;
+    const text = `المستخدم: ${c.username}\nالإيميل: ${c.email}\nكلمة المرور: ${c.password}\nالمعرّف: ${c.display_id}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('نُسخت البيانات');
+    } catch {
+      toast('تعذّر النسخ — انسخها يدوياً', 'error');
+    }
   }
 });
 
 /* ------------------------------ نافذة الإجراء ------------------------------ */
 const QUICK = [1000, 5000, 10000, 25000, 50000, 100000];
 
-function openModal(kind, player) {
-  action = { kind, player };
+function openModal(kind, player, opts = {}) {
+  closeSheet();
+  action = { kind, player, then: opts.then || null };
   const titles = {
     deposit: 'تعبئة رصيد',
     withdraw: 'سحب رصيد',
@@ -249,37 +348,66 @@ function openModal(kind, player) {
   };
   el('modalTitle').textContent = titles[kind];
   el('modalWho').textContent = `${player.username} · ${player.display_id} · رصيده ${fmt(player.balance)}`;
+  el('modalForm').dataset.kind = kind;
 
+  const isMoney = kind === 'deposit' || kind === 'withdraw';
   const isPass = kind === 'password';
   const isRename = kind === 'rename';
-  el('amountField').hidden = isPass || isRename;
+  el('amountField').hidden = !isMoney;
+  el('noteField').hidden = !isMoney;
   el('passField').hidden = !isPass;
-  if (el('nameField')) {
-    el('nameField').hidden = !isRename;
-    el('nameEmail').value = isRename ? (player.email || '') : '';
-    el('modalName').value = isRename ? player.username : '';
-  }
+  el('nameField').hidden = !isRename;
+  el('nameEmail').value = isRename ? (player.email || '') : '';
+  el('modalName').value = isRename ? player.username : '';
   el('modalAmount').value = '';
   el('modalPass').value = '';
   el('modalNote').value = '';
   el('modalErr').hidden = true;
 
-  el('quickAmounts').innerHTML = isPass ? ''
-    : QUICK.map((q) => `<button type="button" data-q="${q}">${fmt(q)}</button>`).join('');
+  // ما يحدّ المبلغ: عهدة الكاشير عند التعبئة، ورصيد اللاعب عند السحب
+  const ctx = el('modalCtx');
+  ctx.hidden = !isMoney;
+  if (kind === 'deposit' && me) {
+    ctx.textContent = me.unlimited_float ? 'عهدتك مفتوحة' : `عهدتك المتاحة: ${fmt(me.float_balance)}`;
+  } else if (kind === 'withdraw') {
+    ctx.textContent = `المتاح للسحب من رصيده: ${fmt(player.balance)}`;
+  }
+
+  el('modalOk').textContent = kind === 'deposit' ? 'تأكيد التعبئة'
+    : kind === 'withdraw' ? 'تأكيد السحب' : 'حفظ';
+
+  el('quickAmounts').innerHTML = !isMoney ? '' : [
+    ...QUICK.map((q) => `<button type="button" data-q="${q}">+${fmt(q)}</button>`),
+    kind === 'withdraw' && player.balance > 0
+      ? `<button type="button" data-all="1">كل رصيده</button>` : '',
+    `<button type="button" data-clear="1" aria-label="مسح المبلغ">مسح</button>`
+  ].join('');
 
   el('modal').hidden = false;
-  setTimeout(() => (isPass ? el('modalPass') : el('modalAmount')).focus(), 30);
+  document.body.classList.add('has-modal');
+  const focusEl = isPass ? el('modalPass') : isRename ? el('modalName') : el('modalAmount');
+  setTimeout(() => focusEl.focus(), 30);
 }
 
-function closeModal() { el('modal').hidden = true; action = null; }
+function closeModal() {
+  el('modal').hidden = true;
+  action = null;
+  if (el('sheet').hidden) document.body.classList.remove('has-modal');
+}
 
 el('modalCancel').addEventListener('click', closeModal);
 el('modal').addEventListener('click', (e) => { if (e.target === el('modal')) closeModal(); });
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !el('modal').hidden) closeModal(); });
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!el('modal').hidden) closeModal();
+  else if (!el('sheet').hidden) closeSheet();
+});
 
 el('quickAmounts').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-q]');
+  const b = e.target.closest('button');
   if (!b) return;
+  if (b.dataset.clear) { el('modalAmount').value = ''; return; }
+  if (b.dataset.all && action) { el('modalAmount').value = Math.floor(action.player.balance); return; }
   const cur = Number(el('modalAmount').value) || 0;
   el('modalAmount').value = cur + Number(b.dataset.q);
 });
@@ -290,31 +418,34 @@ el('modalForm').addEventListener('submit', async (e) => {
   const errBox = el('modalErr');
   errBox.hidden = true;
   el('modalOk').disabled = true;
+  const done = action;
 
   try {
-    if (action.kind === 'rename') {
+    if (done.kind === 'rename') {
       await api('POST', '/api/cashier/player/update', {
-        playerId: action.player.id,
+        playerId: done.player.id,
         username: el('modalName').value.trim(),
         email: el('nameEmail').value.trim()
       });
       toast('حُفظ التعديل');
-    } else if (action.kind === 'password') {
+    } else if (done.kind === 'password') {
       const pw = el('modalPass').value;
-      await api('POST', '/api/cashier/password', { playerId: action.player.id, password: pw });
-      toast(`تغيّرت كلمة مرور ${action.player.username} — سلّمها له`, 'win', 6000);
+      await api('POST', '/api/cashier/password', { playerId: done.player.id, password: pw });
+      toast(`تغيّرت كلمة مرور ${done.player.username} — سلّمها له`, 'win', 6000);
     } else {
       const amount = Number(el('modalAmount').value);
-      const out = await api('POST', `/api/cashier/${action.kind}`, {
-        playerId: action.player.id,
+      const out = await api('POST', `/api/cashier/${done.kind}`, {
+        playerId: done.player.id,
         amount,
         note: el('modalNote').value.trim() || null
       });
-      const verb = action.kind === 'deposit' ? 'عُبّئ' : 'سُحب';
-      toast(`${verb} ${fmt(amount)} — رصيده الآن ${fmt(out.player_balance)}`, 'win');
+      const verb = done.kind === 'deposit' ? `عُبّئ ${fmt(amount)} لـ` : `سُحب ${fmt(amount)} من`;
+      toast(`${verb} ${done.player.username} — رصيده الآن ${fmt(out.player_balance)}`, 'win');
     }
     closeModal();
+    flash(done.player.id);
     await refresh();
+    if (done.then) goTab(done.then);
   } catch (err) {
     errBox.hidden = false;
     errBox.textContent = err.message;
@@ -323,14 +454,46 @@ el('modalForm').addEventListener('submit', async (e) => {
   }
 });
 
+/* ------------------------------ قائمة الإدارة (⋯) ------------------------------ */
+function openSheet(player) {
+  sheetPlayer = player;
+  el('sheetTitle').textContent = player.username;
+  el('sheetWho').textContent = `${player.display_id} · رصيده ${fmt(player.balance)}${player.active ? '' : ' · موقوف'}`;
+  el('sheetToggle').innerHTML = player.active
+    ? '<span aria-hidden="true">⏸</span> إيقاف الحساب'
+    : '<span aria-hidden="true">▶</span> تفعيل الحساب';
+  el('sheet').hidden = false;
+  document.body.classList.add('has-modal');
+}
+
+function closeSheet() {
+  el('sheet').hidden = true;
+  sheetPlayer = null;
+  if (el('modal').hidden) document.body.classList.remove('has-modal');
+}
+
+el('sheetClose').addEventListener('click', closeSheet);
+el('sheet').addEventListener('click', (e) => { if (e.target === el('sheet')) closeSheet(); });
+
+el('sheetList').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-do]');
+  if (!b || !sheetPlayer) return;
+  const player = sheetPlayer;
+  closeSheet();
+  managePlayer(b.dataset.do, player);
+});
+
 /* ------------------------------ أزرار الصفوف ------------------------------ */
-el('playersBody').addEventListener('click', async (e) => {
+el('playersBody').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-do]');
   if (!b) return;
-  const player = players.find((p) => p.id === b.dataset.id);
+  const player = byId(b.dataset.id);
   if (!player) return;
+  if (b.dataset.do === 'more') return openSheet(player);
+  managePlayer(b.dataset.do, player);
+});
 
-  const what = b.dataset.do;
+async function managePlayer(what, player) {
   if (what === 'delete') {
     if (!confirm(`حذف ${player.username} نهائياً؟\nلا يُحذف إن كان له رصيد أو حركات مالية — أوقفه بدل ذلك.`)) return;
     try {
@@ -343,17 +506,19 @@ el('playersBody').addEventListener('click', async (e) => {
 
   if (what === 'deposit' || what === 'withdraw' || what === 'password' || what === 'rename') {
     if (!player.active && what !== 'password') {
-      toast('الحساب موقوف — فعّله أولاً', 'error');
+      toast('الحساب موقوف — فعّله أولاً من ⋯', 'error');
       return;
     }
-    return openModal(what, player);
+    openModal(what, player);
+    return;
   }
 
   if (what === 'tx') {
     txPlayer = player.id;
     el('txPlayerName').textContent = player.username;
-    await refresh();
-    el('txFilter').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    try { await refresh(); } catch (err) { toast(err.message, 'error'); }
+    goTab('tx');
+    window.scrollTo(0, 0);
     return;
   }
 
@@ -366,11 +531,11 @@ el('playersBody').addEventListener('click', async (e) => {
       await refresh();
     } catch (err) { toast(err.message, 'error'); }
   }
-});
+}
 
 el('txClear').addEventListener('click', async () => {
   txPlayer = null;
-  await refresh();
+  try { await refresh(); } catch (err) { toast(err.message, 'error'); }
 });
 
 el('search').addEventListener('input', paintPlayers);

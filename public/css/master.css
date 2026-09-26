@@ -1,0 +1,225 @@
+/* ==========================================================================
+   iCHANCE — لوحة الماستر
+   تعتمد مكوّنات admin.css (panel/card/kpis/dt) ولا تكرّرها.
+   (نسخة من تنسيق لوحة الكاشير القديم: لوحة الكاشير صارت أقساماً بتنسيقها
+   الخاص في cashier.css، وهذه اللوحة بقيت على تخطيطها.)
+   ========================================================================== */
+
+.cash[hidden] { display: none; }
+
+/* --------------------------------- الشريط --------------------------------- */
+.cashbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 18px;
+  background: rgba(10, 14, 21, .92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.cashbar__logo {
+  width: 36px; height: 36px; flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--grad-gold);
+  display: grid; place-items: center;
+  font-weight: 900; color: #16110a;
+}
+.cashbar__who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.cashbar__who b { font-size: 14px; }
+.cashbar__who span { color: var(--muted); font-size: 11px; }
+
+.cashbar__float {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px;
+  background: rgba(247, 201, 72, .1);
+  border: 1px solid rgba(247, 201, 72, .3);
+  border-radius: 999px;
+}
+.cashbar__float span { color: var(--gold-2); font-size: 11.5px; }
+.cashbar__float b { font-size: 15px; }
+.cashbar__float.is-unlimited b::after {
+  content: ' ∞'; color: var(--gold-2);
+}
+.cashbar__spacer { flex: 1 1 auto; }
+
+.cash__body {
+  padding: 18px;
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+/* ------------------------------ إنشاء لاعب ------------------------------ */
+.newplayer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.newplayer .field { margin: 0; }
+.newplayer .field label {
+  display: block; margin-bottom: 6px;
+  color: var(--txt-2); font-size: 12px; font-weight: 700;
+}
+.newplayer input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  color: var(--txt);
+  font-family: inherit; font-size: 13px;
+}
+.newplayer input:focus { outline: none; border-color: var(--gold-2); }
+
+.newplayer__out {
+  margin-top: 14px;
+  padding: 13px 15px;
+  background: var(--green-dim);
+  border: 1px solid rgba(41, 217, 140, .3);
+  border-radius: var(--r-md);
+  font-size: 13px; line-height: 1.9;
+}
+.newplayer__out[hidden] { display: none; }
+.newplayer__out b { color: var(--green); }
+.newplayer__out code {
+  background: rgba(0, 0, 0, .35);
+  padding: 2px 8px; border-radius: 6px;
+  color: #fff; font-size: 12.5px;
+  direction: ltr; unicode-bidi: isolate;
+  display: inline-block;
+}
+
+/* --------------------------------- البحث --------------------------------- */
+.search {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  color: var(--txt);
+  font-family: inherit; font-size: 12.5px;
+  min-width: 0;
+  max-width: 240px;
+}
+.search:focus { outline: none; border-color: var(--gold-2); }
+
+/* -------------------------------- الجداول -------------------------------- */
+.player-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.player-cell b { font-size: 13px; }
+.player-cell span {
+  color: var(--muted); font-size: 11px;
+  direction: ltr; unicode-bidi: isolate; text-align: start;
+}
+.player-cell.is-off b { color: var(--muted); text-decoration: line-through; }
+
+.mono {
+  direction: ltr; unicode-bidi: isolate;
+  font-size: 12px; letter-spacing: .5px;
+}
+
+.rowbtns { display: flex; gap: 5px; flex-wrap: wrap; }
+.rowbtns button {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--txt-2);
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-family: inherit; font-size: 11.5px; font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rowbtns button:hover { border-color: var(--gold-2); color: var(--txt); }
+.rowbtns .b-in:hover  { border-color: var(--green); color: var(--green); }
+.rowbtns .b-out:hover { border-color: var(--red); color: var(--red); }
+
+.tag-in  { color: var(--green); font-weight: 700; }
+.tag-out { color: var(--red); font-weight: 700; }
+
+.txfilter {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+  padding: 9px 13px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+}
+.txfilter[hidden] { display: none; }
+.txfilter b { color: var(--gold-2); }
+
+.empty {
+  padding: 26px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.empty[hidden] { display: none; }
+
+/* --------------------------------- النافذة --------------------------------- */
+.modal {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center;
+  padding: 20px;
+  background: rgba(5, 8, 13, .72);
+  backdrop-filter: blur(4px);
+}
+.modal[hidden] { display: none; }
+.modal__box {
+  width: min(400px, 100%);
+  background: var(--grad-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, .6);
+}
+.modal__box h3 { margin: 0 0 4px; font-size: 18px; }
+.modal__who { margin: 0 0 18px; color: var(--muted); font-size: 12.5px; }
+.modal__box .field { margin-bottom: 14px; }
+.modal__box .field[hidden] { display: none; }
+.modal__box label {
+  display: block; margin-bottom: 6px;
+  color: var(--txt-2); font-size: 12.5px; font-weight: 700;
+}
+.modal__box input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 11px 13px;
+  color: var(--txt);
+  font-family: inherit; font-size: 14px;
+}
+.modal__box input:focus { outline: none; border-color: var(--gold-2); }
+
+.quick { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.quick button {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--txt-2);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-family: inherit; font-size: 11.5px; font-weight: 700;
+  cursor: pointer;
+}
+.quick button:hover { border-color: var(--gold-2); color: var(--txt); }
+
+.modal__err {
+  margin-bottom: 12px;
+  padding: 10px 13px;
+  background: var(--red-dim);
+  border: 1px solid rgba(255, 91, 115, .35);
+  border-radius: var(--r-md);
+  color: #ffc0cb; font-size: 12.5px;
+}
+.modal__err[hidden] { display: none; }
+.modal__btns { display: flex; gap: 8px; }
+.modal__btns .btn { flex: 1; }
+
+.dim { color: var(--muted); font-weight: 400; }
+
+@media (max-width: 720px) {
+  .cash__body { padding: 12px; }
+  .cashbar { padding: 10px 12px; gap: 9px; }
+  .search { max-width: 100%; width: 100%; }
+}
