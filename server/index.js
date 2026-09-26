@@ -437,7 +437,8 @@ async function handleApi(req, res, url) {
     if (!out.ok) return sendJson(res, 400, { error: out.error });
 
     // الذاكرة تتبع قاعدة البيانات فوراً كي يرى اللاعب رصيده الصحيح
-    const fresh = await accounts.byId(session.player_id);
+    // العملية تمّت؛ تعذّر تحديث الذاكرة لا يجعلها «فشلت» — يُحدَّث لاحقاً
+    const fresh = await accounts.byId(session.player_id).catch(() => null);
     if (fresh) store.attachAccount(fresh);
     return sendJson(res, 200, out);
   }
@@ -606,7 +607,7 @@ async function handleApi(req, res, url) {
       if (!out.ok) return sendJson(res, 400, { error: out.error });
 
       // الذاكرة تتبع قاعدة البيانات فوراً كي يرى اللاعب رصيده الجديد
-      const fresh = await accounts.byId(body.playerId);
+      const fresh = await accounts.byId(body.playerId).catch(() => null);
       if (fresh) store.attachAccount(fresh);
       return sendJson(res, 200, out);
     }
@@ -1212,15 +1213,31 @@ async function handleApi(req, res, url) {
     // إنشاء حساب لاعب جديد من لوحة الإدارة
     if (route === '/api/admin/player' && req.method === 'POST') {
       const body = await readBody(req);
+      // الرصيد الافتتاحي كان يُكتب في الحساب مباشرة بلا أي حركة في الدفتر —
+      // مالٌ يظهر من لا شيء ولا يراه تقرير. الآن: حساب بصفر، ثم إيداع مسجَّل
+      // عبر كاشير اللاعب كأي إيداع آخر.
+      const opening = Math.max(0, Math.round(Number(body.balance) || 0));
+      if (opening > 0 && !body.cashierId) {
+        return sendJson(res, 400, { error: 'الرصيد الافتتاحي يمرّ عبر كاشير — اختر كاشيراً للّاعب أو اتركه صفراً' });
+      }
       const out = await accounts.createPlayer({
         username: body.username,
         email: body.email,
         password: body.password,
         cashierId: body.cashierId || null,
-        balance: Number(body.balance) || 0,
         createdBy: null
       });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
+      if (opening > 0) {
+        const dep = await accounts.deposit({
+          cashierId: body.cashierId, playerId: out.player.id,
+          amount: opening, note: 'رصيد افتتاحي من الإدارة'
+        });
+        if (!dep.ok) {
+          return sendJson(res, 200, { ...out, warning: `أُنشئ الحساب لكن الرصيد الافتتاحي لم يُودَع: ${dep.error}` });
+        }
+        out.player.balance = dep.player_balance != null ? dep.player_balance : opening;
+      }
       return sendJson(res, 200, out);
     }
 
@@ -1264,7 +1281,7 @@ async function handleApi(req, res, url) {
         amount: body.amount, note: body.note || 'من الإدارة'
       });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
-      const fresh = await accounts.byId(target.id);
+      const fresh = await accounts.byId(target.id).catch(() => null);
       if (fresh) store.attachAccount(fresh);
       return sendJson(res, 200, out);
     }
@@ -1282,7 +1299,8 @@ async function handleApi(req, res, url) {
       const body = await readBody(req);
       const accountId = body.accountId || body.id || body.masterId || body.cashierId || body.playerId;
       if (!accountId) return sendJson(res, 400, { error: 'معرّف الحساب مطلوب' });
-      const out = await accounts.deleteAccount({ accountId, force: true });
+      // الإدارة أيضاً لا تمحو مال لاعب ولا سجلّاً مالياً — انظر accounts.deleteAccount
+      const out = await accounts.deleteAccount({ accountId });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);
     }

@@ -181,6 +181,28 @@ async function ensureSupabase() {
   return pingPromise;
 }
 
+// ── مرجع الدفتر
+//
+// القاعدة — إن كانت مضبوطة — هي المرجع الوحيد للحسابات والأرصدة. لا ملف محلّي
+// بديلاً عنها حين تخطئ: كانت كل دالّة تقريباً تعيد المحاولة على الملف عند أي
+// خطأ، فيُنشأ لاعب لا تعرفه القاعدة، ويُقال «أوقفتُ الحساب» والحساب ما زال
+// نشطاً، ويدخل مستخدمٌ بحساب قديم من الملف. وعلى Vercel ذلك الملف /tmp يُمحى
+// مع الدالّة. الملف المحلّي للتطوير على جهاز بلا قاعدة فقط.
+const NO_DB = 'قاعدة البيانات غير مربوطة — اضبط SUPABASE_URL و SUPABASE_SECRET_KEY';
+const DB_DOWN = 'تعذّر الاتصال بقاعدة البيانات — حاول بعد قليل';
+
+function useDb() { return sb.configured(); }
+function localAllowed() { return !sb.configured() && !process.env.VERCEL; }
+
+/** خطأ قراءة من القاعدة: يُرفع فيردّ الخادم بخطأ صريح بدل قائمة فارغة تكذب. */
+function readFailed(where, err) {
+  const e = new Error(`${where}: ${(err && err.message) || DB_DOWN}`);
+  e.status = 503;
+  return e;
+}
+
+const stripAll = (rows) => (Array.isArray(rows) ? rows.map(strip) : []);
+
 // فحص أولي سريع في الخلفية
 ensureSupabase();
 
@@ -202,8 +224,7 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
 
   const { hash, salt } = hashPassword(p.value);
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
       const rows = await sb.insert('accounts', {
         role: 'cashier',
@@ -237,6 +258,8 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
       return { ok: false, error: err.message || 'تعذّر إنشاء الكاشير' };
     }
   }
+
+  if (!localAllowed()) return { ok: false, error: NO_DB };
 
   // المحرك المحلي
   const db = getLocal();
@@ -289,7 +312,11 @@ async function createCashier({ username, email, password, startingFloat = 0, unl
   return { ok: true, cashier: strip(cashier) };
 }
 
-async function createPlayer({ cashierId, username, email, password, createdBy, balance = 0 }) {
+/**
+ * ينشئ لاعباً برصيد صفر دائماً. لا معامل رصيد: أي مال يدخل حساباً يمرّ
+ * بإيداع مسجَّل في الدفتر، وإلا ظهر مالٌ لا يراه أي تقرير.
+ */
+async function createPlayer({ cashierId, username, email, password, createdBy }) {
   let uRaw = String(username || '').trim();
   let emRaw = email ? String(email).trim() : '';
   if (uRaw.includes('@') && !emRaw) {
@@ -301,7 +328,6 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
   const u = checkUsername(uRaw); if (!u.ok) return u;
   const e = checkEmail(emRaw); if (!e.ok) return e;
   const p = checkPassword(password); if (!p.ok) return p;
-  const balNum = Math.max(0, Math.round(Number(balance) || 0));
 
   const { hash, salt } = hashPassword(p.value);
 
@@ -324,8 +350,7 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
     } catch {}
   }
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
       const rows = await sb.insert('accounts', {
         role: 'player',
@@ -335,7 +360,7 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
         password_salt: salt,
         display_id: shortId(),
         cashier_id: cashierId || null,
-        balance: balNum,
+        balance: 0,
         country: playerCountry,
         currency: playerCurrency,
         created_by: creatorId
@@ -350,6 +375,8 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
       return { ok: false, error: err.message || 'تعذّر إنشاء اللاعب' };
     }
   }
+
+  if (!localAllowed()) return { ok: false, error: NO_DB };
 
   // المحرك المحلي
   const db = getLocal();
@@ -375,7 +402,7 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
     display_id: shortId(),
     cashier_id: cashierId || null,
     created_by: creatorId,
-    balance: balNum,
+    balance: 0,
     country: playerCountry,
     currency: playerCurrency,
     active: true,
@@ -389,41 +416,63 @@ async function createPlayer({ cashierId, username, email, password, createdBy, b
 }
 
 // ------------------------------------------------------------------- تسجيل الدخول
+/**
+ * الدخول.
+ *
+ * رسالة واحدة لاسم خاطئ أو كلمة مرور خاطئة، وزمن واحد في الحالتين: كانت
+ * الرسالتان مختلفتين («غير مسجّل» / «كلمة المرور غير صحيحة»)، فيعرف من
+ * يجرّب أيّ الأسماء موجودة ثم يركّز عليها. ولأن فحص كلمة المرور بطيء عمداً
+ * (scrypt)، كان الردّ على اسم غير موجود أسرع بوضوح — فنفحص كلمة وهمية
+ * ليتساوى الزمن.
+ */
+const BAD_LOGIN = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+let dummyCredential = null;
+function burnPasswordCheck(pwd) {
+  if (!dummyCredential) dummyCredential = hashPassword(crypto.randomBytes(16).toString('hex'));
+  verifyPassword(pwd, dummyCredential.hash, dummyCredential.salt);
+}
+
+function checkLoginRow(row, pwd, expectRole) {
+  if (!row) { burnPasswordCheck(pwd); return { ok: false, error: BAD_LOGIN }; }
+  const isMatch = verifyPassword(pwd, row.password_hash, row.password_salt) ||
+                  verifyPassword(pwd.trim(), row.password_hash, row.password_salt);
+  if (!isMatch) return { ok: false, error: BAD_LOGIN };
+  // ما بعد كلمة المرور الصحيحة لا يكشف شيئاً لمن لا يملكها
+  if (!row.active) return { ok: false, error: 'هذا الحساب موقوف — راجع الإدارة' };
+  if (expectRole && row.role !== expectRole) {
+    return { ok: false, error: `هذا الحساب ليس حساب ${expectRole === 'cashier' ? 'كاشير' : expectRole === 'master' ? 'ماستر' : 'لاعب'}` };
+  }
+  return { ok: true };
+}
+
 async function login(identifier, password, { expectRole } = {}) {
   const rawId = String(identifier || '').trim();
   const id = rawId.toLowerCase();
   const pwd = String(password || '');
   if (!rawId || !pwd) return { ok: false, error: 'أدخل اسم المستخدم وكلمة المرور' };
 
-  await ensureSupabase();
-  if (supabaseReady || sb.configured()) {
+  if (useDb()) {
+    let row;
     try {
       const q = `or=(username_key.eq.${sb.enc(id)},email_key.eq.${sb.enc(id)},display_id.eq.${sb.enc(rawId)},display_id.eq.${sb.enc(rawId.toUpperCase())},id.eq.${sb.enc(rawId)})`;
-      const row = await sb.selectOne('accounts', `select=*&${q}`);
-      if (row) {
-        const isMatch = verifyPassword(pwd, row.password_hash, row.password_salt) ||
-                        verifyPassword(pwd.trim(), row.password_hash, row.password_salt);
-        if (!isMatch) {
-          return { ok: false, error: 'كلمة المرور غير صحيحة' };
-        }
-        if (!row.active) {
-          return { ok: false, error: 'هذا الحساب موقوف — راجع الإدارة' };
-        }
-        if (expectRole && row.role !== expectRole) {
-          return { ok: false, error: `هذا الحساب ليس حساب ${expectRole === 'cashier' ? 'كاشير' : expectRole === 'master' ? 'ماستر' : 'لاعب'}` };
-        }
-        const token = newToken();
-        await sb.update('accounts', `id=eq.${row.id}`,
-          { play_token: token, last_login_at: new Date().toISOString() }, { returning: false });
-        return { ok: true, token, account: strip({ ...row, play_token: undefined }) };
-      }
-      return { ok: false, error: 'اسم المستخدم أو المعرّف غير مسجّل' };
+      row = await sb.selectOne('accounts', `select=*&${q}`);
     } catch (err) {
-      console.warn('[accounts] خطأ الدخول عبر Supabase:', err.message);
+      return { ok: false, error: DB_DOWN };
     }
+    const verdict = checkLoginRow(row, pwd, expectRole);
+    if (!verdict.ok) return verdict;
+    const token = newToken();
+    try {
+      await sb.update('accounts', `id=eq.${sb.enc(row.id)}`,
+        { play_token: token, last_login_at: new Date().toISOString() }, { returning: false });
+    } catch (err) {
+      return { ok: false, error: DB_DOWN };
+    }
+    return { ok: true, token, account: strip({ ...row, play_token: undefined }) };
   }
 
-  // المحرك المحلي
+  if (!localAllowed()) return { ok: false, error: NO_DB };
+
   const db = getLocal();
   const row = db.accounts.find((a) =>
     a.username_key === id ||
@@ -432,24 +481,13 @@ async function login(identifier, password, { expectRole } = {}) {
     a.display_id === rawId.toUpperCase() ||
     a.id === rawId
   );
-  if (!row) {
-    return { ok: false, error: 'اسم المستخدم أو المعرّف غير مسجّل' };
-  }
-  const isMatch = verifyPassword(pwd, row.password_hash, row.password_salt) ||
-                  verifyPassword(pwd.trim(), row.password_hash, row.password_salt);
-  if (!isMatch) {
-    return { ok: false, error: 'كلمة المرور غير صحيحة' };
-  }
-  if (!row.active) return { ok: false, error: 'هذا الحساب موقوف — راجع الإدارة' };
-  if (expectRole && row.role !== expectRole) {
-    return { ok: false, error: `هذا الحساب ليس حساب ${expectRole === 'cashier' ? 'كاشير' : expectRole === 'master' ? 'ماستر' : 'لاعب'}` };
-  }
+  const verdict = checkLoginRow(row, pwd, expectRole);
+  if (!verdict.ok) return verdict;
 
   const token = newToken();
   row.play_token = token;
   row.last_login_at = new Date().toISOString();
   saveLocal();
-
   return { ok: true, token, account: strip(row) };
 }
 
@@ -457,13 +495,16 @@ async function byToken(token) {
   const t = String(token || '').trim();
   if (!t) return null;
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
+    // خطأ القاعدة هنا = «لا جلسة» — أسلم من قبول رمز لا يمكن التحقّق منه
     try {
       const row = await sb.selectOne('accounts', `select=*&play_token=eq.${sb.enc(t)}`);
-      if (row && row.active) return row;
-    } catch { /* تجاهل */ }
+      return row && row.active ? row : null;
+    } catch {
+      return null;
+    }
   }
+  if (!localAllowed()) return null;
 
   const db = getLocal();
   const row = db.accounts.find((a) => a.play_token === t);
@@ -472,13 +513,14 @@ async function byToken(token) {
 
 async function byId(id) {
   if (!id) return null;
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      const row = await sb.selectOne('accounts', `select=*&id=eq.${sb.enc(String(id))}`);
-      if (row) return row;
-    } catch { /* تجاهل */ }
+      return await sb.selectOne('accounts', `select=*&id=eq.${sb.enc(String(id))}`);
+    } catch (err) {
+      throw readFailed('byId', err);
+    }
   }
+  if (!localAllowed()) return null;
   const db = getLocal();
   return db.accounts.find((a) => a.id === String(id) || a.display_id === String(id)) || null;
 }
@@ -486,10 +528,12 @@ async function byId(id) {
 async function logout(token) {
   const t = String(token || '').trim();
   if (!t) return;
-  if (supabaseReady) {
+  if (useDb()) {
     try { await sb.update('accounts', `play_token=eq.${sb.enc(t)}`, { play_token: null }, { returning: false }); }
-    catch { /* تجاهل */ }
+    catch { /* الرمز يبقى صالحاً حتى الدخول التالي — لا شيء أسوأ من ذلك */ }
+    return;
   }
+  if (!localAllowed()) return;
   const db = getLocal();
   const row = db.accounts.find((a) => a.play_token === t);
   if (row) {
@@ -507,15 +551,16 @@ async function setPlayerPassword({ playerId, newPassword, ownerId }) {
 
   const { hash, salt } = hashPassword(p.value);
 
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      await sb.update('accounts', `id=eq.${row.id}`,
+      await sb.update('accounts', `id=eq.${sb.enc(row.id)}`,
         { password_hash: hash, password_salt: salt, play_token: null }, { returning: false });
       return { ok: true };
     } catch (err) {
-      console.warn('[accounts] فشل تحديث كلمة المرور في Supabase:', err.message);
+      return { ok: false, error: err.message || DB_DOWN };
     }
   }
+  if (!localAllowed()) return { ok: false, error: NO_DB };
 
   row.password_hash = hash;
   row.password_salt = salt;
@@ -529,13 +574,18 @@ async function setCashierPassword({ cashierId, newPassword }) {
   const target = await byId(cashierId);
   if (!target || target.role !== 'cashier') return { ok: false, error: 'الكاشير غير موجود' };
   const { hash, salt } = hashPassword(p.value);
-  if (supabaseReady) {
+
+  if (useDb()) {
     try {
       await sb.update('accounts', `id=eq.${sb.enc(target.id)}`,
         { password_hash: hash, password_salt: salt, play_token: null }, { returning: false });
       return { ok: true };
-    } catch (err) { /* fallback */ }
+    } catch (err) {
+      return { ok: false, error: err.message || DB_DOWN };
+    }
   }
+  if (!localAllowed()) return { ok: false, error: NO_DB };
+
   target.password_hash = hash;
   target.password_salt = salt;
   target.play_token = null;
@@ -543,24 +593,32 @@ async function setCashierPassword({ cashierId, newPassword }) {
   return { ok: true };
 }
 
-async function setActive({ accountId, active, ownerId }) {
+/**
+ * إيقاف حساب أو تفعيله.
+ * ownerField يحدّد علاقة الملكية: cashier_id (كاشير ← لاعبوه) أو master_id
+ * (ماستر ← كاشيريته). كانت الدالّة تتجاهله وتقارن cashier_id دائماً، فلم يكن
+ * الماستر قادراً على إيقاف كاشير واحد من كاشيريته.
+ */
+async function setActive({ accountId, active, ownerId, ownerField = 'cashier_id' }) {
   const row = await byId(accountId);
   if (!row) return { ok: false, error: 'الحساب غير موجود' };
-  if (ownerId && row.cashier_id !== ownerId) return { ok: false, error: 'هذا الحساب ليس من حساباتك' };
+  if (ownerId && row[ownerField] !== ownerId) return { ok: false, error: 'هذا الحساب ليس من حساباتك' };
 
-  if (supabaseReady) {
+  const patch = { active: !!active };
+  if (!active) patch.play_token = null;          // الإيقاف يُخرجه فوراً
+
+  if (useDb()) {
     try {
-      const patch = { active: !!active };
-      if (!active) patch.play_token = null;
-      await sb.update('accounts', `id=eq.${row.id}`, patch, { returning: false });
+      await sb.update('accounts', `id=eq.${sb.enc(row.id)}`, patch, { returning: false });
       return { ok: true };
     } catch (err) {
-      console.warn('[accounts] فشل تغيير الحالة في Supabase:', err.message);
+      // لا «تمّ» كاذبة: حساب يُظنّ موقوفاً وهو نشط أخطر من رسالة خطأ
+      return { ok: false, error: err.message || DB_DOWN };
     }
   }
+  if (!localAllowed()) return { ok: false, error: NO_DB };
 
-  row.active = !!active;
-  if (!active) row.play_token = null;
+  Object.assign(row, patch);
   saveLocal();
   return { ok: true };
 }
@@ -599,6 +657,7 @@ async function deposit({ cashierId, playerId, amount, note }) {
     }
   }
 
+  if (!localAllowed()) return { ok: false, error: NO_DB };
   const db = getLocal();
   const cashier = db.accounts.find((x) => x.id === cashierId && x.role === 'cashier');
   const player = db.accounts.find((x) => (x.id === playerId || x.display_id === playerId) && x.role === 'player');
@@ -653,6 +712,7 @@ async function withdraw({ cashierId, playerId, amount, note }) {
     }
   }
 
+  if (!localAllowed()) return { ok: false, error: NO_DB };
   const db = getLocal();
   const cashier = db.accounts.find((x) => x.id === cashierId && x.role === 'cashier');
   const player = db.accounts.find((x) => (x.id === playerId || x.display_id === playerId) && x.role === 'player');
@@ -707,6 +767,7 @@ async function adjustCashierFloat({ cashierId, amount, topup, note }) {
     }
   }
 
+  if (!localAllowed()) return { ok: false, error: NO_DB };
   const db = getLocal();
   const cashier = db.accounts.find((x) => x.id === cashierId && x.role === 'cashier');
   if (!cashier) return { ok: false, error: 'حساب الكاشير غير موجود' };
@@ -734,59 +795,18 @@ async function adjustCashierFloat({ cashierId, amount, topup, note }) {
 }
 
 // ----------------------------------------------------------------- التقارير
-async function cashierPlayers(cashierId) {
-  await ensureSupabase();
-  if (supabaseReady) {
-    try {
-      return await sb.select('player_summary', `select=*&cashier_id=eq.${sb.enc(cashierId)}&order=created_at.desc`);
-    } catch { /* تجاهل */ }
-  }
-  const db = getLocal();
-  return db.accounts
-    .filter((a) => a.role === 'player' && a.cashier_id === cashierId)
-    .map(strip)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-}
-
-async function cashierSelf(cashierId) {
-  await ensureSupabase();
-  let row = null;
-  if (supabaseReady) {
-    try {
-      row = await sb.selectOne('cashier_summary', `select=*&id=eq.${sb.enc(cashierId)}`);
-    } catch { /* تجاهل */ }
-  }
-  if (!row) {
-    const db = getLocal();
-    const c = db.accounts.find((a) => a.id === cashierId && a.role === 'cashier');
-    if (!c) return null;
-    const players = db.accounts.filter((a) => a.role === 'player' && a.cashier_id === cashierId);
-    row = {
-      ...strip(c),
-      player_count: players.length,
-      active_players: players.filter((p) => p.active).length,
-      players_balance: players.reduce((sum, p) => sum + Number(p.balance || 0), 0)
-    };
-  }
-  if (!row) return null;
-  const float_balance = Number(row.float_balance != null ? row.float_balance : (row.balance || 0));
-  return {
-    ...row,
-    balance: float_balance,
-    float_balance,
-    players_balance: Number(row.players_balance || 0)
-  };
-}
-
 async function allCashiers() {
-  await ensureSupabase();
   let list = null;
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      list = await sb.select('cashier_summary', 'select=*&order=created_at.desc');
-    } catch { /* تجاهل */ }
+      list = stripAll(await sb.select('cashier_summary', 'select=*&order=created_at.desc'));
+    } catch (err) {
+      throw readFailed('allCashiers', err);
+    }
+  } else if (!localAllowed()) {
+    list = [];
   }
-  if (!list || !Array.isArray(list)) {
+  if (!list) {
     const db = getLocal();
     list = db.accounts
       .filter((a) => a.role === 'cashier')
@@ -837,62 +857,68 @@ async function allCashiers() {
 }
 
 async function cashierSelf(cashierId) {
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      const row = await sb.selectOne('cashier_summary', `select=*&id=eq.${sb.enc(String(cashierId))}`);
-      if (row) return row;
-    } catch (err) { console.warn('[accounts] cashierSelf:', err.message); }
+      return strip(await sb.selectOne('cashier_summary', `select=*&id=eq.${sb.enc(String(cashierId))}`));
+    } catch (err) {
+      throw readFailed('cashierSelf', err);
+    }
   }
+  if (!localAllowed()) return null;
   return strip(getLocal().accounts.find((a) => a.id === cashierId) || null);
 }
 
 async function cashierPlayers(cashierId) {
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      return await sb.select('player_summary',
-        `select=*&cashier_id=eq.${sb.enc(String(cashierId))}&order=created_at.desc`);
-    } catch (err) { console.warn('[accounts] cashierPlayers:', err.message); }
+      return stripAll(await sb.select('player_summary',
+        `select=*&cashier_id=eq.${sb.enc(String(cashierId))}&order=created_at.desc`));
+    } catch (err) {
+      throw readFailed('cashierPlayers', err);
+    }
   }
+  if (!localAllowed()) return [];
   const db = getLocal();
   return db.accounts.filter((a) => a.role === 'player' && a.cashier_id === cashierId).map(strip);
 }
 
 async function allPlayers({ limit = 200 } = {}) {
-  await ensureSupabase();
-  if (supabaseReady) {
+  const n = Math.min(Math.max(Number(limit) || 200, 1), 1000);
+  if (useDb()) {
     try {
-      const rows = await sb.select('player_summary', `select=*&order=created_at.desc&limit=${Number(limit) || 200}`);
-      if (Array.isArray(rows) && rows.length > 0) return rows;
-    } catch { /* تجاهل */ }
-    try {
-      const rows = await sb.select('accounts', `role=eq.player&order=created_at.desc&limit=${Number(limit) || 200}`);
-      if (Array.isArray(rows) && rows.length > 0) return rows.map(strip);
-    } catch { /* تجاهل */ }
+      return stripAll(await sb.select('player_summary', `select=*&order=created_at.desc&limit=${n}`));
+    } catch (err) {
+      // العرض قد يغيب في قاعدة قديمة — نقرأ الجدول مباشرة قبل أن نستسلم
+      try {
+        return stripAll(await sb.select('accounts', `role=eq.player&order=created_at.desc&limit=${n}`));
+      } catch (err2) {
+        throw readFailed('allPlayers', err2);
+      }
+    }
   }
+  if (!localAllowed()) return [];
   const db = getLocal();
-  return db.accounts
-    .filter((a) => a.role === 'player')
-    .slice(0, Number(limit) || 200)
-    .map(strip);
+  return db.accounts.filter((a) => a.role === 'player').slice(0, n).map(strip);
 }
 
 async function transactions({ cashierId, playerId, limit = 100 } = {}) {
-  await ensureSupabase();
-  if (supabaseReady) {
+  const n = Math.min(Number(limit) || 100, 500);
+  if (useDb()) {
+    const parts = ['select=*', 'order=created_at.desc', `limit=${n}`];
+    if (cashierId) parts.push(`cashier_id=eq.${sb.enc(cashierId)}`);
+    if (playerId) parts.push(`player_id=eq.${sb.enc(playerId)}`);
     try {
-      const parts = ['select=*', 'order=created_at.desc', `limit=${Math.min(Number(limit) || 100, 500)}`];
-      if (cashierId) parts.push(`cashier_id=eq.${sb.enc(cashierId)}`);
-      if (playerId) parts.push(`player_id=eq.${sb.enc(playerId)}`);
       return await sb.select('transaction_log', parts.join('&'));
-    } catch { /* تجاهل */ }
+    } catch (err) {
+      throw readFailed('transactions', err);
+    }
   }
+  if (!localAllowed()) return [];
   const db = getLocal();
   let list = db.transactions;
   if (cashierId) list = list.filter((t) => t.cashier_id === cashierId);
   if (playerId) list = list.filter((t) => t.player_id === playerId);
-  return list.slice(-Math.min(Number(limit) || 100, 500)).reverse();
+  return list.slice(-n).reverse();
 }
 
 async function anomalies(limit = 50) {
@@ -1012,14 +1038,16 @@ async function flushPlayer(accountId) {
 
 async function setCashierCountry(cashierId, country) {
   const c = countries.resolve(country); if (!c.ok) return c;
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
       await sb.update('accounts', `id=eq.${sb.enc(String(cashierId))}`,
         { country: c.country, currency: c.currency }, { returning: false });
       return { ok: true, ...c };
-    } catch (err) { /* تجاهل */ }
+    } catch (err) {
+      return { ok: false, error: err.message || DB_DOWN };
+    }
   }
+  if (!localAllowed()) return { ok: false, error: NO_DB };
   const db = getLocal();
   const cashier = db.accounts.find((x) => x.id === cashierId);
   if (cashier) {
@@ -1030,9 +1058,36 @@ async function setCashierCountry(cashierId, country) {
   return { ok: true, ...c };
 }
 
+/**
+ * شرائح العمولة.
+ * كانت تُحفظ في الملف المحلّي وحده — وعلى Vercel ذلك /tmp، فتعود الشرائح
+ * التي تضبطها الإدارة إلى 5% الافتراضية مع كل تشغيل بارد، وتُحسب عمولات
+ * الكاشيرية خطأً بصمت. الآن في site_secrets تحت مفتاح commission_tiers.
+ */
+const DEFAULT_TIERS = [{ min_burn: 0, rate: 5, label: 'افتراضي' }];
+const TIERS_KEY = 'commission_tiers';
+let tiersCache = null;           // { tiers, at }
+const TIERS_CACHE_MS = 30_000;
+
 async function commissionTiers() {
+  if (useDb()) {
+    if (tiersCache && Date.now() - tiersCache.at < TIERS_CACHE_MS) return tiersCache.tiers;
+    try {
+      const row = await sb.selectOne('site_secrets', `select=value&key=eq.${sb.enc(TIERS_KEY)}`);
+      let tiers = DEFAULT_TIERS;
+      if (row && row.value) {
+        const parsed = JSON.parse(row.value);
+        if (Array.isArray(parsed) && parsed.length) tiers = parsed;
+      }
+      tiersCache = { tiers, at: Date.now() };
+      return tiers;
+    } catch (err) {
+      throw readFailed('commissionTiers', err);
+    }
+  }
+  if (!localAllowed()) return DEFAULT_TIERS;
   const db = getLocal();
-  return db.tiers || [];
+  return db.tiers || DEFAULT_TIERS;
 }
 
 async function setCommissionTiers(tiers) {
@@ -1047,6 +1102,21 @@ async function setCommissionTiers(tiers) {
   }
   clean.sort((a, b) => a.min_burn - b.min_burn);
   if (clean[0].min_burn !== 0) return { ok: false, error: 'أول شريحة يجب أن تبدأ من صفر' };
+
+  if (useDb()) {
+    try {
+      await sb.request('/rest/v1/site_secrets?on_conflict=key', {
+        method: 'POST',
+        body: [{ key: TIERS_KEY, value: JSON.stringify(clean), updated_at: new Date().toISOString() }],
+        prefer: 'resolution=merge-duplicates,return=minimal'
+      });
+      tiersCache = { tiers: clean, at: Date.now() };
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || DB_DOWN };
+    }
+  }
+  if (!localAllowed()) return { ok: false, error: NO_DB };
   const db = getLocal();
   db.tiers = clean;
   saveLocal();
@@ -1078,8 +1148,7 @@ async function createMaster({ username, email, password, startingFloat = 0, unli
 
   const { hash, salt } = hashPassword(p.value);
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
       const rows = await sb.insert('accounts', {
         role: 'master',
@@ -1112,6 +1181,7 @@ async function createMaster({ username, email, password, startingFloat = 0, unli
     }
   }
 
+  if (!localAllowed()) return { ok: false, error: NO_DB };
   const db = getLocal();
   const unameKey = u.value.toLowerCase();
   if (db.accounts.some((a) => a.username_key === unameKey)) {
@@ -1141,46 +1211,43 @@ async function createMaster({ username, email, password, startingFloat = 0, unli
   return { ok: true, master: strip(master) };
 }
 
-/** كل الماسترية بملخّصاتهم — للإدارة. */
 async function allMasters() {
-  await ensureSupabase();
-  if (supabaseReady) {
-    try { return await sb.select('master_summary', 'select=*&order=created_at.desc'); }
-    catch (err) { console.warn('[accounts] master_summary:', err.message); }
+  if (useDb()) {
+    try { return stripAll(await sb.select('master_summary', 'select=*&order=created_at.desc')); }
+    catch (err) { throw readFailed('allMasters', err); }
   }
+  if (!localAllowed()) return [];
   return getLocal().accounts.filter((a) => a.role === 'master').map(strip);
 }
 
 async function masterSelf(masterId) {
-  await ensureSupabase();
-  if (supabaseReady) {
-    try { return await sb.selectOne('master_summary', `select=*&id=eq.${sb.enc(masterId)}`); }
-    catch (err) { console.warn('[accounts] masterSelf:', err.message); }
+  if (useDb()) {
+    try { return strip(await sb.selectOne('master_summary', `select=*&id=eq.${sb.enc(masterId)}`)); }
+    catch (err) { throw readFailed('masterSelf', err); }
   }
+  if (!localAllowed()) return null;
   return strip(getLocal().accounts.find((a) => a.id === masterId) || null);
 }
 
-/** كاشيرية ماستر بعينه. */
 async function masterCashiers(masterId) {
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      return await sb.select('cashier_summary',
-        `select=*&master_id=eq.${sb.enc(masterId)}&order=created_at.desc`);
-    } catch (err) { console.warn('[accounts] masterCashiers:', err.message); }
+      return stripAll(await sb.select('cashier_summary',
+        `select=*&master_id=eq.${sb.enc(masterId)}&order=created_at.desc`));
+    } catch (err) { throw readFailed('masterCashiers', err); }
   }
+  if (!localAllowed()) return [];
   return getLocal().accounts.filter((a) => a.role === 'cashier' && a.master_id === masterId).map(strip);
 }
 
-/** لاعبو كاشيرية ماستر بعينه — يراهم ولا يتصرّف بهم. */
 async function masterPlayers(masterId) {
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
     try {
-      return await sb.select('player_summary',
-        `select=*&master_id=eq.${sb.enc(masterId)}&order=created_at.desc`);
-    } catch (err) { console.warn('[accounts] masterPlayers:', err.message); }
+      return stripAll(await sb.select('player_summary',
+        `select=*&master_id=eq.${sb.enc(masterId)}&order=created_at.desc`));
+    } catch (err) { throw readFailed('masterPlayers', err); }
   }
+  if (!localAllowed()) return [];
   const db = getLocal();
   const mine = new Set(db.accounts.filter((a) => a.role === 'cashier' && a.master_id === masterId).map((a) => a.id));
   return db.accounts.filter((a) => a.role === 'player' && mine.has(a.cashier_id)).map(strip);
@@ -1189,8 +1256,7 @@ async function masterPlayers(masterId) {
 /** الإدارة تعبّئ عهدة ماستر أو تسحب منها. */
 async function adjustMasterFloat({ masterId, amount, topup, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
-  await ensureSupabase();
-  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  if (!useDb()) return { ok: false, error: NO_DB };
   try {
     const out = await sb.rpc('admin_adjust_master', {
       p_master: masterId, p_amount: a.value, p_topup: !!topup, p_note: note || null
@@ -1204,8 +1270,7 @@ async function adjustMasterFloat({ masterId, amount, topup, note }) {
 /** الماستر يعبّئ كاشيره من عهدته هو — الملكية تُفحص في قاعدة البيانات. */
 async function masterAdjustCashier({ masterId, cashierId, amount, topup, note }) {
   const a = checkAmount(amount); if (!a.ok) return a;
-  await ensureSupabase();
-  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  if (!useDb()) return { ok: false, error: NO_DB };
   try {
     const out = await sb.rpc('master_adjust_cashier', {
       p_master: masterId, p_cashier: cashierId,
@@ -1219,8 +1284,7 @@ async function masterAdjustCashier({ masterId, cashierId, amount, topup, note })
 
 /** نقل كاشير إلى ماستر (أو فكّ ارتباطه) — للإدارة وحدها. */
 async function setCashierMaster({ cashierId, masterId }) {
-  await ensureSupabase();
-  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  if (!useDb()) return { ok: false, error: NO_DB };
   try {
     if (masterId) {
       const m = await byId(masterId);
@@ -1234,13 +1298,8 @@ async function setCashierMaster({ cashierId, masterId }) {
   }
 }
 
-/**
- * كشف السلسلة: كل حركة مع أطرافها واتجاهها.
- * `masterId` يضيّقه إلى ماستر وكاشيريته، و`cashierId` إلى كاشير واحد.
- */
 async function chainLedger({ masterId, cashierId, playerId, kinds, limit = 120 } = {}) {
-  await ensureSupabase();
-  if (!supabaseReady) return [];
+  if (!useDb()) return [];
   const parts = ['select=*', 'order=created_at.desc',
                  `limit=${Math.min(Number(limit) || 120, 500)}`];
   if (masterId) parts.push(`master_id=eq.${sb.enc(masterId)}`);
@@ -1249,8 +1308,9 @@ async function chainLedger({ masterId, cashierId, playerId, kinds, limit = 120 }
   if (Array.isArray(kinds) && kinds.length) {
     parts.push(`kind=in.(${kinds.map((k) => sb.enc(k)).join(',')})`);
   }
+  // سجلّ فارغ عند الخطأ كان يوحي للإدارة بأن لا حركة — والحقيقة أننا لم نقرأ
   try { return await sb.select('chain_ledger', parts.join('&')); }
-  catch (err) { console.warn('[accounts] chainLedger:', err.message); return []; }
+  catch (err) { throw readFailed('chainLedger', err); }
 }
 
 /**
@@ -1276,8 +1336,7 @@ async function updateAccount({ accountId, username, email, ownerId, ownerField }
   }
   if (!Object.keys(patch).length) return { ok: true, unchanged: true };
 
-  await ensureSupabase();
-  if (!supabaseReady) return { ok: false, error: 'قاعدة البيانات غير متاحة الآن' };
+  if (!useDb()) return { ok: false, error: NO_DB };
   try {
     await sb.update('accounts', `id=eq.${sb.enc(accountId)}`, patch, { returning: false });
     return { ok: true };
@@ -1292,95 +1351,75 @@ async function updateAccount({ accountId, username, email, ownerId, ownerField }
 /**
  * حذف حساب.
  *
- * ⚠ الحذف ممنوع على أي حساب له حركات مالية أو رصيد أو تابعون. سجلّ المال
- * يجب أن يبقى متّصلاً — محو حساب وسط السلسلة يترك حركات بلا طرف ويُفسد كل
- * تقرير لاحق. البديل الصحيح هو إيقاف التنشيط، وهو يمنع الدخول ويُبقي الأثر.
+ * ⚠ السجلّ المالي لا يُمحى أبداً. كان الحذف يمسح كل حركات الحساب
+ * (transaction_log، transactions، game_rounds، balance_anomalies) ليتخطّى
+ * قيود المفتاح الأجنبي — فكان كاشيرٌ يحذف لاعباً رصيده صفر فتختفي من دفتر
+ * الإدارة كل إيداعاته وسحوباته له، وكان ماسترٌ يحذف كاشيراً عهدته صفر فيمحو
+ * كل ما فعله ذلك الكاشير مع كل لاعبيه. أي أن من هم دون الإدارة كانوا يملكون
+ * زرّاً يمحو آثارهم.
+ *
+ * القاعدة الآن — وهي ما تعد به اللوحات أصلاً: «لا يُحذف إن كان له رصيد أو
+ * تابعون أو حركات مالية — أوقفه بدل ذلك». يُحذف فقط حساب لم يُستعمل (أُنشئ
+ * بالخطأ مثلاً). ويسري على الإدارة أيضاً: مال اللاعب ودفترها أهمّ من زرّ حذف.
  */
-async function deleteAccount({ accountId, ownerId, ownerField, force = false }) {
+async function deleteAccount({ accountId, ownerId, ownerField }) {
   const row = await byId(accountId);
   if (!row) return { ok: false, error: 'الحساب غير موجود' };
-  const targetId = row.id;
+  const id = row.id;
   if (ownerId && row[ownerField] !== ownerId) {
     return { ok: false, error: 'هذا الحساب ليس من حساباتك' };
   }
-  if (!force && row.balance > 0) {
-    return { ok: false, error: `لا يمكن الحذف ورصيده ${row.balance} — اسحبه أولاً` };
+  if (Number(row.balance) > 0) {
+    return {
+      ok: false,
+      error: row.role === 'player'
+        ? `رصيد اللاعب ${row.balance} — اسحبه أولاً، أو أوقف الحساب بدل حذفه`
+        : `عهدته ${row.balance} — أعدها أولاً، أو أوقف الحساب بدل حذفه`
+    };
   }
+  const HISTORY = 'للحساب سجلّ مالي، والسجلّ لا يُمحى — أوقف الحساب بدل حذفه';
+  const DEPENDANTS = row.role === 'master'
+    ? 'له كاشيرية — انقلهم إلى ماستر آخر أو أوقف الحساب'
+    : 'له لاعبون — انقلهم أو أوقف الحساب';
 
-  await ensureSupabase();
-  if (supabaseReady) {
+  if (useDb()) {
+    const e = sb.enc(id);
     try {
-      // 1. فك ارتباط الحسابات التابعة (سواء للاعبين أو كاشيرية)
-      await sb.request(`/rest/v1/accounts?cashier_id=eq.${sb.enc(targetId)}`, {
-        method: 'PATCH',
-        body: { cashier_id: null }
-      }).catch(() => {});
+      const deps = await sb.select('accounts', `select=id&or=(cashier_id.eq.${e},master_id.eq.${e})&limit=1`);
+      if (deps.length) return { ok: false, error: DEPENDANTS };
 
-      await sb.request(`/rest/v1/accounts?master_id=eq.${sb.enc(targetId)}`, {
-        method: 'PATCH',
-        body: { master_id: null }
-      }).catch(() => {});
+      const tx = await sb.select('transaction_log',
+        `select=id&or=(player_id.eq.${e},cashier_id.eq.${e},master_id.eq.${e})&limit=1`);
+      if (tx.length) return { ok: false, error: HISTORY };
+      if (row.role === 'player') {
+        const rounds = await sb.select('game_rounds', `select=id&player_id=eq.${e}&limit=1`);
+        if (rounds.length) return { ok: false, error: HISTORY };
+      }
 
-      await sb.request(`/rest/v1/accounts?created_by=eq.${sb.enc(targetId)}`, {
-        method: 'PATCH',
-        body: { created_by: null }
-      }).catch(() => {});
-
-      // 2. مسح السجلات المرتبطة لتجنب قيود المفتاح الخارجي في PostgreSQL
-      await sb.request(`/rest/v1/transaction_log?cashier_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      await sb.request(`/rest/v1/transaction_log?player_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      await sb.request(`/rest/v1/transactions?cashier_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      await sb.request(`/rest/v1/transactions?player_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      await sb.request(`/rest/v1/game_rounds?player_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      await sb.request(`/rest/v1/game_sessions?player_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      await sb.request(`/rest/v1/balance_anomalies?account_id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
-
-      // 3. حذف الحساب نهائياً من جدول accounts في قاعدة البيانات
-      await sb.request(`/rest/v1/accounts?id=eq.${sb.enc(targetId)}`, {
-        method: 'DELETE'
-      });
+      // لا رصيد ولا تابعون ولا سجلّ: حساب لم يُستعمل. نفكّ ما يشير إليه دون
+      // قيمة مالية (من أنشأه، رموز إقلاع الألعاب) ثم نحذفه.
+      await sb.request(`/rest/v1/accounts?created_by=eq.${e}`, { method: 'PATCH', body: { created_by: null } });
+      await sb.request(`/rest/v1/game_sessions?player_id=eq.${e}`, { method: 'DELETE' }).catch(() => {});
+      await sb.request(`/rest/v1/accounts?id=eq.${e}`, { method: 'DELETE' });
     } catch (err) {
-      console.error('[accounts] خطأ أثناء حذف الحساب من Supabase:', err.message);
-      return { ok: false, error: err.message };
+      // قيد مفتاح أجنبي هنا = سجلّ في جدول لم نفحصه — والجواب نفسه: لا يُحذف
+      if (err.code === '23503') return { ok: false, error: HISTORY };
+      return { ok: false, error: err.message || DB_DOWN };
     }
+    console.log(`[accounts] حُذف حساب غير مستعمل: ${row.username} (${id})`);
+    return { ok: true, id, username: row.username };
   }
 
-  // حذف الحساب من التخزين المحلي إن وجد
-  if (localDb && localDb.accounts) {
-    localDb.accounts = localDb.accounts.filter((a) => a.id !== targetId && a.id !== accountId);
-    for (const a of localDb.accounts) {
-      if (a.cashier_id === targetId || a.cashier_id === accountId) a.cashier_id = null;
-      if (a.master_id === targetId || a.master_id === accountId) a.master_id = null;
-      if (a.created_by === targetId || a.created_by === accountId) a.created_by = null;
-    }
-    if (localDb.transactions) {
-      localDb.transactions = localDb.transactions.filter((tx) => tx.cashier_id !== targetId && tx.player_id !== targetId);
-    }
-    saveLocal();
+  if (!localAllowed()) return { ok: false, error: NO_DB };
+  const db = getLocal();
+  if (db.accounts.some((a) => a.cashier_id === id || a.master_id === id)) return { ok: false, error: DEPENDANTS };
+  if ((db.transactions || []).some((t) => t.player_id === id || t.cashier_id === id || t.master_id === id)) {
+    return { ok: false, error: HISTORY };
   }
-
-  console.log(`[accounts] تم حذف الحساب ${row.username} (${targetId}) نهائياً`);
-  return { ok: true, id: targetId, username: row.username };
+  db.accounts = db.accounts.filter((a) => a.id !== id);
+  for (const a of db.accounts) if (a.created_by === id) a.created_by = null;
+  saveLocal();
+  return { ok: true, id, username: row.username };
 }
 
 module.exports = {
