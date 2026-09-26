@@ -330,3 +330,66 @@
   }
   .stakes { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ══════════ اللمس حسب الجهاز لا حسب العرض ══════════
+   كانت أزرار التحكّم تظهر تحت 760px فقط — فالجهاز اللوحي، والهاتف بالعرض
+   (812px)، يدخلان المعركة بلا أي وسيلة تحكّم: الرهان يُخصم ولا يمكن اللعب. */
+@media (hover: none) and (pointer: coarse) {
+  .touch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 0 4px;
+  }
+}
+
+/* الهاتف بالعرض: لا مكان للأزرار تحت الساحة — تطفو فوق زاويتيها السفليّتين،
+   والساحة تُحدّ بارتفاع الشاشة كي تبقى كاملة أمام العين. */
+@media (orientation: landscape) and (max-height: 540px) {
+  .tank-wrap { padding: 8px; gap: 10px; }
+  .arena-box { position: relative; }
+  /* شريط الحالة صفّاً واحداً مضغوطاً — بصفّين كان يأخذ 130px ويدفع الساحة
+     تحت حافّة الشاشة */
+  .hud { flex-wrap: nowrap; gap: 5px; margin-bottom: 6px; }
+  .hud__cell { flex: 1 1 0; padding: 3px 7px; flex-direction: row; align-items: center; justify-content: space-between; gap: 4px; }
+  .hud__label { font-size: 9.5px; }
+  .hud__val { font-size: 13px; }
+  .armor { height: 14px; gap: 2px; }
+  .armor i { width: 8px; height: 11px; }
+  .arena canvas { width: auto; max-width: 100%; max-height: calc(100vh - 126px); margin: 0 auto; }
+  .touch {
+    position: absolute;
+    inset-inline: 10px;
+    bottom: 10px;
+    margin: 0;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .touch > * { pointer-events: auto; opacity: .78; }
+  .dpad { transform: scale(.82); transform-origin: bottom left; }
+  .fire-btn { width: 78px; height: 78px; }
+}
+
+/* ══════════ ستارة البدء على الهاتف ══════════
+   الساحة على هاتف عرضه 375 ارتفاعها ~262px، وصندوق البدء أطول منها فكان
+   زرّ «ابدأ المعركة» يُقصّ عند حافّتها. */
+@media (max-width: 760px) {
+  /* تمركز بهامش تلقائي لا بالشبكة: إن طال الصندوق عن الساحة يبدأ من أعلاها
+     ويُمرَّر، بدل أن يفيض من الطرفين ويضيع أعلاه بلا تمرير */
+  .curtain { display: flex; flex-direction: column; padding: 8px; overflow-y: auto; }
+  .curtain__box { margin: auto; padding: 12px 12px 10px; }
+  .curtain__badge { display: none; }
+  .curtain__title { font-size: 18px; margin-bottom: 4px; }
+  .curtain__text { font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
+  .curtain__stats { margin-bottom: 8px; gap: 5px; }
+  .curtain__stats span { padding: 3px 9px; font-size: 11px; }
+  .curtain__picked { margin-bottom: 6px; padding: 4px 10px; font-size: 12px; }
+  .curtain__actions { margin-top: 4px; gap: 8px; }
+  .curtain__actions .btn--lg { padding: 10px 16px; font-size: 14px; }
+}
+/* تلميحات لوحة المفاتيح بلا معنى على شاشة لمس */
+@media (hover: none) and (pointer: coarse), (max-width: 760px) {
+  .curtain__hint { display: none; }
+}

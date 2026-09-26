@@ -621,18 +621,67 @@ body.mines-page {
 @media (max-width: 860px) {
   .mines-container {
     grid-template-columns: 1fr;
-    margin: 15px auto;
+    margin: 10px auto;
+    padding: 0 10px;
+    gap: 12px;
   }
   .mines-controls {
     order: 2;
+    padding: 14px;
+    gap: 14px;
   }
   .mines-board-area {
     order: 1;
-    padding: 20px;
+    padding: 14px;
     min-height: auto;
   }
   .mines-grid {
-    max-width: 360px;
+    max-width: min(360px, calc(100vh - 330px));
     gap: 8px;
   }
+  /* زرّ اللعب أوّل ما في لوحة التحكّم — أي تحت اللوحة مباشرة. كان في آخرها،
+     تحت الرهان والإعدادات والإحصاءات، فيخرج عن الشاشة ويلزم التمرير ذهاباً
+     وإياباً بين الزرّ واللوحة في كل جولة. */
+  .mines-main-btn { order: -2; }
+  .mines-btn-random { order: -1; }
+}
+
+/* الهاتف: الشريط العلوي كان أعرض من الشاشة — الشارة تلتفّ أربعة أسطر
+   وتدفع المحفظة والأزرار خارج الحافّة. */
+@media (max-width: 700px) {
+  .mines-navbar { padding: 0 10px; height: 56px; }
+  .mines-navbar__left, .mines-navbar__right { gap: 8px; }
+  .mines-navbar__badge { display: none; }
+  .mines-navbar__brand { font-size: 1rem; gap: 6px; white-space: nowrap; }
+  .mines-icon-btn#fullscreenBtn, .mines-icon-btn#pfBtn { display: none; }
+}
+@media (max-width: 400px) {
+  .mines-navbar__brand span:not(:first-child) { display: none; }
+}
+
+/* ══════════ الهاتف بالعرض (شاشة قصيرة عريضة) ══════════
+   بتخطيط العمود الواحد تأخذ اللوحة عرض الشاشة كلّه فيصير ارتفاعها أضعاف
+   ارتفاع الشاشة (608px على 375 في بلينكو). هنا جنباً إلى جنب: اللوحة
+   بارتفاع الشاشة، والتحكّم في عمود يُمرَّر وحده وزرّ اللعب في أعلاه. */
+@media (orientation: landscape) and (max-height: 540px) {
+  .mines-navbar { height: 48px; }
+  .mines-container {
+    grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+    margin: 8px auto;
+    padding: 0 8px;
+    gap: 10px;
+    align-items: start;
+  }
+  .mines-controls {
+    order: 0;
+    padding: 10px;
+    gap: 10px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+  .mines-main-btn { order: -2; min-height: 52px; padding: 10px; }
+  .mines-btn-random { order: -1; }
+  .mines-board-area { order: 0; padding: 8px; min-height: auto; }
+  .mines-grid { max-width: calc(100vh - 90px); gap: 6px; }
+  .mines-banner { display: none !important; }
 }

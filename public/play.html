@@ -8,9 +8,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/theme.css?v=25">
+<link rel="stylesheet" href="/css/theme.css?v=29">
 <style>
-  .play-wrap { padding: 14px; max-width: 1280px; margin: 0 auto; }
+  /* width: 100% — داخل عمود flex يجعل margin:auto العنصرَ بعرض محتواه فقط،
+     فكان إطار اللعبة 747px من 1044 على الحاسوب و285 من 375 على الهاتف */
+  .play-wrap { width: 100%; padding: 14px; max-width: 1280px; margin: 0 auto; }
 
   .play-bar {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -53,6 +55,13 @@
   @media (max-width: 700px) {
     .frame-box { aspect-ratio: 3 / 4; min-height: 380px; }
   }
+  /* الهاتف بالعرض: الإطار كان 420px على شاشة ارتفاعها 375 فتُقصّ اللعبة.
+     هنا يملأ ما تحت الشريط تماماً. */
+  @media (orientation: landscape) and (max-height: 540px) {
+    .play-wrap { padding: 8px; }
+    .play-bar { padding: 6px 10px; margin-bottom: 8px; }
+    .frame-box { aspect-ratio: auto; min-height: 0; height: calc(100vh - var(--topbar) - 70px); }
+  }
 </style>
 </head>
 <body>
@@ -82,7 +91,7 @@
   </div>
 </div>
 
-<script src="/js/common.js?v=25"></script>
+<script src="/js/common.js?v=29"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);

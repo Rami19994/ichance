@@ -298,6 +298,44 @@
       gap: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.8);
       pointer-events: auto;
+      cursor: pointer;
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    .guest-banner.is-gone { opacity: 0; pointer-events: none; }
+
+    /* تلميح التدوير — لا يظهر إلا على هاتف عمودي */
+    .rotate-hint {
+      display: none;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(98px + env(safe-area-inset-bottom));
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: 14px;
+      background: rgba(18, 14, 33, 0.85);
+      border: 1px solid rgba(157, 54, 246, 0.45);
+      color: #e5d8ff;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 5;
+    }
+    .rotate-hint__icon { font-size: 22px; display: inline-block; animation: la-rotate 2.4s ease-in-out infinite; }
+    @keyframes la-rotate { 0%, 55%, 100% { transform: rotate(0); } 70%, 90% { transform: rotate(-90deg); } }
+
+    /* الهاتف العمودي: الماكينة أفقية التصميم فتأخذ أعلى الشاشة وحده. الشريط
+       ينزل إلى الفراغ تحتها بدل أن يغطّي صفّ البكرات الأعلى، ويظهر تلميح
+       التدوير — بالعرض تملأ الماكينة الشاشة. */
+    @media (max-width: 700px) and (orientation: portrait) {
+      .guest-banner { top: auto; bottom: calc(24px + env(safe-area-inset-bottom)); border-radius: 14px; }
+      .rotate-hint { display: flex; }
+    }
+    /* الهاتف بالعرض: لا فراغ — الشريط صغير في الزاوية ويختفي سريعاً */
+    @media (orientation: landscape) and (max-height: 540px) {
+      .guest-banner { top: 56px; left: auto; right: 10px; transform: none; font-size: 11px; padding: 6px 12px; max-width: 46vw; border-radius: 12px; }
     }
     .guest-banner a {
       color: var(--gold);
@@ -359,8 +397,9 @@
       #slot-machine {
         height: calc(100vh - 48px);
       }
+      /* الموضع يحدّده قسما الهاتف العمودي/الأفقي أعلاه — ضبط top هنا كان
+         يجتمع مع bottom هناك فيتمدّد الشريط بطول الشاشة */
       .guest-banner {
-        top: 56px;
         font-size: 11px;
         padding: 7px 12px;
       }
@@ -396,7 +435,9 @@
   <!-- ─── ماكينة اللعب — ltr لأن تخطيطها الداخلي مبني على اليسار ─── -->
   <div id="slot-machine" dir="ltr"></div>
 
-  <!-- تنبيه حالة اللعب -->
+<div class="rotate-hint" aria-hidden="true"><span class="rotate-hint__icon">📱</span><span>أدِر هاتفك لشاشة أكبر</span></div>
+
+    <!-- تنبيه حالة اللعب -->
   <div id="guestBanner" class="guest-banner"></div>
 
   <!-- حاوية التنبيهات المنبثقة -->
@@ -502,10 +543,22 @@
         return Math.floor(n || 0).toLocaleString('en-US');
       }
 
+      // يُعرض مرّة لكل حالة (حقيقي/تجريبي)، ويختفي بعد ثوانٍ أو بلمسة.
+      // كان يُعاد إظهاره مع كل مزامنة للرصيد (كل 8 ثوانٍ) فوق البكرات.
+      var bannerShown = '';
+      var bannerTimer = null;
       function banner(html) {
+        if (bannerShown === html) return;
+        bannerShown = html;
         bannerEl.innerHTML = html;
+        bannerEl.classList.remove('is-gone');
         bannerEl.style.display = 'flex';
+        clearTimeout(bannerTimer);
+        bannerTimer = setTimeout(function () { bannerEl.classList.add('is-gone'); }, 6000);
       }
+      bannerEl.addEventListener('click', function (e) {
+        if (e.target.tagName !== 'A') bannerEl.classList.add('is-gone');
+      });
 
       function updateStatusBanner() {
         if (token) {

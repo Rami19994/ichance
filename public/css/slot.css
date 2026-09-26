@@ -497,3 +497,74 @@
   .last-win { order: 5; width: 100%; }
   .pay-cell--special { grid-column: span 1; }
 }
+
+/* هاتف قصير (360×640): شريط التلميحات داخل الماكينة يدفع زرّ الدوران
+   تحت الحافّة. شرح الوايلد موجود في جدول الأرباح (📋). */
+@media (max-width: 620px) and (max-height: 700px) {
+  .hint-strip { display: none; }
+}
+
+/* ══════════ الهاتف بالعرض ══════════
+   الخلايا مربّعة، فالبكرات (5×4) ارتفاعها ~80% من عرضها: بعرض 812 كانت
+   ~620px على شاشة 375 وزرّ الدوران تحتها. هنا الماكينة بارتفاع الشاشة،
+   والتحكّم في عمود بجانبها وزرّ الدوران في متناول الإبهام. */
+@media (orientation: landscape) and (max-height: 540px) {
+  .slot-wrap {
+    max-width: none;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 132px;
+    gap: 10px;
+    align-items: start;
+  }
+  .machine {
+    width: min(100%, calc((100vh - 150px) * 1.28));
+    justify-self: center;
+    padding: 6px 6px 8px;
+  }
+  .multi-sign { padding: 2px 0 6px; }
+  /* خطّ السلّم بعرض الشاشة (vw) لا بعرض الماكينة — وهي هنا ضيّقة فيُقصّ */
+  .multi-sign__board { padding: 5px 6px 7px; }
+  .multi-step { font-size: 8.5px; }
+  .multi-step.is-active { font-size: 11px; }
+  .hint-strip { display: none; }
+  .buy-plaque { margin-top: 6px; padding: 6px 10px; }
+  .buy-plaque b { font-size: 14px; }
+  .controls {
+    margin-top: 0;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 10px 8px;
+  }
+  .controls .spin-btn { order: -2; width: 76px; height: 76px; }
+  .controls .bet-box { order: -1; }
+  .controls .last-win { order: 5; width: auto; }
+  .notice-virtual { grid-column: 1 / -1; }
+}
+
+/* ══════════ سطح المكتب والشاشات العريضة ══════════
+   بالتكديس (الماكينة ثم التحكّم) يأتي زرّ الدوران تحت حافّة الشاشة: عند
+   833px على حاسوب 1280×720، وتحتها أيضاً على 1920×1080. جنباً إلى جنب:
+   الماكينة بارتفاع الشاشة والتحكّم في عمود بجانبها. */
+@media (orientation: landscape) and (min-width: 900px) and (min-height: 541px) {
+  .slot-wrap {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px;
+    gap: 14px;
+    align-items: start;
+  }
+  .machine { width: min(100%, calc((100vh - 300px) * 1.25)); justify-self: center; }
+  .controls {
+    margin-top: 0;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 14px 10px;
+  }
+  .controls .spin-btn { order: -2; }
+  .controls .bet-box { order: -1; }
+  .controls .last-win { order: 5; }
+  .notice-virtual { grid-column: 1 / -1; }
+}

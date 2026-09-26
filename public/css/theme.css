@@ -238,6 +238,156 @@ button { font-family: inherit; }
   box-shadow: var(--shadow-gold);
 }
 .logo__text { line-height: 1; }
+
+/* شريط التنقل العلوي وأزرار الشريط — كانت في lobby.css وحدها، فظهرت صفحات
+   الألعاب (كروت الحظ، صيّاد الجوائز، الدبابات) بشريط بلا تنسيق: الروابط
+   تتكدّس عمودياً ويتّسع الشريط أعرض من الشاشة فتنزاح الصفحة كلّها. */
+/* --------------------------- شريط التنقل العلوي --------------------------- */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: 16px;
+}
+
+.topbar-nav__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.topbar-nav__link .t-en {
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #b5c2d8;
+  line-height: 1.1;
+  transition: color 0.2s;
+}
+
+.topbar-nav__link .t-ar {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.topbar-nav__link:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.topbar-nav__link:hover .t-en {
+  color: #fff;
+}
+
+.topbar-nav__link.is-active {
+  background: rgba(247, 201, 72, 0.08);
+}
+
+.topbar-nav__link.is-active .t-en {
+  color: var(--gold-2);
+  text-shadow: 0 0 10px rgba(247, 201, 72, 0.4);
+}
+
+.topbar-nav__link.is-active .t-ar {
+  color: #cbd5e1;
+}
+
+.topbar-nav__link.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--gold-2);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--gold-2);
+}
+
+/* أزرار تسجيل الدخول / إنشاء الحساب للزوار */
+.topbar-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn--outline-gold {
+  background: rgba(247, 201, 72, 0.05);
+  border: 1px solid rgba(247, 201, 72, 0.45);
+  color: var(--gold-1);
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.btn--outline-gold:hover {
+  background: rgba(247, 201, 72, 0.15);
+  border-color: var(--gold-2);
+  box-shadow: 0 0 16px rgba(247, 201, 72, 0.25);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn--neon-green {
+  background: linear-gradient(135deg, #00ff87 0%, #00cf6b 100%);
+  color: #032111;
+  font-weight: 800;
+  border: none;
+  box-shadow: 0 0 18px rgba(0, 255, 135, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn--neon-green:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 24px rgba(0, 255, 135, 0.6);
+  transform: translateY(-1px);
+}
+
+/* زر إيداع المحفظة المباشر */
+.wallet__deposit-btn {
+  background: linear-gradient(135deg, #00ff87 0%, #00cf6b 100%);
+  color: #052614;
+  border: none;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  cursor: pointer;
+  margin-inline-start: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 0 10px rgba(0, 255, 135, 0.3);
+}
+
+.wallet__deposit-btn:hover {
+  filter: brightness(1.1);
+  transform: scale(1.05);
+}
+
+.topbar-logout {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.topbar-logout:hover {
+  background: rgba(255, 91, 115, 0.15);
+  border-color: rgba(255, 91, 115, 0.4);
+  color: #ff5b73;
+}
+
 .logo__text b { display: block; font-size: 17px; letter-spacing: .5px; }
 .logo__text span { font-size: 10px; color: var(--muted); letter-spacing: 2px; }
 
@@ -482,6 +632,15 @@ button { font-family: inherit; }
 /* ==========================================================================
    الاستجابة للشاشات الصغيرة
    ========================================================================== */
+/* قائمة الشريط العلوي تكرّر أقسام الشريط الجانبي، وتحتاج مع المحفظة والأزرار
+   نحو 1040px من عرض المحتوى — أي شاشة 1300px فأوسع (الشريط الجانبي 236px).
+   تحت ذلك كانت تدفع الشريط أعرض من الشاشة فتنزاح الصفحة كلّها أفقياً. */
+@media (max-width: 1299px) {
+  .topbar-nav { display: none; }
+}
+/* شبكة أمان: مهما حوى الشريط، لا يوسّع الصفحة — يُقصّ أفقياً ولا يُمرَّر */
+.topbar { overflow-x: clip; }
+
 @media (max-width: 1000px) {
   /* الموقع بالكامل RTL، فالشريط الجانبي على اليمين ويخرج نحو اليمين عند الإغلاق.
      نستخدم خصائص فيزيائية هنا عمداً: translateX لا يتأثر باتجاه الصفحة،
@@ -502,10 +661,27 @@ button { font-family: inherit; }
 }
 
 @media (max-width: 620px) {
-  .topbar { padding: 0 12px; gap: 8px; }
+  /* شريط أقصر على الهاتف: كل بكسل عمودي يقرّب زرّ اللعب من الإبهام */
+  :root { --topbar: 56px; }
+  .topbar { padding: 0 10px; gap: 6px; }
   .logo__text span { display: none; }
   .wallet__label { display: none; }
+  /* الشريط كان أعرض من الشاشة (~500px على 375) فتنزاح الصفحة كلّها أفقياً.
+     شريحة المعرّف تختفي على الهاتف — المعرّف يُنسخ بلمس الصورة الرمزية،
+     ويظهر في رسالة زرّ الإيداع. ولا عنصر ينضغط حتى يختفي. */
+  .chip-id { display: none !important; }
+  .topbar > * { flex-shrink: 0; }
+  .topbar .wallet { flex-shrink: 1; min-width: 0; }
+  .wallet__deposit-btn { margin-inline-start: 4px; padding: 4px 8px; }
+  .avatar { width: 32px; height: 32px; font-size: 12px; }
+  .topbar-logout { width: 32px; height: 32px; }
+  .topbar-auth { gap: 6px; }
+  .topbar-auth .btn { padding: 7px 10px; font-size: 12px; }
   .btn { padding: 9px 14px; font-size: 13px; }
   .toasts { inset-inline: 12px; bottom: 12px; }
   .toast { max-width: none; }
+}
+
+@media (max-width: 420px) {
+  .logo__text { display: none; }
 }

@@ -8,6 +8,7 @@
   display: grid;
   place-items: center;
   padding: 24px 16px;
+  overflow-x: clip;
   background:
     radial-gradient(120% 90% at 50% 0%, rgba(247, 201, 72, .07) 0%, transparent 60%),
     var(--bg);
@@ -70,3 +71,19 @@
   line-height: 1.85;
 }
 .auth__note a { color: var(--gold-2); }
+
+/* الهاتف بالعرض (ارتفاع ~375px): زرّ الدخول كان تحت الحافّة.
+   الشعار في سطر العنوان والمسافات أصغر، فيظهر النموذج كاملاً.
+   (.auth قبل كل محدِّد ليتقدّم على أنماط الصفحة المضمّنة.) */
+@media (orientation: landscape) and (max-height: 540px) {
+  .auth { padding: 10px 16px; place-items: start center; }
+  .auth .auth__box { padding: 14px 20px 12px; }
+  .auth .auth__logo { width: 34px; height: 34px; font-size: 14px; border-radius: 10px; margin: 0 auto 6px; }
+  .auth .auth__badge { margin-bottom: 4px; padding: 2px 10px; font-size: 11px; }
+  .auth .auth__box h1, .auth .auth__title { margin-bottom: 2px; font-size: 18px; }
+  .auth .auth__box > p, .auth .auth__desc { display: none; }
+  .auth .field { margin-bottom: 8px; }
+  .auth .field label { margin-bottom: 3px; }
+  .auth .field input { padding: 8px 12px; }
+  .auth .auth__error { margin-top: 8px; }
+}

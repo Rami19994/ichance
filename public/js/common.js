@@ -286,8 +286,10 @@ function mountShell(activeId) {
   if (depositBtn) {
     depositBtn.addEventListener('click', () => {
       const modal = document.getElementById('depositModal');
-      if (modal) modal.hidden = false;
-      else toast('يرجى التواصل مع خدمة العملاء لشحن الرصيد', 'info');
+      if (modal) { modal.hidden = false; return; }
+      // الشحن عبر الكاشير: يحتاج معرّف اللاعب — وعلى الهاتف لا شريحة معرّف ظاهرة
+      const id = Session.player && Session.player.id;
+      toast(id ? `للشحن تواصل مع الكاشير وأعطه معرّفك: ${id}` : 'يرجى التواصل مع خدمة العملاء لشحن الرصيد', 'info', 6000);
     });
   }
 

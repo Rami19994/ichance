@@ -176,3 +176,20 @@ canvas#plinkoCanvas {
   font-size: 0.85rem;
   font-weight: 800;
 }
+
+/* ═══════════ الهاتف ═══════════
+   اللوحة كانت بارتفاع ثابت 560px والكانفاس داخلها 230px فقط — مساحة فارغة
+   تدفع زرّ الإسقاط خارج الشاشة. هنا ترتفع بقدر محتواها ويتّسع الكانفاس. */
+@media (max-width: 860px) {
+  .plinko-board-area { min-height: auto; padding: 10px 8px 12px; border-radius: 16px; }
+  .plinko-history-bar { height: 30px; }
+  canvas#plinkoCanvas { border-radius: 10px; }
+  .plinko-quick-chips { gap: 5px; }
+  .plinko-chip { min-width: 0; padding: 7px 2px; }
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .plinko-board-area { padding: 6px; }
+  .plinko-history-bar { height: 26px; }
+  canvas#plinkoCanvas { width: auto; max-width: 100%; max-height: calc(100vh - 108px); margin: 0 auto; }
+}
