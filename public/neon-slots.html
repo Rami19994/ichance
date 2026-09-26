@@ -670,41 +670,86 @@
         }
         game.updateUIText();
 
-        // ترقية محرك البكرات بدروع أمان وحراسة لضمان عدم توقف أي بكرة في حالة دوران لا نهائي
+        // ─── إيقاف البكرات ───
+        // المحرّك لا يوقف البكرة إلا حين يمرّ الهدف أمامها وهي تدور، رمزاً كل
+        // 80ms. أشرطتنا 65–68 رمزاً (ضبط نسبة الربح)، فقد تحتاج البكرة 5 ثوانٍ
+        // لتبلغ هدفها. الحارس القديم كان يقطعها بعد 2.2 ثانية ويصفّر سرعتها
+        // تاركاً إطار الحركة المموّه (speed_frame) — فتُعلَن النتيجة وعمود ما
+        // يزال يبدو دائراً، وفي كل جولة عمود مختلف.
+        // الحل كما في ماكينات السلوتس: لحظة طلب التوقّف والبكرة بأقصى سرعتها
+        // (الرموز مموّهة فلا يُرى القفز) يوضع الهدف على بُعد STOP_LEAD رموز،
+        // فتتباطأ وتقف عليه بحركتها الطبيعية في أقل من ثانية، أيّاً كان طول الشريط.
+        var STOP_LEAD = 3;
+        var REEL_WATCHDOG_MS = 3000;
+
+        // حالة البكرة الواقفة كما يتركها المحرّك نفسه — ومنها speed_frame=0،
+        // وإلا بقيت ترسم الإطار المموّه وهي واقفة. تُرجع: هل كانت تتحرّك؟
+        function settleReel(r, target) {
+          var wasMoving = r.speed > 0 || r.is_spin || r.is_stopping || r.is_spinning;
+          if (typeof target === 'number') r.position = target;
+          r.speed = 0;
+          r.speed_frame = 0;
+          r.delta = 0;
+          r.delta_stop = 0;
+          r.is_spin = false;
+          r.is_stopping = false;
+          r.is_spinning = false;
+          return wasMoving;
+        }
+
         if (game.reels) {
           game.reels.forEach(function(reel, rIdx) {
-            var origStop = reel.stopSpin.bind(reel);
+            var origStop = reel.stopSpin;
             reel.stopSpin = function(rawTarget) {
-              var stripLen = (this.ids && this.ids.length) ? this.ids.length : 20;
-              var safeTarget = Math.abs(Math.floor(Number(rawTarget) || 0)) % stripLen;
-              origStop(safeTarget);
+              var len = (reel.ids && reel.ids.length) ? reel.ids.length : 1;
+              var target = ((Math.floor(Number(rawTarget) || 0) % len) + len) % len;
 
-              // حارس أمان فوري خاص بكل بكرة: إذا لم تتوقف خلال ثانيتين يتم تثبيتها فوراً على موضعها الصحيح
-              var r = this;
-              if (r.__watchdogTimer) clearTimeout(r.__watchdogTimer);
-              r.__watchdogTimer = setTimeout(function() {
-                if (r.speed > 0 || r.is_spin || r.is_stopping) {
-                  console.warn('[NeonSlots] Watchdog force-settled reel ' + rIdx + ' to stop ' + safeTarget);
-                  r.speed = 0;
-                  r.is_spin = false;
-                  r.is_stopping = false;
-                  r.is_spinning = false;
-                  r.delta = 0;
-                  r.position = safeTarget;
-                  if (typeof r.onstopped === 'function') {
-                    r.onstopped(r);
-                  }
+              // المحرّك يبدأ التباطؤ حين position - delta_pos_stop == الهدف، ثم
+              // يقطع delta_pos_stop رموزاً أخرى فيقف على position == الهدف.
+              if (reel.is_spin && !reel.is_stopping) {
+                reel.position = reel.getReelPosition(target + reel.delta_pos_stop + STOP_LEAD);
+              }
+              origStop(target);
+
+              // احتياط فقط — حين لا يُرسم شيء (تبويب في الخلفية): تثبيت نظيف على الهدف
+              clearTimeout(reel.__watchdogTimer);
+              reel.__watchdogTimer = setTimeout(function() {
+                if (settleReel(reel, target)) {
+                  console.warn('[NeonSlots] Watchdog settled reel ' + rIdx + ' at ' + target);
+                  if (typeof reel.onstopped === 'function') reel.onstopped(reel);
                 }
-              }, 2200);
+              }, REEL_WATCHDOG_MS);
             };
 
-            var origStart = reel.startSpin.bind(reel);
+            var origStart = reel.startSpin;
             reel.startSpin = function() {
-              if (this.__watchdogTimer) clearTimeout(this.__watchdogTimer);
+              clearTimeout(reel.__watchdogTimer);
               origStart();
             };
           });
         }
+
+        // ما يُعرض بعد أن تقف كل البكرات فعلاً (لا بعد مهلة تخمينية)
+        var afterResult = null;
+        var origShowResult = game.gameshowresult;
+        game.gameshowresult = function() {
+          origShowResult.apply(game, arguments);
+          var fn = afterResult;
+          afterResult = null;
+          // يُستدعى من داخل حلقة الرسم — خطأ هنا لا يجوز أن يوقفها
+          if (fn) { try { fn(); } catch (e) { console.error('[NeonSlots]', e); } }
+        };
+
+        // نتيجة بلا ربح تعرض رسالة بدل نتيجة الجولة السابقة
+        function errorResult(text) {
+          return {
+            error: text,
+            win: 0,
+            gameable: { scatters_count: 0, lines_win: 0, win_lines: {}, win_lines_ttl: {}, win_scatters: [[], [], [], [], []] },
+            account: { balance: currentBalance }
+          };
+        }
+        var spinSafetyTimer = null;
 
         // ربط حدث اكتمال تسارع البكرة الأخيرة بطلب النتيجة من الخادم
         if (game.reels && game.reels[4]) {
@@ -739,22 +784,22 @@
 
           isSpinActive = true;
 
-          // حارس أمان عام: فتح زر الدوران وإيقاف البكرات إذا تأخر الاتصال أكثر من 6 ثوانٍ
-          var spinSafetyTimer = setTimeout(function() {
-            if (isSpinActive) {
-              console.warn('[NeonSlots] Global spin timeout watchdog triggered');
-              isSpinActive = false;
-              if (game.reels) {
-                game.reels.forEach(function(r) {
-                  r.speed = 0;
-                  r.is_spin = false;
-                  r.is_stopping = false;
-                  r.is_spinning = false;
-                  r.delta = 0;
-                  if (typeof r.onstopped === 'function') r.onstopped(r);
-                });
-              }
-            }
+          // حارس عام: لم يصل طلب النتيجة أصلاً (البكرات لم تبلغ سرعتها لأن
+          // التبويب في الخلفية). يُلغى حين تصل النتيجة — كان لا يُلغى أبداً،
+          // فيضرب الجولة التالية إن بدأت خلال 6 ثوانٍ ويوقفها في منتصفها.
+          clearTimeout(spinSafetyTimer);
+          spinSafetyTimer = setTimeout(function() {
+            spinSafetyTimer = null;
+            if (!isSpinActive) return;
+            console.warn('[NeonSlots] Global spin timeout watchdog triggered');
+            isSpinActive = false;
+            pendingSpinPromise = null;
+            game.game_result = errorResult('تعذّر إكمال الدورة — تم تحديث رصيدك');
+            var moving = (game.reels || []).filter(function(r) { return settleReel(r); });
+            moving.forEach(function(r) {
+              if (typeof r.onstopped === 'function') r.onstopped(r);
+            });
+            syncWallet();
           }, 6000);
 
           // 3. خصم الرهان فوراً من رصيد اللاعب وتحديث الشريط العلوي
@@ -804,6 +849,7 @@
               var len = (r.ids && r.ids.length) ? r.ids.length : 20;
               return Math.floor(Math.random() * len);
             });
+            game.game_result = errorResult('');
             for (var i = 0; i < 5; i++) {
               (function(idx) {
                 setTimeout(function() {
@@ -821,6 +867,8 @@
             result = null;
           }
           pendingSpinPromise = null;
+          clearTimeout(spinSafetyTimer);
+          spinSafetyTimer = null;
 
           if (!result || !result.ok) {
             toast(result && result.error ? result.error : 'فشل تنفيذ الدورة، تم إرجاع الرهان', 'error');
@@ -832,6 +880,8 @@
             game.balance = currentBalance;
             game.updateUIText();
             balEl.textContent = fmt(currentBalance);
+            // بلا هذا تعرض الماكينة نتيجة الجولة السابقة وخطوط ربحها
+            game.game_result = errorResult('لم تُحتسب الدورة');
             for (var r = 0; r < 5; r++) {
               if (game.reels && game.reels[r]) game.reels[r].stopSpin(0);
             }
@@ -854,9 +904,12 @@
           game.game_result = {
             gameable: {
               reel_positions: stops.join(','),
-              scatters_count: result.scatterCount || 0,
+              // المحرّك يعرض «N scatters — Win X» متى كان العدد > 0؛ والخادم يرسل
+              // العدد الخام، فظهر «2 scatters Win 0». يُحسب فقط حين تربح.
+              scatters_count: (result.scatterWin > 0) ? (result.scatterCount || 0) : 0,
               win_scatters_ttl: result.scatterWin || 0,
-              win_scatters: (result.gameable && result.gameable.win_scatters) ? result.gameable.win_scatters : [[],[],[],[],[]],
+              // والخادم يرسل مواضعها دائماً، فكانت تومض كأنها ربحت
+              win_scatters: (result.scatterWin > 0 && result.gameable && result.gameable.win_scatters) ? result.gameable.win_scatters : [[],[],[],[],[]],
               lines_win: result.linesWinCount || 0,
               win_lines_ttl: result.winningLines || {},
               win_lines: (result.gameable && result.gameable.win_lines) ? result.gameable.win_lines : {}
@@ -867,29 +920,32 @@
             }
           };
 
-          // إيقاف البكرات تدريجياً وبسلاسة تامة بالترتيب
+          // يُنفَّذ حين تقف البكرة الأخيرة فعلاً وتُعرض النتيجة
+          afterResult = function() {
+            game.balance = currentBalance;
+            game.updateUIText();
+            balEl.textContent = fmt(currentBalance);
+            // (كان يقسم على totalBet، وهو متغيّر محلي في دالة الزر لا يُرى هنا —
+            // فيرمي خطأً عند كل ربح ولا تظهر رسالة الفوز)
+            var spinBet = Number(result.bet) || Number(game.bet) || 200;
+            if (result.win > 0) {
+              var mult = result.win / spinBet;
+              if (mult >= 5) {
+                toast('ضربة حظ أسطورية! 🔥 هل تجرؤ على زيادة الرهان؟', 'success');
+              } else {
+                toast('فوز رائع! استمر في الدوران 🎰', 'success');
+              }
+            }
+          };
+
+          // إيقاف البكرات بالترتيب؛ كل واحدة تقف على موضعها خلال أقل من ثانية
           for (var rIdx = 0; rIdx < 5; rIdx++) {
             (function(idx) {
               setTimeout(function() {
                 if (game.reels && game.reels[idx]) {
                   game.reels[idx].stopSpin(stops[idx]);
                 }
-                if (idx === 4) {
-                  isSpinActive = false;
-                  setTimeout(function() {
-                    game.balance = currentBalance;
-                    game.updateUIText();
-                    balEl.textContent = fmt(currentBalance);
-                    if (result.win > 0) {
-                      var mult = result.win / totalBet;
-                      if (mult >= 5) {
-                        toast('ضربة حظ أسطورية! 🔥 هل تجرؤ على زيادة الرهان؟', 'success');
-                      } else {
-                        toast('فوز رائع! استمر في الدوران 🎰', 'success');
-                      }
-                    }
-                  }, 800);
-                }
+                if (idx === 4) isSpinActive = false;
               }, idx * 220);
             })(rIdx);
           }
