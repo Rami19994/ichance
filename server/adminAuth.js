@@ -28,6 +28,7 @@ const PLAIN_FILE = path.join(WRITE_DATA_DIR, 'admin-key.txt');
 const CLAIM_WINDOW_MS = Number(process.env.ICHANCE_CLAIM_WINDOW_MIN || 120) * 60_000;
 const MIN_KEY_LENGTH = 8;
 const ENV_KEY = (process.env.ICHANCE_ADMIN_KEY || '').trim();
+const BOOT_AT = Date.now();
 
 let state = null; // { claimed: boolean, createdAt: number, keys: Array<{id, name, salt, hash, createdAt, lastUsedAt}> }
 let saveError = null;
@@ -343,7 +344,35 @@ async function rotate(newKey, { name = 'جهاز أدمن' } = {}) {
   return { ok: true, key: res.key, id: res.id, generated: !newKey };
 }
 
+/**
+ * أول مفتاح إدارة من المتصفح — بلا مصادقة بالضرورة، فشرطه صارم:
+ * لا مفتاح بيئة، ولا أي مفتاح مخزّن **مؤكَّد الغياب**، وضمن نافذة الإقلاع.
+ *
+ * ⚠ كانت هذه الدالّة تنادي addKey مباشرة دون أي شرط (claimOpen لم يُستدعَ
+ * قطّ)، فكان أي زائر يرسل POST /api/admin/claim بمفتاح من اختياره فيصير
+ * أدمن كامل الصلاحيات. حين تكون القاعدة مربوطة يجب أن تنجح قراءتها
+ * ويثبت أن لا مفاتيح: نسخة باردة فشلت قراءتها لا تعرف إن كانت هناك مفاتيح.
+ */
 async function claim(key, { name = 'الأدمن الرئيسي' } = {}) {
+  const closed = { ok: false, error: 'مفتاح الإدارة مضبوط مسبقاً — ادخل من البوابة السرية' };
+  if (ENV_KEY) return closed;
+  if (sb.configured()) {
+    let row;
+    try {
+      row = await sb.selectOne('site_secrets', `select=value&key=eq.${sb.enc(DB_SECRET_KEY)}`);
+    } catch {
+      return { ok: false, error: 'تعذّر التحقّق من حالة مفاتيح الإدارة — حاول لاحقاً' };
+    }
+    if (row && row.value) {
+      const parsed = normalizeState(typeof row.value === 'string' ? JSON.parse(row.value) : row.value);
+      if (parsed && Array.isArray(parsed.keys) && parsed.keys.length > 0) return closed;
+    }
+    // قاعدة بلا أي مفتاح (تثبيت جديد): ضمن نافذة من إقلاع الخادم فقط
+    if (Date.now() - BOOT_AT >= CLAIM_WINDOW_MS) return closed;
+    return addKey(key, { name });
+  }
+  await refreshState();
+  if (!claimOpen()) return closed;
   return addKey(key, { name });
 }
 
@@ -359,7 +388,7 @@ async function publicStatus() {
   return {
     source: hasKeys ? 'db' : (ENV_KEY ? 'env' : 'file'),
     ownKeyChosen: hasKeys || !!ENV_KEY,
-    keysCount: hasKeys ? state.keys.length : 0,
+    // عدد المفاتيح لا يُكشف هنا (مسار عام بلا مصادقة) — تعرضه /api/admin/keys للأدمن
     canSetFromBrowser: !hasKeys && !ENV_KEY,
     canRotate: true,
     storageWritable: !saveError

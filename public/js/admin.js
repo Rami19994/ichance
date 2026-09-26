@@ -232,7 +232,7 @@ let ADMIN_KEYS = [];
 
 function paintKeySection(status) {
   if (!status) return;
-  el('keySource').textContent = `المفاتيح النشطة: ${status.keysCount || 1} مفتاح (يدعم تعدد الأجهزة)`;
+  el('keySource').textContent = 'مفاتيح الإدارة محفوظة في قاعدة البيانات (يدعم تعدد الأجهزة)';
 }
 
 async function loadAdminKeys() {
