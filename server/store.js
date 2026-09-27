@@ -792,6 +792,8 @@ let legacyQueued = false;
 let legacyArchived = false;
 
 let casBroken = false;
+/** updated_at لما في القاعدة حين تساوت مع syncBase — الكتابة السريعة تشترطه. */
+let syncTag = null;
 
 /** نداءات store_data تمرّ واحداً بعد الآخر داخل النسخة. */
 let dbChain = Promise.resolve();
@@ -834,28 +836,29 @@ function nextStamp(prevTag) {
   return new Date(Math.max(Date.now(), (Number.isFinite(prev) ? prev : 0) + 1)).toISOString();
 }
 
+/** يكتب الصفّ «قارن ثم بدّل». يرجّع الوسم الجديد كما خزّنته القاعدة، أو null إن سبقتنا نسخة. */
 async function writeStoreRow(row, value) {
   const raw = JSON.stringify(value);
   if (!row) {
     try {
-      await supabase.request('/rest/v1/site_secrets', {
+      const rows = await supabase.request('/rest/v1/site_secrets?select=updated_at', {
         method: 'POST',
         body: [{ key: STORE_KEY, value: raw, updated_at: nextStamp(null) }],
-        prefer: 'return=minimal'
+        prefer: 'return=representation'
       });
-      return true;
+      return (Array.isArray(rows) && rows[0] && rows[0].updated_at) || 'inserted';
     } catch (err) {
-      if (err && (err.code === '23505' || err.status === 409)) return false;   // سبقتنا نسخة
+      if (err && (err.code === '23505' || err.status === 409)) return null;   // سبقتنا نسخة
       throw err;
     }
   }
   const cond = casBroken ? '' : `&updated_at=eq.${supabase.enc(row.tag)}`;
-  const rows = await supabase.request(`/rest/v1/site_secrets?key=eq.${STORE_KEY}${cond}&select=key`, {
+  const rows = await supabase.request(`/rest/v1/site_secrets?key=eq.${STORE_KEY}${cond}&select=key,updated_at`, {
     method: 'PATCH',
     body: { value: raw, updated_at: nextStamp(row.tag) },
     prefer: 'return=representation'
   });
-  return Array.isArray(rows) && rows.length === 1;
+  return Array.isArray(rows) && rows.length === 1 ? (rows[0].updated_at || 'updated') : null;
 }
 
 async function syncWithDb({ force = false } = {}) {
@@ -871,6 +874,7 @@ async function syncWithDb({ force = false } = {}) {
       // القاعدة + ما في ذاكرتنا ولم يُكتب بعد؛ ثم القاعدة هي الأساس الجديد
       applyPayload(merge3(db, payloadForSave(), syncBase || {}));
       syncBase = clone(db);
+      syncTag = row ? row.tag : null;
       lastDbSync = Date.now();
       dbInitialSyncDone = true;
       return true;
@@ -893,12 +897,43 @@ function saveToDb() {
 }
 
 async function saveOnce() {
-  const roundsOk = await roundArchive.flush();
-  if (roundsOk && legacyQueued && !legacyArchived) {
-    legacyArchived = true;
-    changeSeq += 1;
+  // الجولات الدائمة تُكتب بالتوازي مع الدفتر — لا ينتظر أحدهما الآخر
+  const roundsP = roundArchive.flush().then((ok) => {
+    if (ok && legacyQueued && !legacyArchived) { legacyArchived = true; changeSeq += 1; }
+    return ok;
+  });
+  if (changeSeq === savedSeq) return roundsP;
+  const statsOk = await saveStats();
+  const roundsOk = await roundsP;
+  return statsOk && roundsOk;
+}
+
+/**
+ * الدفتر وإحصاءات اللاعبين. المسار السريع: إن كانت القاعدة ما تزال على الوسم
+ * الذي نعرفه فالدمج = ما في ذاكرتنا فوق ما نعرفه، ونكتب مرّة واحدة بشرط
+ * الوسم. إن كتبت نسخة أخرى في الأثناء يفشل الشرط فنقرأ وندمج (المسار العادي).
+ */
+async function saveStats() {
+  if (syncTag && syncBase && !casBroken) {
+    try {
+      const seq = changeSeq;
+      const local = payloadForSave();
+      const merged = merge3(syncBase, local, syncBase);
+      merged.savedAt = Date.now();
+      const tag = await writeStoreRow({ tag: syncTag }, merged);
+      if (tag) {
+        applyPayload(merge3(merged, payloadForSave(), local));
+        syncBase = merged;
+        syncTag = tag;
+        savedSeq = seq;
+        lastDbSync = Date.now();
+        dbInitialSyncDone = true;
+        return true;
+      }
+    } catch (err) {
+      console.warn('[store] الكتابة السريعة تعذّرت — نقرأ ثم نكتب:', err.message);
+    }
   }
-  if (changeSeq === savedSeq) return roundsOk;
 
   try {
     let failedTag = null;
@@ -916,17 +951,19 @@ async function saveOnce() {
       const local = payloadForSave();
       const merged = merge3(db, local, syncBase || {});
       merged.savedAt = Date.now();
-      if (!(await writeStoreRow(row, merged))) {
+      const tag = await writeStoreRow(row, merged);
+      if (!tag) {
         failedTag = row ? row.tag : null;
         continue;
       }
       // ما أُضيف إلى الذاكرة أثناء انتظار الكتابة يبقى فوق ما كُتب
       applyPayload(merge3(merged, payloadForSave(), local));
       syncBase = merged;
+      syncTag = casBroken ? null : tag;
       savedSeq = seq;
       lastDbSync = Date.now();
       dbInitialSyncDone = true;
-      return roundsOk;
+      return true;
     }
     console.warn('[store] تزاحم متواصل على store_data — يُعاد في الحفظ التالي');
     return false;
@@ -971,7 +1008,7 @@ async function flushLocal() {
 async function flush() {
   dirty = false;
   if (supabase.configured()) {
-    await Promise.allSettled([flushLocal(), saveToDb()]);
+    await Promise.allSettled(process.env.VERCEL ? [saveToDb()] : [flushLocal(), saveToDb()]);
     return;
   }
   // بلا قاعدة: الملف هو المخزن، والجولات تُلحق بـ rounds.jsonl
@@ -1385,5 +1422,7 @@ module.exports = {
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
   recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, recordBuffaloWays, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, roundHistory, allPlayers, playerCount: () => players.size,
-  syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty || hasUnsaved()
+  syncWithDb, saveToDb, ensureDbLoaded,
+  /** يوقف الحفظ الدوري (للاختبارات: نسخ متعدّدة في عملية واحدة). */
+  _stopTimer: () => clearInterval(flushTimer), isDirty: () => dirty || hasUnsaved()
 };

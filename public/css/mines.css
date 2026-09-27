@@ -36,8 +36,7 @@ body.mines-page {
 /* ═══════════ شريط علوي أنيق ═══════════ */
 .mines-navbar {
   height: 64px;
-  background: rgba(15, 25, 35, 0.85);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 25, 35, 0.94);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
@@ -493,13 +492,12 @@ body.mines-page {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) scale(0.9);
-  background: rgba(15, 25, 35, 0.92);
+  background: rgba(15, 25, 35, 0.96);
   border: 2px solid #f5c542;
   border-radius: 20px;
   padding: 24px 36px;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px var(--mines-gold-glow);
-  backdrop-filter: blur(10px);
   z-index: 50;
   opacity: 0;
   pointer-events: none;
@@ -551,8 +549,7 @@ body.mines-page {
 .pf-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;

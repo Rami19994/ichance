@@ -247,6 +247,9 @@ async function playSpin(player, { bet, lineCount = 20 }) {
       finalWinningLines[k] = Math.round(v * rtpScale);
     }
     finalScatterWin = Math.round(scatterWin * rtpScale);
+    // لا ربح أقل من الرهان (طلب المالك): أدنى ربح في الجدول = الرهان كاملاً،
+    // فلا يُنزله معامل عائد أقل من 96% تحته
+    if (finalTotalWin > 0 && finalTotalWin < totalBet) finalTotalWin = totalBet;
   }
 
   // إضافة الربح إلى الرصيد

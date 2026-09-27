@@ -400,7 +400,7 @@ function renderKpis(d) {
 // الدبابات لعبة مهارة: عائدها مقيس لا مضمون (~80%، انظر جدولها).
 const GAME_META = {
   cards: { name: 'كروت الحظ', emoji: '🎴', rtp: 96.0 },
-  slots: { name: 'صيّاد الجوائز', emoji: '🤠', rtp: 96.2 },
+  slots: { name: 'صيّاد الجوائز', emoji: '🤠', rtp: 95.9 },
   tank:  { name: 'معركة الدبابات', emoji: '🛡️', rtp: 80.0 },
   'neon-slots': { name: 'نيون فيغاس', emoji: '🎰', rtp: 96.01 },
   mines: { name: 'مناجم الحظ', emoji: '💣', rtp: 97.0 },

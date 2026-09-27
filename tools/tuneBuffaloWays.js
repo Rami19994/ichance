@@ -23,15 +23,17 @@ function mulberry32(seed) {
   };
 }
 
-function run(n, buy, seed) {
+function run(n, buy, seed, raw = null) {
   const rng = mulberry32(seed);
   let total = 0, baseOnly = 0, fsWin = 0, triggers = 0, capped = 0, hits = 0;
-  let sumSq = 0, fsSpins = 0, maxX = 0, big = 0, cascades = 0, maxCascade = 0;
+  let sumSq = 0, fsSpins = 0, maxX = 0, big = 0, cascades = 0, maxCascade = 0, subBet = 0;
   for (let i = 0; i < n; i++) {
     const r = H.playRound({ buy, rng });
     total += r.total;
     sumSq += r.total * r.total;
     baseOnly += r.base.win;
+    if (raw) raw[i] = r.base.win - (r.base.floor || 0);
+    if (!buy && r.base.win > 0 && r.base.win < H.MIN_SPIN_WIN_X - 1e-9) subBet++;
     if (r.total > 0) hits++;
     if (r.total > maxX) maxX = r.total;
     if (r.total >= 100) big++;
@@ -52,7 +54,7 @@ function run(n, buy, seed) {
     baseRtp: baseOnly / n / cost, fsRtp: fsWin / n / cost,
     trigger: triggers / n, fsAvg: triggers ? fsWin / triggers : 0, fsSpinsAvg: triggers ? fsSpins / triggers : 0,
     hit: hits / n, maxX, big: big / n, capped: capped / n,
-    cascadesAvg: cascades / n, maxCascade
+    cascadesAvg: cascades / n, maxCascade, subBet
   };
 }
 
@@ -75,6 +77,19 @@ if (require.main === module) {
   // المجانية × قيمتها من جولات الشراء (عدد جلسات أكبر بكثير)
   const fsValue = s.rtp * H.BUY_COST_X - s.baseRtp * H.BUY_COST_X;
   console.log(`تقدير مُفكّك: ${pct(b.baseRtp + b.trigger * fsValue)} = ${pct(b.baseRtp)} + (1/${Math.round(1 / b.trigger)}) × ${fsValue.toFixed(1)}×`);
+  console.log(`لفات رابحة بأقل من الرهان: ${b.subBet} (يجب 0)`);
+  if (process.argv.includes('--calibrate')) {
+    // العائد عند كل معامل: الحدّ الأدنى ثابت (رهان) والباقي يتناسب مع المعامل
+    const raw = new Float64Array(N);
+    const c = run(N, false, 54321, raw);
+    const rows = [];
+    for (let k = 0.6; k <= 1.301; k += 0.05) {
+      let sum = 0;
+      for (let i = 0; i < N; i++) if (raw[i] > 0) sum += Math.max(k * raw[i], H.MIN_SPIN_WIN_X);
+      rows.push([Number(k.toFixed(2)), Number(((sum / N + c.trigger * k * fsValue) * 100).toFixed(1))]);
+    }
+    console.log('BASE_CALIBRATION = ' + JSON.stringify(rows));
+  }
   console.log(`(${((Date.now() - t0) / 1000).toFixed(1)} ث)`);
 }
 

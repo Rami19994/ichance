@@ -203,8 +203,7 @@ button { font-family: inherit; }
 .topbar {
   height: var(--topbar);
   flex: 0 0 var(--topbar);
-  background: rgba(10, 13, 20, .88);
-  backdrop-filter: blur(14px);
+  background: rgba(10, 13, 20, .95);
   border-bottom: 1px solid var(--line-soft);
   display: flex;
   align-items: center;
@@ -510,15 +509,22 @@ button { font-family: inherit; }
 .tag--bot  { background: rgba(63, 169, 255, .14); color: var(--blue); }
 
 .live-dot {
+  position: relative;
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--green);
   display: inline-block;
   margin-inline-end: 5px;
-  animation: pulse 1.6s infinite;
+}
+/* حلقة تتّسع وتخبو بالتحجيم والشفافية (على بطاقة الرسوميات) — كان ظلّاً
+   متحرّكاً يعيد رسم الصفحة في كل إطار لكل نقطة «مباشر» */
+.live-dot::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(41, 217, 140, .55);
+  animation: pulse 1.6s ease-out infinite;
 }
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(41, 217, 140, .55); }
-  70% { opacity: .75; box-shadow: 0 0 0 6px rgba(41, 217, 140, 0); }
+  0% { transform: scale(1); opacity: .9; }
+  70%, 100% { transform: scale(2.7); opacity: 0; }
 }
 
 /* ------------------------------ التنبيهات ------------------------------ */
@@ -554,8 +560,7 @@ button { font-family: inherit; }
 /* ------------------------------ نافذة منبثقة ------------------------------ */
 .modal-backdrop {
   position: fixed; inset: 0;
-  background: rgba(4, 6, 11, .78);
-  backdrop-filter: blur(6px);
+  background: rgba(4, 6, 11, .86);
   display: grid; place-items: center;
   z-index: 120;
   padding: 20px;

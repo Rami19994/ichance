@@ -99,13 +99,18 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
 .bw-scene {
   position: absolute; inset: 0; z-index: -1;
   background: url('/games/buffalo-ways/assets/bg.webp') center 30% / cover no-repeat, #6b3a18;
-  transition: filter 1.2s ease;
+}
+.bw-scene::before {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(140, 40, 0, .28), rgba(70, 10, 0, .42));
+  opacity: 0;
+  transition: opacity 1s ease;
 }
 .bw-scene::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(40, 18, 6, .1) 0%, rgba(40, 18, 6, 0) 40%, rgba(30, 12, 4, .35) 100%);
 }
-.bw-game.is-fs .bw-scene { filter: hue-rotate(-12deg) saturate(1.35) brightness(.8); }
+.bw-game.is-fs .bw-scene::before { opacity: 1; }
 
 /* ------------------------------------------------------------ لافتة المضاعف */
 .bw-sign { position: absolute; top: 0; left: 0; right: 0; height: calc(var(--u) * 22); z-index: 3; }
@@ -237,18 +242,23 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
   position: absolute; left: 0; top: 0;
   width: var(--cw); height: var(--ch);
   display: grid; place-items: center;
-  will-change: transform, opacity;
+  will-change: transform;
+}
+.bw-cell::before {
+  content: ''; position: absolute; left: 14%; right: 14%; bottom: 4%; height: 18%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, .45), transparent 70%);
+  pointer-events: none;
 }
 .bw-sym {
   width: 94%; height: 94%;
   display: grid; place-items: center;
   position: relative;
-  transition: opacity .25s, filter .25s;
+  transition: opacity .25s;
 }
 .bw-sym img {
   width: 100%; height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 calc(var(--u) * .5) calc(var(--u) * .4) rgba(0, 0, 0, .65));
   pointer-events: none;
 }
 .bw-letter {
@@ -260,7 +270,7 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
   -webkit-background-clip: text; background-clip: text;
   color: transparent;
   -webkit-text-stroke: calc(var(--u) * .32) #2b1407;
-  filter: drop-shadow(0 calc(var(--u) * .45) 0 #1a0b03) drop-shadow(0 0 calc(var(--u) * .6) rgba(0, 0, 0, .55));
+  filter: drop-shadow(0 calc(var(--u) * .45) 0 #1a0b03);
 }
 .bw-letter[data-l='A'] { --lg: linear-gradient(180deg, #fff2c4 0%, #ffc85a 38%, #e07d22 70%, #9a4a12 100%); }
 .bw-letter[data-l='K'] { --lg: linear-gradient(180deg, #ffe0d6 0%, #ff8a6b 35%, #d9321f 70%, #7c150c 100%); }
@@ -293,22 +303,29 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
 .bw-cell.is-gold .bw-sym::after {
   content: ''; position: absolute; inset: 2%;
   border-radius: calc(var(--u) * 1);
-  background: linear-gradient(115deg, transparent 35%, rgba(255, 250, 220, .55) 48%, transparent 60%);
-  background-size: 250% 100%;
+  background: linear-gradient(125deg, transparent 30%, rgba(255, 248, 215, .5) 47%, transparent 62%);
+  opacity: 0;
   animation: bwShine 2.6s ease-in-out infinite;
-  mix-blend-mode: screen;
   z-index: 3;
   pointer-events: none;
 }
-@keyframes bwShine { 0%, 55% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+@keyframes bwShine { 0%, 50%, 100% { opacity: 0; } 72% { opacity: 1; } }
 
 /* حالات الفوز */
-.bw-reels.is-eval .bw-cell:not(.is-win):not(.is-scat-on) .bw-sym { opacity: .32; filter: brightness(.6) saturate(.7); }
+.bw-reels.is-eval .bw-cell:not(.is-win):not(.is-scat-on) .bw-sym { opacity: .28; }
 .bw-cell.is-win { z-index: 5; }
-.bw-cell.is-win .bw-sym { animation: bwWin .7s ease-in-out infinite alternate; }
-.bw-cell.is-win .bw-sym img, .bw-cell.is-win .bw-letter {
-  filter: drop-shadow(0 0 calc(var(--u) * 1.4) rgba(255, 214, 90, .95)) drop-shadow(0 0 calc(var(--u) * .5) #fff4c0);
+.bw-cell.is-win .bw-sym { animation: bwWin .7s ease-in-out infinite alternate; will-change: transform; }
+.bw-cell.is-win::after, .bw-cell.is-flash::after {
+  content: ''; position: absolute; inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 226, 120, .75) 0%, rgba(255, 180, 40, .35) 45%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+  animation: bwGlow .7s ease-in-out infinite alternate;
 }
+.bw-cell.is-flash::after { inset: -25%; animation: bwFlashGlow .52s ease-out forwards; }
+@keyframes bwGlow { from { opacity: .55; } to { opacity: 1; } }
+@keyframes bwFlashGlow { 0% { opacity: 0; transform: scale(.6); } 40% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.2); } }
 @keyframes bwWin { from { transform: scale(1); } to { transform: scale(1.12); } }
 .bw-cell.is-scat-on { z-index: 5; }
 .bw-cell.is-scat-on .bw-sym { animation: bwScat .5s ease-in-out infinite alternate; }
@@ -371,8 +388,14 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
 }
 .bw-msg__win em { font-style: normal; font-family: 'Tajawal', sans-serif; font-weight: 900; font-size: calc(var(--u) * 3.4); color: var(--gold-200); letter-spacing: .5px; }
 .bw-msg__win b { font-weight: 400; font-size: calc(var(--u) * 5); color: #fff; text-shadow: 0 0 calc(var(--u) * 1.2) rgba(255, 200, 80, .8), 0 calc(var(--u) * .3) 0 #3a1a06; }
-.bw-msg.is-flash { animation: bwFlash .5s ease-out; }
-@keyframes bwFlash { 0% { filter: brightness(1.9); } 100% { filter: brightness(1); } }
+.bw-msg::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(255, 236, 170, .55);
+  opacity: 0;
+  pointer-events: none;
+}
+.bw-msg.is-flash::after { animation: bwFlash .5s ease-out; }
+@keyframes bwFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ------------------------------------------------------------ التحكم */
 .bw-controls {
@@ -492,8 +515,7 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
 .bw-overlay {
   position: absolute; inset: 0; z-index: 30;
   display: grid; place-items: center;
-  background: rgba(15, 6, 2, .72);
-  backdrop-filter: blur(2px);
+  background: rgba(15, 6, 2, .8);
   padding: calc(var(--u) * 6);
 }
 .bw-overlay[hidden] { display: none; }

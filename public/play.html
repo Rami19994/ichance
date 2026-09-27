@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/theme.css?v=29">
+<link rel="stylesheet" href="/css/theme.css?v=31">
 <style>
   /* width: 100% — داخل عمود flex يجعل margin:auto العنصرَ بعرض محتواه فقط،
      فكان إطار اللعبة 747px من 1044 على الحاسوب و285 من 375 على الهاتف */
@@ -137,7 +137,7 @@ async function syncBalance() {
   }
 
   await syncBalance();
-  setInterval(syncBalance, 5000);
+  setInterval(() => { if (!document.hidden) syncBalance(); }, 5000);
   // العودة إلى التبويب: نُحدّث فوراً بدل انتظار الدورة
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncBalance(); });
 })();

@@ -804,4 +804,4 @@ if (pfModal) {
 // البدء الأولي
 drawBoard();
 syncWallet();
-setInterval(syncWallet, 8000);
+setInterval(() => { if (!document.hidden) syncWallet(); }, 8000);

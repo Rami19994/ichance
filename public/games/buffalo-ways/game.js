@@ -318,7 +318,8 @@
     'مرحباً بك في بافالو وايز 3600 — 3600 طريقة للفوز!',
     'كل انهيار يضاعف المضاعف: ×1 ← ×2 ← ×4 … حتى ×1024',
     'الرموز ذات الإطار الذهبي تتحوّل إلى WILD عندما تفوز',
-    '3 سكاتر أو أكثر = 10 لفات مجانية أو أكثر',
+    '3 سكاتر أو أكثر = 12 لفة مجانية أو أكثر',
+    'اللفة الرابحة تدفع رهانك كاملاً على الأقل',
     'في اللفات المجانية يبدأ المضاعف من ×4',
     'اشترِ العلاوة وادخل مباشرة إلى اللفات المجانية'
   ];
@@ -352,7 +353,8 @@
   }
 
   // ─────────────────────────────────────────────────────── خطوة فوز
-  async function showStep(step, runningBefore, label) {
+  async function showStep(step, runningBefore, label, floor = 0) {
+    const shown = (v) => Math.max(v, floor);   // اللفة الرابحة لا تُعرض بأقل من الرهان
     const cellAt = ([c, r]) => S.cells[c][r];
     const winCells = step.positions.map(cellAt);
     const transformKeys = new Set(step.transform.map(([c, r]) => `${c},${r}`));
@@ -365,7 +367,7 @@
     A.sfx.win(level);
 
     if (step.mult > 1) {
-      showWin(label, runningBefore + step.base);
+      showWin(label, shown(runningBefore + step.base));
       await sleep(650);
       // المضاعف يطير إلى الربح
       els.flyMult.textContent = `x${step.mult}`;
@@ -381,29 +383,32 @@
         { transform: `translate(-50%, calc(-50% + ${dy}px)) scale(.35)`, opacity: 0.2 }
       ], { duration: 900, easing: 'ease-in-out' });
       els.flyMult.hidden = true;
-      showWin(label, runningBefore + step.win);
+      showWin(label, shown(runningBefore + step.win));
     } else {
-      showWin(label, runningBefore + step.win);
+      showWin(label, shown(runningBefore + step.win));
     }
     await sleep(step.mult > 1 ? 350 : 750);
 
-    // 2) الانفجار والتحوّل
+    // 2) الانفجار والتحوّل — المواضع تُقرأ كلها أولاً ثم تبدأ الحركات
+    // (قراءة موضع بعد كل كتابة كانت تجبر المتصفح على إعادة التخطيط مراراً)
     const jobs = [];
     let transformed = false;
-    step.positions.forEach(([c, r]) => {
+    const centers = step.positions.map(([c, r]) => cellCenter(S.cells[c][r].el));
+    step.positions.forEach(([c, r], i) => {
       const cell = S.cells[c][r];
-      const p = cellCenter(cell.el);
+      const p = centers[i];
       if (transformKeys.has(`${c},${r}`)) {
         transformed = true;
-        burstAt(p, { n: 34, gold: true, power: 1.3 });
+        burstAt(p, { n: 26, gold: true, power: 1.3 });
+        cell.el.classList.add('is-flash');
         jobs.push(play(cell.el.querySelector('.bw-sym'), [
-          { transform: 'scale(1)', filter: 'brightness(1)' },
-          { transform: 'scale(1.35)', filter: 'brightness(3)', offset: 0.45 },
-          { transform: 'scale(1)', filter: 'brightness(1)' }
-        ], { duration: 520, easing: 'ease-out' }).then(() => {}));
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.35)', offset: 0.45 },
+          { transform: 'scale(1)' }
+        ], { duration: 520, easing: 'ease-out' }).then(() => cell.el.classList.remove('is-flash')));
         setTimeout(() => setCell(cell, 'wild', false), 230 * speed());
       } else {
-        burstAt(p, { n: 22 });
+        burstAt(p, { n: 16 });
         jobs.push(play(cell.el, [
           { transform: `translate3d(0,${r * CH}px,0) scale(1)`, opacity: 1 },
           { transform: `translate3d(0,${r * CH}px,0) scale(1.25)`, opacity: 1, offset: 0.3 },
@@ -439,12 +444,14 @@
         let fromY;
         if (r < n) {
           fromY = (r - n) * CH - CH * 0.15;
-          cell.el.style.transform = `translate3d(0,${toY}px,0)`;
           cols[c].appendChild(cell.el);
         } else {
-          const oldR = col.indexOf(cell);
-          fromY = oldR * CH;
+          fromY = col.indexOf(cell) * CH;
         }
+        // الموضع النهائي في النمط لكل رمز — الجديد والباقي. كان الباقي يعود بعد
+        // انتهاء حركة السقوط إلى مكانه القديم (الحركة لا تثبّت نهايتها)، فتبقى
+        // خانات فارغة ورموز فوق بعضها.
+        cell.el.style.transform = `translate3d(0,${toY}px,0)`;
         if (fromY === toY) return;
         const dist = (toY - fromY) / CH;
         falls.push(play(cell.el, [
@@ -457,18 +464,37 @@
     });
     setTimeout(() => A.sfx.reelStop(2), 280 * speed());
     await Promise.all(falls);
+    reconcile();
     await sleep(120);
   }
 
+  /**
+   * صمّام أمان بعد كل خطوة: كل عمود فيه رموزه فقط (لا عنصر يتيم) وكل رمز في
+   * خانته. أيّ حركة قُطعت أو أُلغيت لا تترك فراغاً ولا رمزاً فوق آخر.
+   */
+  function reconcile() {
+    S.cells.forEach((col, c) => {
+      const own = new Set(col.map((cell) => cell.el));
+      [...cols[c].children].forEach((node) => { if (!own.has(node)) node.remove(); });
+      col.forEach((cell, r) => {
+        cell.el.getAnimations().forEach((a) => a.cancel());
+        cell.el.style.opacity = '';
+        cell.el.style.transform = `translate3d(0,${r * CH}px,0)`;
+        if (cell.el.parentNode !== cols[c]) cols[c].appendChild(cell.el);
+      });
+    });
+  }
+
   // ─────────────────────────────────────────────────────── لفة كاملة
-  async function animateSpin(spin, { startMult, label, runningStart = 0 }) {
+  async function animateSpin(spin, { startMult, label, runningStart = 0, floor = 0 }) {
     ladderTo(startMult, false);
     A.sfx.spin();
     await dropOut();
     await dropIn(spin.grid);
+    reconcile();
     let running = runningStart;
     for (const step of spin.steps) {
-      await showStep(step, running, label);
+      await showStep(step, running, label, floor);
       running += step.win;
     }
     if (spin.scatters >= 3) {
@@ -584,7 +610,8 @@
       S.balance -= cost;
       paintBalance();
 
-      const baseWin = await animateSpin(res.base, { startMult: 1, label: 'ربح' });
+      // لفة عادية رابحة: لا تقلّ عن الرهان (الخادم يدفع كذلك). لفة الشراء بلا حدّ
+      const baseWin = await animateSpin(res.base, { startMult: 1, label: 'ربح', floor: res.buy ? 0 : b });
       let total = baseWin;
       if (res.feature) total = await playFeature(res.feature, res.base.win);
       total = res.win;
@@ -686,12 +713,14 @@
     const order = ['bison', 'huntress', 'wolf', 'eagle', 'A', 'K', 'Q', 'J'];
     $('payTable').innerHTML = order.map((s) => {
       const pays = S.paytable[s] || [];
-      const rows = pays.map((p, i) => `<li><b>${i + 3}×</b> ${nf2.format(p * b)}</li>`).join('');
+      // [عدد البكرات, الدفع للطريقة] — من 4 بكرات فما فوق
+      const rows = pays.map(([n, p]) => `<li><b>${n}×</b> ${nf2.format(p * b)}</li>`).join('');
       return `<div class="bw-pay"><div class="bw-pay__sym">${symbolHtml(s)}</div><ul class="bw-pay__list">${rows}</ul></div>`;
     }).join('');
     const fsI = S.fsInfo || { award3: 10, perExtra: 2, retrigger3: 5, startMult: 4 };
     $('rules').innerHTML = [
-      `<b>3600 طريقة للفوز:</b> رموز متطابقة على بكرات متجاورة من اليسار ابتداءً من البكرة الأولى — 3 بكرات على الأقل.`,
+      `<b>3600 طريقة للفوز:</b> رموز متطابقة على بكرات متجاورة من اليسار ابتداءً من البكرة الأولى — ${S.minReels || 4} بكرات على الأقل.`,
+      `<b>لا ربح أقل من رهانك:</b> اللفة الرابحة تدفع الرهان كاملاً على الأقل.`,
       `الربح = دفع الرمز × عدد الطرق × المضاعف الحالي.`,
       `<b>الانهيار:</b> الرموز الفائزة تنفجر وتسقط رموز جديدة مكانها، وقد يتكرّر الفوز.`,
       `<b>المضاعف:</b> يتضاعف مع كل انهيار: ×1 ← ×2 ← ×4 … حتى ×1024، ويعود إلى ×1 مع كل لفة.`,
@@ -793,6 +822,7 @@
       S.maxWinX = d.maxWinX || S.maxWinX;
       S.paytable = d.paytable || null;
       S.fsInfo = d.freeSpins || null;
+      S.minReels = d.minReels || 4;
       if (!S.demo) { S.currency = d.currency || 'IQD'; S.balance = Number(d.balance) || 0; }
       else S.balance = demoBalance();
     } catch {

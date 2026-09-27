@@ -36,7 +36,7 @@ const GAMES = {
     href: '/bounty-hunter',
     category: 'slots',
     categoryName: 'سلوتس',
-    defaultRtp: 96.2,
+    defaultRtp: 95.9,   // slots.MEASURED.rtp — بعد قاعدة «لا ربح أقل من الرهان»
     emoji: '🤠'
   },
   tank: {
@@ -169,11 +169,24 @@ function get() {
  * يعيد قراءة الإعدادات من القاعدة إن مرّت REFRESH_MS. فشل القراءة لا يُسقط
  * الطلب: تبقى آخر قيمة معروفة. طلبات متزامنة تنتظر قراءة واحدة.
  */
-async function refresh({ force = false } = {}) {
+/**
+ * background: بعد أوّل قراءة لا ينتظر الطلب إعادة القراءة — يعمل بالنسخة
+ * الحالية وتتجدّد في الخلفية (كانت كل 8 ثوانٍ تؤخّر طلباً بقراءة كاملة).
+ * أوّل طلب في النسخة ينتظر دائماً كي لا يعمل على الافتراضي.
+ */
+async function refresh({ force = false, background = false } = {}) {
   if (!sb.configured()) { get(); return; }
   if (!force && state && Date.now() - refreshedAt < REFRESH_MS) return;
-  if (refreshing) return refreshing;
-  refreshing = (async () => {
+  if (!refreshing) refreshing = readNow();
+  if (background && !force && refreshedAt > 0) return;
+  return refreshing;
+}
+
+/** القراءة الجارية إن وُجدت (لإبقائها حيّة بعد الردّ). */
+function pending() { return refreshing; }
+
+function readNow() {
+  return (async () => {
     try {
       const row = await sb.selectOne('site_secrets', `select=value&key=eq.${sb.enc(DB_KEY)}`);
       state = normalize(row && row.value ? JSON.parse(row.value) : null);
@@ -185,7 +198,6 @@ async function refresh({ force = false } = {}) {
       refreshing = null;
     }
   })();
-  return refreshing;
 }
 
 async function save() {
@@ -312,5 +324,5 @@ function publicGames() {
 
 module.exports = {
   GAMES, gameEnabled, isGameEnabled: gameEnabled, getGameRtp, getGameRtpScale, setGame, report, publicGames, refresh,
-  getAdminDomain, setAdminDomain, FILE
+  getAdminDomain, setAdminDomain, FILE, pending
 };

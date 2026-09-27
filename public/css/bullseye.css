@@ -23,8 +23,7 @@
   position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 16px;
-  background: rgba(7, 9, 16, .9);
-  backdrop-filter: blur(12px);
+  background: rgba(7, 9, 16, .96);
   border-bottom: 1px solid var(--line-soft);
 }
 .bx-brand { display: flex; align-items: center; gap: 9px; color: var(--txt); text-decoration: none; }
@@ -137,11 +136,10 @@
   width: min(86%, 300px);
   padding: 14px 14px 12px;
   text-align: center;
-  background: rgba(10, 14, 22, .92);
+  background: rgba(10, 14, 22, .96);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: 0 18px 50px rgba(0, 0, 0, .6);
-  backdrop-filter: blur(6px);
   animation: bxPop .28s cubic-bezier(.2, 1.4, .4, 1);
   pointer-events: auto;
   cursor: pointer;
@@ -298,8 +296,7 @@
   position: fixed; inset: 0; z-index: 80;
   display: grid; place-items: center;
   padding: 16px;
-  background: rgba(4, 6, 10, .75);
-  backdrop-filter: blur(4px);
+  background: rgba(4, 6, 10, .85);
 }
 .bx-modal[hidden] { display: none; }
 .bx-modal__box {

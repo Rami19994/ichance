@@ -83,7 +83,6 @@
   place-items: center;
   padding: 20px;
   background: radial-gradient(120% 90% at 50% 40%, rgba(8, 12, 19, .82) 0%, rgba(5, 8, 13, .96) 100%);
-  backdrop-filter: blur(3px);
   z-index: 3;
 }
 .curtain[hidden] { display: none; }

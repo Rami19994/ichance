@@ -54,35 +54,60 @@ test('الطرق: عدد الطرق = حاصل ضرب التطابقات في ا
     [J, A, A],
     [J, J, A, A],
     [A, A, J, A, A],
-    [A, A, A, A, A],
+    [J, A, A, A, A],
     [A, A, A, A],
     [A, A, A]
   ]);
   const ev = H.evaluate(g);
   const wj = ev.wins.find((w) => w.symbol === 'J');
-  assert.equal(wj.reels, 3);
+  assert.equal(wj.reels, 4);
   assert.equal(wj.ways, 2);
-  assert.equal(wj.pay, H.PAYS[J][0] * 2);
+  assert.equal(wj.pay, H.PAYS[J][1] * 2);
   // A على كل البكرات الست
   const wa = ev.wins.find((w) => w.symbol === 'A');
   assert.equal(wa.reels, 6);
-  assert.equal(wa.ways, 2 * 2 * 4 * 5 * 4 * 3);
+  assert.equal(wa.ways, 2 * 2 * 4 * 4 * 4 * 3);
 });
 
-test('WILD يعوّض، ولا فوز لأقل من 3 بكرات', () => {
+test('WILD يعوّض، ولا فوز لأقل من 4 بكرات (3 بكرات كانت تدفع أقل من الرهان)', () => {
   const g = grid([
     [BISON, A, J],
     [BISON, A, J, A],
     [H.SYM.indexOf('wild'), A, A, A, A],
-    [J, J, J, J, J],
+    [BISON, J, J, J, J],
     [A, A, A, A],
     [A, A, A]
   ]);
   const ev = H.evaluate(g);
   const wb = ev.wins.find((w) => w.symbol === 'bison');
-  assert.equal(wb.reels, 3, 'البافالو + البافالو + WILD');
+  assert.equal(wb.reels, 4, 'البافالو + البافالو + WILD + البافالو');
   assert.equal(wb.ways, 1);
-  assert.equal(ev.wins.find((w) => w.symbol === 'huntress'), undefined);
+  // J على 3 بكرات فقط (1، 2، WILD) ثم انقطع — ليس فوزاً
+  const three = grid([
+    [J, A, A], [J, A, A, A], [H.SYM.indexOf('wild'), A, A, A, A],
+    [BISON, BISON, BISON, BISON, BISON], [A, A, A, A], [A, A, A]
+  ]);
+  assert.equal(H.evaluate(three).wins.find((w) => w.symbol === 'J'), undefined);
+});
+
+test('لا ربح أقل من الرهان: كل لفة عادية رابحة تدفع الرهان كاملاً على الأقل', () => {
+  const rng = mulberry32(31);
+  let wins = 0, floored = 0;
+  for (let i = 0; i < 6000; i++) {
+    const out = H.toMoney(H.playRound({ rng }), 1000);
+    if (out.base.win > 0) {
+      wins++;
+      assert.ok(out.base.win >= 1000, `لفة رابحة بـ ${out.base.win} على رهان 1000`);
+      if (out.base.steps.reduce((a, st) => a + st.win, 0) < 1000) floored++;
+    }
+  }
+  assert.ok(wins > 1000, 'لفات رابحة كافية للفحص');
+  // والحدّ ثابت بعد معامل العائد (عائد مضبوط أقل من 96%)
+  const rng2 = mulberry32(32);
+  for (let i = 0; i < 3000; i++) {
+    const out = H.toMoney(H.playRound({ rng: rng2, scale: 0.8 }), 1000, 0.8);
+    if (out.base.win > 0) assert.ok(out.base.win >= 1000, `بعائد أقل: ${out.base.win}`);
+  }
 });
 
 test('الانهيار: الذهبي الفائز يصير WILD مكانه، والباقي ينفجر وتُملأ الأعمدة من الأعلى', () => {
@@ -143,10 +168,12 @@ test('المبالغ بالعملة أعداد صحيحة، ومجموع خطو�
     const out = H.toMoney(H.playRound({ rng, buy: i % 20 === 0 }), 300);
     assert.ok(Number.isInteger(out.win));
     const spins = [out.base, ...(out.feature ? out.feature.spins : [])];
-    for (const s of spins) {
-      const sum = s.steps.reduce((a, st) => a + st.win, 0);
-      assert.ok(Number.isInteger(s.win));
-      assert.ok(sum <= s.win + 0 && s.win - sum <= s.steps.length, `${sum} vs ${s.win}`);
+    for (const sp of spins) {
+      const sum = sp.steps.reduce((a, st) => a + st.win, 0);
+      assert.ok(Number.isInteger(sp.win));
+      // لفة رُفعت إلى الحدّ الأدنى (الرهان) مجموع خطواتها أقل منه
+      const floored = sp === out.base && sum < 300 && sp.win === 300;
+      assert.ok(floored || (sum <= sp.win && sp.win - sum <= sp.steps.length), `${sum} vs ${sp.win}`);
     }
   }
 });
@@ -198,6 +225,6 @@ test('العائد ضمن المتوقّع (فحص سريع — القياس ا�
     if (r.feature) trig++;
   }
   const baseRtp = base / N;
-  assert.ok(baseRtp > 0.60 && baseRtp < 0.69, `عائد اللعب العادي ${baseRtp}`);
+  assert.ok(baseRtp > 0.60 && baseRtp < 0.70, `عائد اللعب العادي ${baseRtp}`);
   assert.ok(trig / N > 1 / 300 && trig / N < 1 / 170, `تكرار المجانية 1/${Math.round(N / trig)}`);
 });

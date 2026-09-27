@@ -96,9 +96,28 @@ function sendStatic(req, res, pathname) {
 // ---------------------------------------------------------------------------
 // أدوات مساعدة
 // ---------------------------------------------------------------------------
+/**
+ * waitUntil من سياق طلب Vercel (ما تفعله @vercel/functions، بلا تبعيّة): العمل
+ * الممرَّر يكمل بعد إرسال الردّ ولا تُجمَّد الدالّة قبل انتهائه. بلا سياق
+ * (خادم محلّي أو منصّة أخرى) يرجّع false فينتظر المستدعي كما كان.
+ */
+const VERCEL_CTX = Symbol.for('@vercel/request-context');
+function waitUntil(promise) {
+  try {
+    const holder = globalThis[VERCEL_CTX];
+    const ctx = holder && typeof holder.get === 'function' ? holder.get() : null;
+    if (ctx && typeof ctx.waitUntil === 'function') { ctx.waitUntil(promise); return true; }
+  } catch { /* لا سياق */ }
+  return false;
+}
+
 async function sendJson(res, status, body) {
+  // حفظ الإحصاءات وسجلّ الجولات بعد الردّ لا قبله: المال نفسه (الخصم والصرف)
+  // كُتب في القاعدة قبل الوصول إلى هنا، وهذا تقارير. كان كل ربح ينتظر قراءة
+  // وكتابة الدفتر كاملاً قبل أن يرى اللاعب النتيجة.
   if (store.isDirty()) {
-    try { await store.flush(); } catch (e) { console.error('[store] flush error:', e.message); }
+    const saving = store.flush().catch((e) => console.error('[store] flush error:', e.message));
+    if (!waitUntil(saving)) await saving;
   }
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -368,7 +387,9 @@ async function resolveMaster(req, url) {
 
 async function handleApi(req, res, url) {
   await store.ensureDbLoaded();
-  await siteConfig.refresh();   // تشغيل/إيقاف الألعاب ودومين الإدارة — من القاعدة
+  // تشغيل/إيقاف الألعاب وعوائدها ودومين الإدارة — من القاعدة، وتتجدّد في الخلفية
+  await siteConfig.refresh({ background: true });
+  if (siteConfig.pending()) waitUntil(siteConfig.pending());
   const route = url.pathname;
   const token = tokenFrom(req, url);
   const player = await resolvePlayer(token);
@@ -400,6 +421,12 @@ async function handleApi(req, res, url) {
       games: siteConfig.publicGames(),
       faucet: { amount: config.WALLET.faucetAmount, threshold: config.WALLET.faucetThreshold }
     });
+  }
+
+  // ---- فحص صحّة الخادم (بلا أي بيانات حسّاسة)
+  if (route === '/api/health' && req.method === 'GET') {
+    const bg = waitUntil(Promise.resolve());
+    return sendJson(res, 200, { ok: true, background: bg });
   }
 
   // ---- جلسة اللاعب
@@ -815,13 +842,9 @@ async function handleApi(req, res, url) {
       featureBuyCost: slots.FEATURE_BUY_COST,
       maxWinMultiplier: slots.MAX_WIN_MULTIPLIER,
       maxSessionMultiplier: slots.MAX_SESSION_MULTIPLIER,
-      // مقيسة لا مكتوبة يدوياً — انظر slots.MEASURED
-      rtp: slots.MEASURED.rtp,
-      hitRate: slots.MEASURED.hitRate,
-      featureOdds: slots.MEASURED.featureOdds,
-      minReelsToWin: slots.MIN_REELS_TO_WIN,
-      // الأشرطة منشورة: بدونها لا يستطيع اللاعب التحقق من أي دورة
-      strips: { base: slots.STRIPS, free: slots.FREE_STRIPS }
+      minReelsToWin: slots.MIN_REELS_TO_WIN
+      // لا عائد ولا نسب فوز ولا تكرار ميزة ولا أشرطة (الأشرطة تكشف احتمال كل
+      // رمز) — طلب المالك: هذه للإدارة فقط (slots.MEASURED في /api/admin/overview)
     });
   }
 
@@ -1691,7 +1714,7 @@ async function handleApi(req, res, url) {
       // تتقادم بعد أي ضبط للرياضيات. (الدبابات لعبة مهارة: جدولها منفصل.)
       const gameRtp = {
         cards: siteConfig.getGameRtp('cards', 96.0),
-        slots: siteConfig.getGameRtp('slots', 96.2),
+        slots: siteConfig.getGameRtp('slots', slots.MEASURED.rtp),
         'neon-slots': siteConfig.getGameRtp('neon-slots', 96.01),
         mines: siteConfig.getGameRtp('mines', 97.0),
         plinko: siteConfig.getGameRtp('plinko', 96.28),

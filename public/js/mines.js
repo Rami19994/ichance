@@ -652,5 +652,5 @@
   // ------------------------- التهيئة عند الإقلاع -------------------------
   buildGrid();
   syncWallet();
-  setInterval(syncWallet, 8000);
+  setInterval(function () { if (!document.hidden) syncWallet(); }, 8000);
 })();

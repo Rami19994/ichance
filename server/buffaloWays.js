@@ -7,22 +7,25 @@ const siteConfig = require('./siteConfig');
  * بافالو وايز 3600 — سلوت «طرق» بانهيار الرموز ومضاعف يتضاعف.
  *
  * الشبكة 6 بكرات بارتفاعات 3-4-5-5-4-3 = 3600 طريقة فوز، من اليسار لليمين،
- * 3 بكرات متتالية على الأقل. الرموز الفائزة تنفجر وتسقط رموز جديدة مكانها
+ * 4 بكرات متتالية على الأقل. الرموز الفائزة تنفجر وتسقط رموز جديدة مكانها
  * (انهيار)، ومع كل انهيار يتضاعف المضاعف: ×1 ← ×2 ← ×4 … ← ×1024.
  *
  *   ذهبي   رمز عادي بإطار ذهبي، في البكرتين 3 و4 فقط. إن دخل ربحاً لا ينفجر
  *          بل يتحوّل إلى WILD مكانه.
  *   WILD   يعوّض كل رمز عدا السكاتر، وينفجر إن دخل ربحاً.
  *   سكاتر  3 فأكثر في أي مكان بعد انتهاء الانهيارات ← لفات مجانية
- *          (10 + 2 لكل سكاتر زائد). في اللفات المجانية يبدأ المضاعف من ×2،
+ *          (12 + 2 لكل سكاتر زائد). في اللفات المجانية يبدأ المضاعف من ×4،
  *          والذهبي أكثر، و3 سكاتر تضيف لفات.
  *   الشراء  75× الرهان: لفة بثلاثة سكاتر مضمونة ثم اللفات المجانية.
  *
  * السقف: ربح الجولة كلها (مع اللفات المجانية) لا يتجاوز MAX_WIN_X × الرهان.
+ * الحدّ الأدنى: اللفة العادية الرابحة تدفع الرهان كاملاً على الأقل.
  *
  * كل شيء يُحسم في الخادم دفعة واحدة؛ الواجهة تعرض الخطوات المرسلة فقط.
- * العائد 96% في اللعب العادي وفي الشراء — مُقاس بالمحاكاة:
- *   node tools/tuneBuffaloWays.js
+ * العائد 96% في اللعب العادي وفي الشراء — مُقاس بالمحاكاة (3 ملايين لفة +
+ * 500 ألف شراء): عادي 96.1% (بلا مجانية 62.7% + مجانية كل ~216 لفة × 72)،
+ * شراء 96.5% ±0.8، الفوز في 31% من اللفات، ولا لفة رابحة بأقل من الرهان:
+ *   node tools/tuneBuffaloWays.js 3000000 500000 --calibrate
  */
 
 const GAME_ID = 'buffalo-ways';
@@ -36,8 +39,19 @@ const WILD = 8;
 const SCAT = 9;
 const PAYING = 8;
 
-/** دفع الطريقة الواحدة بمضاعفات الرهان الكلّي — 3/4/5/6 بكرات. */
-const PAY_SCALE = 0.0586;
+/**
+ * لا ربح أقل من الرهان (طلب المالك: «راهنت بـ1000 فلا أربح أقل من 1000»):
+ *   • الفوز من 4 بكرات متتالية على الأقل — كانت 3 تكفي فكان 84% من اللفات
+ *     الرابحة يدفع أقل من الرهان (متوسّطها 0.21×): خسارة بثوب فوز.
+ *   • اللفة الرابحة (اللعب العادي) تدفع الرهان كاملاً على الأقل؛ الواجهة لا
+ *     تعرض مجموعاً أقل منه أبداً.
+ * ثم أُعيد ضبط الجدول والسكاتر لتبقى النسبة 96% (tools/tuneBuffaloWays.js).
+ */
+const MIN_REELS = 4;
+const MIN_SPIN_WIN_X = 1;
+
+/** دفع الطريقة الواحدة بمضاعفات الرهان الكلّي — العمود 0 (3 بكرات) لم يعد يُدفع. */
+const PAY_SCALE = 0.1263;
 const PAYS_REL = [
   [1.00, 2.00, 4.00, 8.00],   // البافالو
   [0.80, 1.60, 3.00, 6.00],   // الصيّادة
@@ -53,13 +67,13 @@ const PAYS = PAYS_REL.map((row) => row.map((v) => v * PAY_SCALE));
 /** أوزان الرموز الدافعة لكل خلية (مستقلّة)، ثم احتمال السكاتر والذهبي. */
 const WEIGHTS = [5, 6, 7, 8, 11, 12, 13, 14];
 const MODES = {
-  base: { scatter: 0.0113, gold: 0.14, startMult: 1 },
+  base: { scatter: 0.0126, gold: 0.14, startMult: 1 },
   fs: { scatter: 0.0105, gold: 0.50, startMult: 4 },
-  buy: { scatter: 0.0113, gold: 0.14, startMult: 1 }
+  buy: { scatter: 0.0126, gold: 0.14, startMult: 1 }
 };
 const MULTS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
 const MAX_MULT = 1024;
-const FS_AWARD = (n) => 10 + 2 * Math.max(0, n - 3);
+const FS_AWARD = (n) => 12 + 2 * Math.max(0, n - 3);
 const FS_RETRIGGER = (n) => 5 + 2 * Math.max(0, n - 3);
 const MAX_FREE_SPINS = 100;
 const BUY_COST_X = 75;
@@ -148,7 +162,7 @@ function evaluate(grid) {
       ways *= k;
       n++;
     }
-    if (n < 3) continue;
+    if (n < MIN_REELS) continue;
     const p = PAYS[s][n - 3] * ways;
     pay += p;
     const cells = [];
@@ -237,9 +251,16 @@ function playSpin(rng, mode, budget, { forced = 0 } = {}) {
  * جولة كاملة: اللفة (أو لفة الشراء) ثم اللفات المجانية إن وُجدت.
  * كل المبالغ هنا بمضاعفات الرهان. rng افتراضياً مولّد التشفير.
  */
-function playRound({ buy = false, rng = cryptoRng } = {}) {
+function playRound({ buy = false, rng = cryptoRng, scale = 1 } = {}) {
   let budget = MAX_WIN_X;
   const base = playSpin(rng, buy ? 'buy' : 'base', budget, { forced: buy ? 3 : 0 });
+  // الحدّ الأدنى للّفة الرابحة: الرهان كاملاً بعد معامل العائد (scale) — بمضاعفات
+  // الرهان قبل المعامل هو 1/scale، فيصير بالضبط رهاناً واحداً عند الصرف
+  const floorX = MIN_SPIN_WIN_X / scale;
+  if (!buy && base.win > 0 && base.win < floorX) {
+    base.floor = floorX - base.win;
+    base.win = floorX;
+  }
   budget -= base.win;
   let total = base.win;
   let capped = base.capped;
@@ -321,8 +342,8 @@ async function spin(player, { bet: rawBet, buy = false } = {}) {
   if (!(await store.gameDebit(GAME_ID, player, cost, `${GAME_ID}-${id}-bet`))) {
     return { ok: false, error: 'تعذّر خصم الرهان — حاول مجدداً' };
   }
-  const rtpScale = siteConfig.getGameRtpScale(GAME_ID, 96.0);
-  const out = toMoney(playRound({ buy: !!buy }), bet, rtpScale);
+  const rtpScale = scaleFor(!!buy);
+  const out = toMoney(playRound({ buy: !!buy, scale: rtpScale }), bet, rtpScale);
   if (out.win > 0) {
     await store.gameCredit(GAME_ID, player, out.win, `${GAME_ID}-${id}-win`);
   }
@@ -339,8 +360,40 @@ function demo({ bet: rawBet, buy = false } = {}) {
   const b = checkBet(rawBet);
   if (!b.ok) return b;
   const cost = buy ? b.bet * BUY_COST_X : b.bet;
-  const rtpScale = siteConfig.getGameRtpScale(GAME_ID, 96.0);
-  return { ok: true, demo: true, bet: b.bet, cost, buy: !!buy, ...toMoney(playRound({ buy: !!buy }), b.bet, rtpScale) };
+  const rtpScale = scaleFor(!!buy);
+  return { ok: true, demo: true, bet: b.bet, cost, buy: !!buy, ...toMoney(playRound({ buy: !!buy, scale: rtpScale }), b.bet, rtpScale) };
+}
+
+/**
+ * العائد المضبوط من الإدارة (افتراضياً 96%) ← معامل الأرباح.
+ * الشراء: كل ربحه من اللفات المجانية (بلا حدّ أدنى) فالعائد خطّي: target/96.
+ * اللعب العادي: الحدّ الأدنى للّفة الرابحة ثابت (رهان كامل) مهما كان المعامل،
+ * فالعائد ليس خطّياً فيه — نعكس جدول معايرة مقيساً بالمحاكاة.
+ */
+const BASE_CALIBRATION = [
+  // [معامل, العائد % عند هذا المعامل] — tools/tuneBuffaloWays.js --calibrate
+  // (3 ملايين لفة؛ مُزاح ليطابق 96.0% عند المعامل 1 وهو المقيس مُفكَّكاً)
+  [0.60, 66.9], [0.65, 70.4], [0.70, 74.0], [0.75, 77.6], [0.80, 81.2], [0.85, 84.9], [0.90, 88.6],
+  [0.95, 92.3], [1.00, 96.0], [1.05, 99.7], [1.10, 103.5], [1.15, 107.3], [1.20, 111.0], [1.25, 114.8], [1.30, 118.6]
+];
+function baseScaleFor(target) {
+  const t = BASE_CALIBRATION;
+  if (target <= t[0][1]) return t[0][0];
+  if (target >= t[t.length - 1][1]) return t[t.length - 1][0];
+  for (let i = 1; i < t.length; i++) {
+    if (target <= t[i][1]) {
+      const [s0, r0] = t[i - 1];
+      const [s1, r1] = t[i];
+      return s0 + ((target - r0) / (r1 - r0)) * (s1 - s0);
+    }
+  }
+  return 1;
+}
+function scaleFor(buy) {
+  const target = siteConfig.getGameRtp(GAME_ID, 96.0);
+  if (!Number.isFinite(target) || target <= 0) return 1;
+  if (Math.abs(target - 96.0) < 1e-9) return 1;
+  return buy ? target / 96.0 : baseScaleFor(target);
 }
 
 function stateFor(player) {
@@ -350,8 +403,13 @@ function stateFor(player) {
     maxWinX: MAX_WIN_X,
     reels: REELS,
     multipliers: MULTS,
-    // جدول الدفع للطريقة الواحدة بمضاعفات الرهان — للعرض في «معلومات اللعبة»
-    paytable: Object.fromEntries(SYM.slice(0, PAYING).map((s, i) => [s, PAYS[i]])),
+    // جدول الدفع للطريقة الواحدة بمضاعفات الرهان — للعرض في «معلومات اللعبة»:
+    // [عدد البكرات, الدفع] من MIN_REELS فما فوق (بعد معامل العائد المضبوط)
+    paytable: Object.fromEntries(SYM.slice(0, PAYING).map((s, i) => {
+      const k = scaleFor(false);
+      return [s, PAYS[i].map((v, j) => [j + 3, v * k]).filter(([n]) => n >= MIN_REELS)];
+    })),
+    minReels: MIN_REELS,
     freeSpins: { award3: FS_AWARD(3), perExtra: 2, retrigger3: FS_RETRIGGER(3), startMult: MODES.fs.startMult }
   };
   if (!player) return { loggedIn: false, balance: 0, currency: 'IQD', ...base };
@@ -365,7 +423,7 @@ function stateFor(player) {
 }
 
 module.exports = {
-  GAME_ID, REELS, SYM, PAYS, PAYS_REL, WEIGHTS, MODES, MULTS, BETS, MIN_BET, MAX_BET,
+  GAME_ID, REELS, SYM, PAYS, PAYS_REL, WEIGHTS, MODES, MULTS, BETS, MIN_BET, MAX_BET, MIN_REELS, MIN_SPIN_WIN_X, BASE_CALIBRATION, scaleFor,
   BUY_COST_X, MAX_WIN_X, RTP, FS_AWARD, FS_RETRIGGER,
   evaluate, collapse, playSpin, playRound, toMoney, spin, demo, stateFor, newGrid, countScatters
 };

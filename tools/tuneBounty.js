@@ -88,6 +88,7 @@ function measure({ baseSpins, features }) {
   const trig = new Map();                  // عدد الدورات الممنوحة → مرّات
   for (let i = 0; i < baseSpins; i++) {
     const r = spinWin(false, 1);
+    if (r.win > 0 && r.win < BET * slots.MIN_BASE_WIN_X) r.win = BET * slots.MIN_BASE_WIN_X;   // كالإنتاج
     baseSum += r.win;
     if (r.win > 0) hits++;
     const g = slots.freeSpinsFor(r.scatters);

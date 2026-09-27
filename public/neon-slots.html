@@ -648,7 +648,7 @@
 
       updateStatusBanner();
       initSessionIfGuest().then(syncWallet);
-      setInterval(syncWallet, 10000);
+      setInterval(function () { if (!document.hidden) syncWallet(); }, 10000);
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden) syncWallet();
       });

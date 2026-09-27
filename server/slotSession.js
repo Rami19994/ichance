@@ -106,9 +106,11 @@ async function baseSpin(player, bet) {
   const txRef = 'slot-spin-' + player.id + '-' + Date.now();
   if (!(await store.gameDebit('slots', player, bet, txRef))) return { ok: false, error: 'تعذّر خصم الرهان (رصيد غير كافٍ أو خطأ بالاتصال)' };
 
-  const rtpScale = siteConfig.getGameRtpScale('slots', 96.2);
+  const rtpScale = siteConfig.getGameRtpScale('slots', slots.MEASURED.rtp);
   const result = slots.playSpin({ seedHex: f.seed, nonce, bet, free: false, multiplier: 1 });
-  const win = (rtpScale !== 1 && result.win > 0) ? Math.round(result.win * rtpScale) : result.win;
+  const scaled = (rtpScale !== 1 && result.win > 0) ? Math.round(result.win * rtpScale) : result.win;
+  // دورة رابحة لا تدفع أقل من الرهان — بعد معامل العائد أيضاً
+  const win = scaled > 0 ? Math.max(scaled, Math.round(bet * slots.MIN_BASE_WIN_X)) : 0;
   if (win > 0) {
     const txRefWin = 'slot-win-' + player.id + '-' + Date.now();
     await store.gameCredit('slots', player, win, txRefWin);
@@ -149,7 +151,7 @@ async function freeSpin(player, feature) {
   // لا سقف على المضاعف: نسبة العائد واحدة عند كل مبلغ.
   // حماية الموقع من سقف الرهان وسقفَي الدورة والجلسة، لا من تشويه المضاعف.
   const mult = feature.multiplier;
-  const rtpScale = siteConfig.getGameRtpScale('slots', 96.2);
+  const rtpScale = siteConfig.getGameRtpScale('slots', slots.MEASURED.rtp);
   const result = slots.playSpin({ seedHex: f.seed, nonce, bet, free: true, multiplier: mult });
   const rawScaled = (rtpScale !== 1 && result.win > 0) ? Math.round(result.win * rtpScale) : result.win;
 

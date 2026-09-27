@@ -50,14 +50,14 @@ const WAYS = Math.pow(ROWS, REELS); // 1024
 // وكل ربح أكبر بنحو الخُمس. الأداة: tools/tuneBounty.js
 // ---------------------------------------------------------------------------
 const PAYTABLE = {
-  J:      { 4: 95,  5: 273 },
-  Q:      { 4: 95,  5: 273 },
-  K:      { 4: 137, 5: 404 },
-  A:      { 4: 137, 5: 404 },
-  BOTTLE: { 4: 214, 5: 594 },
-  HAT:    { 4: 315, 5: 933 },
-  GUN:    { 4: 553, 5: 1587 },
-  OUTLAW: { 4: 951, 5: 2751 }
+  J:      { 4: 193, 5: 553 },
+  Q:      { 4: 193, 5: 553 },
+  K:      { 4: 277, 5: 818 },
+  A:      { 4: 277, 5: 818 },
+  BOTTLE: { 4: 434, 5: 1204 },
+  HAT:    { 4: 639, 5: 1890 },
+  GUN:    { 4: 1120, 5: 3215 },
+  OUTLAW: { 4: 1927, 5: 5574 }
 };
 
 /**
@@ -66,7 +66,7 @@ const PAYTABLE = {
  * الجدول الذي أنتجها، فمن يغيّر أحدهما يرى الآخر. أعِد قياسها بـ
  * tools/tuneBounty.js بعد أي تعديل على الجدول أو الأشرطة.
  */
-const MEASURED = { rtp: 96.2, hitRate: 53.1, featureOdds: 206 };
+const MEASURED = { rtp: 95.9, hitRate: 42.5, featureOdds: 188 };
 
 /**
  * الحد الأدنى للفوز: 4 بكرات متجاورة، لا 3.
@@ -76,6 +76,15 @@ const MEASURED = { rtp: 96.2, hitRate: 53.1, featureOdds: 206 };
  * إلى 4 بكرات خفض النسبة إلى ~53% وجعل الفوز حدثاً فعلياً لا ضجيجاً دائماً.
  */
 const MIN_REELS_TO_WIN = 4;
+
+/**
+ * لا ربح أقل من الرهان (طلب المالك): الدورة الأساسية الرابحة تدفع الرهان
+ * كاملاً على الأقل. كان 63% من الدورات الرابحة يدفع أقل من الرهان (متوسّطها
+ * 0.47×). لتبقى النسبة 96%: وايلد واحد في أشرطة اللعب العادي (فالفوز أندر
+ * وأكبر) والجدول ×2.04، وأشرطة البونص أقلّ وايلد كي لا تتضخّم قيمته.
+ * الأداة: tools/tuneBounty.js
+ */
+const MIN_BASE_WIN_X = 1;
 
 // الجدول أعلاه هو المنشور للاعب وهو المصروف فعلاً — لا معامل خفيّ بينهما.
 // ضبط نسبة العائد يتم بتعديل الجدول أو أعداد الرموز في الأشرطة، لا بمعامل سرّي.
@@ -134,19 +143,19 @@ const STRIPS = [
   // سكاتر مضاعف على البكرتين 1 و5 — هو ما يرفع تكرار البونص من 1:500 إلى 1:200
   // بلا لمس بقية الاحتمالات. البكرة 1 بلا وايلد (قاعدة معتادة في هذا النوع).
   strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, SCATTER: 2 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 4, SCATTER: 1 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 5, SCATTER: 1 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 4, SCATTER: 1 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 3, SCATTER: 2 })
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 1, SCATTER: 1 }),
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 1, SCATTER: 1 }),
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 1, SCATTER: 1 }),
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 1, SCATTER: 2 })
 ];
 
 // أشرطة البونص: وايلد أكثر قليلاً، وسكاتر مفرد حتى لا يتكرر التمديد بإفراط
 const FREE_STRIPS = [
   strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, SCATTER: 1 }),
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 4, SCATTER: 1 }),
   strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 5, SCATTER: 1 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 6, SCATTER: 1 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 5, SCATTER: 1 }),
-  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 4, SCATTER: 1 })
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 4, SCATTER: 1 }),
+  strip({ J: 9, Q: 9, K: 9, A: 9, BOTTLE: 8, HAT: 7, GUN: 6, OUTLAW: 5, WILD: 3, SCATTER: 1 })
 ];
 
 // ---------------------------------------------------------------------------
@@ -179,8 +188,8 @@ const MULTIPLIER_RESETS_ON_LOSS = true;
  *   - بعد خفض قيمة البونص إلى ×45.7 صار نفس السعر يعطي عائد 21.7% — ظلم للاعب.
  *   - ×57 عند عائد 80.8%؛ ثم رُفع الجدول إلى 96.2% فصارت القيمة ×53.8 → ×56.
  */
-const FEATURE_BUY_COST = 56;
-const FEATURE_BUY_MEASURED_EV = 54;
+const FEATURE_BUY_COST = 57;
+const FEATURE_BUY_MEASURED_EV = 55;
 
 // ---------------------------------------------------------------------------
 // توليد اللوحة
@@ -322,7 +331,7 @@ module.exports = {
   REELS, ROWS, WAYS, MULTIPLIER_LADDER, FREE_SPINS,
   FEATURE_BUY_COST, FEATURE_BUY_MEASURED_EV,
   MAX_WIN_MULTIPLIER, MAX_SESSION_MULTIPLIER, MAX_STAKE, MULTIPLIER_RESETS_ON_LOSS,
-  MIN_REELS_TO_WIN, MEASURED,
+  MIN_REELS_TO_WIN, MIN_BASE_WIN_X, MEASURED,
   spinGrid, evaluate, playSpin, nextMultiplier, stepMultiplier, freeSpinsFor, capWin, capSession,
   sha256Hex
 };

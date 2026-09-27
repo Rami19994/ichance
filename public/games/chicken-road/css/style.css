@@ -5,7 +5,7 @@
 
 :root {
     --bg-dark: #090d16;
-    --card-bg: rgba(22, 30, 49, 0.85);
+    --card-bg: rgba(22, 30, 49, 0.93);
     --card-border: rgba(255, 255, 255, 0.12);
     --gold: #f7c948;
     --gold-glow: rgba(247, 201, 72, 0.4);
@@ -79,8 +79,6 @@ body, html {
     align-items: center;
     gap: 10px;
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--card-border);
     padding: 8px 16px;
     border-radius: var(--radius-lg);
@@ -188,8 +186,6 @@ body, html {
     align-items: center;
     gap: 10px;
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--card-border);
     padding: 7px 14px;
     border-radius: var(--radius-lg);
@@ -247,8 +243,6 @@ body, html {
 /* عناصر الزجاج والأزرار */
 .glass-btn {
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--card-border);
     color: var(--text-main);
     width: 42px;
@@ -271,8 +265,6 @@ body, html {
 
 .glass-select {
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--card-border);
     color: var(--text-main);
     padding: 8px 14px;
@@ -304,9 +296,7 @@ body, html {
     top: 85px;
     bottom: 185px;
     width: 98px;
-    background: rgba(15, 23, 42, 0.75);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.9);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
     z-index: 10;
@@ -435,8 +425,6 @@ body, html {
 
 .control-panel {
     background: var(--card-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
     padding: 16px 22px;
@@ -695,9 +683,7 @@ body, html {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(5, 8, 15, 0.78);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(5, 8, 15, 0.9);
     z-index: 100;
     display: flex;
     align-items: center;

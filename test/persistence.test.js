@@ -20,7 +20,7 @@ delete process.env.VERCEL;
 
 // ─────────────────────────────────────────── site_secrets مُحاكى
 const rows = new Map();   // key -> { value, updated_at }
-const sim = { selectDown: 0, casNeverMatches: false, patches: 0, inserts: 0 };
+const sim = { selectDown: 0, casNeverMatches: false, patches: 0, inserts: 0, reads: 0 };
 const tick = () => new Promise((r) => setImmediate(r));
 let clock = Date.parse('2026-01-01T00:00:00Z');
 const stamp = () => new Date(clock += 7).toISOString();
@@ -40,6 +40,7 @@ const fake = {
     await tick();
     if (sim.selectDown > 0) { sim.selectDown -= 1; throw Object.assign(new Error('timeout'), { kind: 'timeout', status: 503 }); }
     assert.equal(table, 'site_secrets');
+    sim.reads += 1;
     const key = decodeURIComponent(q.match(/key=eq\.([^&]*)/)[1]);
     const r = rows.get(key);
     return r ? { value: r.value, updated_at: r.updated_at } : null;
@@ -66,6 +67,7 @@ const fake = {
       return out;
     }
     if (method === 'POST') {
+      const out = [];
       for (const r of body) {
         if (rows.has(r.key)) {
           if (prefer.includes('ignore-duplicates')) continue;
@@ -73,13 +75,14 @@ const fake = {
         }
         sim.inserts += 1;
         rows.set(r.key, { value: r.value, updated_at: stamp() });
+        out.push({ key: r.key, updated_at: rows.get(r.key).updated_at });
       }
-      return null;
+      return prefer.includes('return=representation') ? out : null;
     }
     if (method === 'PATCH') {
       const hit = [...rows.entries()].filter(([k, r]) => match(k, r));
       for (const [k, r] of hit) { r.value = body.value; r.updated_at = stamp(); sim.patches += 1; }
-      return hit.map(([k]) => ({ key: k }));
+      return hit.map(([k, r]) => ({ key: k, updated_at: r.updated_at }));
     }
     throw new Error('غير متوقّع: ' + method);
   }
@@ -89,12 +92,19 @@ const sbPath = require.resolve('../server/supabase');
 require.cache[sbPath] = { id: sbPath, filename: sbPath, loaded: true, exports: fake };
 
 /** نسخة خادم جديدة كلياً (كنسخة Vercel فتيّة): ذاكرة فارغة وملف مؤقّت خاص. */
+// كل نسخة لها حفظ دوري كل 1.5 ث؛ نسخة من اختبار سابق فيها تغيير لم يُحفظ
+// كانت تكتبه أثناء اختبار لاحق على القاعدة المُحاكاة نفسها
+const live = [];
+test.afterEach(() => { while (live.length) live.pop()._stopTimer(); });
+
 function instance() {
   process.env.ICHANCE_DATA = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'la-persist-')), 'players.json');
   for (const m of ['../server/config', '../server/store', '../server/roundLog']) {
     delete require.cache[require.resolve(m)];
   }
-  return require('../server/store');
+  const st = require('../server/store');
+  live.push(st);
+  return st;
 }
 
 const storeValue = () => JSON.parse(rows.get('store_data').value);
@@ -176,6 +186,7 @@ test('حفظ بلا أي تغيير لا يكتب شيئاً', async () => {
   const A = instance();
   await A.ensureDbLoaded();
   await A.flush();                      // أرشفة السجلّ القديم (مرّة واحدة)
+  await A.flush();                      // وعلَم «أُرشف» (يُكتب مرّة واحدة في عمر القاعدة)
   const before = sim.patches;
   await A.flush();
   await A.flush();
@@ -262,4 +273,31 @@ test('عملة اللاعب ودولته من حسابه تصل لكل لعبة 
   assert.equal(prof.country, 'SY');
   assert.equal(prof.currencySymbol, 'ل.س');
   assert.equal(require('../server/bullseyeGame').stateFor(p).currency, 'SYP');
+});
+
+test('الحفظ السريع: كتابة واحدة بلا قراءة، ونسخة أخرى كتبت في الأثناء تُدمج لا تُمحى', async () => {
+  seedHistory();
+  const A = instance();
+  await A.ensureDbLoaded();
+  await A.flush();                                 // أرشفة السجلّ القديم أولاً
+  const B = instance();
+  await B.ensureDbLoaded();
+
+  // A وحدها تكتب: قراءة صفر، كتابة واحدة
+  const r0 = sim.reads, p0 = sim.patches;
+  A.recordMines(A.createPlayer(), { bet: 100, win: 0 });
+  await A.flush();
+  assert.equal(sim.reads - r0, 0, 'لا قراءة قبل الكتابة');
+  assert.equal(sim.patches - p0, 1);
+
+  // B ما زالت على الوسم القديم: الكتابة السريعة تفشل فتقرأ وتدمج
+  B.recordMines(B.createPlayer(), { bet: 200, win: 0 });
+  await B.flush();
+  assert.equal(storeValue().ledger.real.wagered, 5000 + 100 + 200);
+
+  // ثم A مجدّداً (وسمها قديم الآن) — لا يضيع رهان B
+  A.recordMines(A.byId('OLD1'), { bet: 50, win: 0 });
+  await A.flush();
+  assert.equal(storeValue().ledger.real.wagered, 5350);
+  assert.equal(storeValue().playerStats.OLD1.stats.rounds, 51);
 });
