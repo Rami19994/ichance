@@ -22,6 +22,9 @@ class GameWorld {
         // تتوقّف السيارات قبلها بدل أن تعبر من خلالها (كان هذا الخلل: السيارات
         // تتحرّك عمياء فتمرّ من جسم الدجاجة دون أثر).
         this.blockedLanes = new Set();
+        // حاجز الطريق: ينزل أمام الدجاجة حين تهبط بأمان فتقف السيارات عنده —
+        // وقوفها أمام دجاجة بلا شيء كان يبدو كأنها «تسمح لها بالمرور»
+        this.barriers = new Map();   // laneIndex -> { group, lights, t, braked }
         this.crashCar = null;      // السيارة الوحيدة المسموح لها بالوصول للدجاجة
         this.currentLane = 0;
 
@@ -327,6 +330,7 @@ class GameWorld {
         this.currentLane = laneIndex;
         if (laneIndex > 0) {
             this.blockedLanes.add(laneIndex);
+            this.dropBarrier(laneIndex, true);
             // سيارة في نقطة الدجاجة لحظة الاستئناف تُنقل خلفها (يحدث عند التحميل فقط)
             this.vehicles.forEach(v => {
                 if (v.laneIndex !== laneIndex) return;
@@ -646,7 +650,10 @@ class GameWorld {
             if (wingL && wingR) { wingL.rotation.z = 0; wingR.rotation.z = 0; }
 
             // الدجاجة غادرت مسارها القديم: تعود حركته
-            if (fromLane !== targetLane) this.blockedLanes.delete(fromLane);
+            if (fromLane !== targetLane) {
+                this.blockedLanes.delete(fromLane);
+                this.liftBarrier(fromLane);
+            }
             this.currentLane = targetLane;
 
             if (isSafe) this.onSafeLanding(targetLane);
@@ -657,8 +664,170 @@ class GameWorld {
         requestAnimationFrame(animateHop);
     }
 
+    /** حاجز أحمر وأبيض بقائمين وضوءين وامضين — يسدّ عرض المسار كلّه. */
+    createBarrier(dir = 1) {
+        const group = new THREE.Group();
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#e11d2e';
+        ctx.fillRect(0, 0, 512, 64);
+        ctx.fillStyle = '#ffffff';
+        for (let x = -64; x < 576; x += 64) {
+            ctx.beginPath();
+            ctx.moveTo(x, 64); ctx.lineTo(x + 32, 64); ctx.lineTo(x + 64, 0); ctx.lineTo(x + 32, 0);
+            ctx.closePath(); ctx.fill();
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        const stripe = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
+        const edge = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.6 });
+        const span = CONFIG.world.laneWidth * 0.82;
+        // لوحان مخطّطان (BoxGeometry: +x, -x, +y, -y, +z, -z)
+        [0.78, 0.42].forEach((y) => {
+            const board = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.26, span), [stripe, stripe, edge, edge, edge, edge]);
+            board.position.y = y;
+            board.castShadow = true;
+            group.add(board);
+        });
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.7, metalness: 0.3 });
+        const lights = [];
+        [-1, 1].forEach((side) => {
+            const z = side * (span / 2 - 0.12);
+            [-0.22, 0.22].forEach((dx) => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), legMat);
+                leg.position.set(dx, 0.48, z);
+                leg.rotation.z = dx > 0 ? -0.22 : 0.22;
+                leg.castShadow = true;
+                group.add(leg);
+            });
+            const lamp = new THREE.Mesh(
+                new THREE.SphereGeometry(0.11, 12, 10),
+                new THREE.MeshStandardMaterial({ color: 0xffb020, emissive: 0xff8a00, emissiveIntensity: 1.6 })
+            );
+            lamp.position.set(0, 1.02, z);
+            group.add(lamp);
+            lights.push(lamp);
+        });
+        // الكاميرا خلف الدجاجة ترى اللوح من حافّته — أقماع وإشارة «قف» تُرى من كل زاوية
+        const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6a00, roughness: 0.5 });
+        const bandMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
+        [-1, 1].forEach((k) => {
+            const cone = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.3, 0.9, 18), coneMat);
+            body.position.y = 0.5;
+            const band = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.14, 18), bandMat);
+            band.position.y = 0.58;
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.06, 0.62), baseMat);
+            base.position.y = 0.03;
+            [body, band, base].forEach((m) => { m.castShadow = true; cone.add(m); });
+            cone.position.set(dir * 0.5, 0, k * (span / 2 - 0.45));   // جهة الدجاجة
+            group.add(cone);
+        });
+        const signCanvas = document.createElement('canvas');
+        signCanvas.width = 128; signCanvas.height = 128;
+        const sc = signCanvas.getContext('2d');
+        sc.fillStyle = '#ffffff';
+        sc.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const a = Math.PI / 8 + (i * Math.PI) / 4;
+            sc.lineTo(64 + 62 * Math.cos(a), 64 + 62 * Math.sin(a));
+        }
+        sc.closePath(); sc.fill();
+        sc.fillStyle = '#d7191c';
+        sc.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const a = Math.PI / 8 + (i * Math.PI) / 4;
+            sc.lineTo(64 + 54 * Math.cos(a), 64 + 54 * Math.sin(a));
+        }
+        sc.closePath(); sc.fill();
+        sc.fillStyle = '#ffffff';
+        sc.font = 'bold 38px Arial, sans-serif';
+        sc.textAlign = 'center'; sc.textBaseline = 'middle';
+        sc.fillText('STOP', 64, 66);
+        const signTex = new THREE.CanvasTexture(signCanvas);
+        const sign = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.85, 0.85),
+            new THREE.MeshStandardMaterial({ map: signTex, transparent: true, side: THREE.DoubleSide, roughness: 0.5 })
+        );
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.5, 10), legMat);
+        pole.position.set(0, 0.75, -span / 2 - 0.1);
+        sign.position.set(0, 1.62, -span / 2 - 0.1);
+        sign.rotation.y = Math.PI;   // تواجه الكاميرا خلف الدجاجة
+        group.add(pole, sign);
+        return { group, lights };
+    }
+
+    /** ينزل الحاجز من الأعلى بارتداد، في جهة السيارات القادمة من الدجاجة. */
+    dropBarrier(laneIndex, instant = false) {
+        if (this.barriers.has(laneIndex) || laneIndex <= 0) return;
+        const lane = this.vehicles.find(v => v.laneIndex === laneIndex);
+        const dir = lane ? lane.direction : 1;
+        const b = this.createBarrier(dir);
+        b.group.position.set(-dir * 1.12, instant ? 0 : 4.2, this.getZForLane(laneIndex));
+        this.scene.add(b.group);
+        const entry = { ...b, t: 0, braked: instant };
+        this.barriers.set(laneIndex, entry);
+        if (instant) return;
+        const t0 = performance.now();
+        const fall = () => {
+            const k = Math.min(1, (performance.now() - t0) / 380);
+            // سقوط ثم ارتداد صغير
+            const y = k < 0.75 ? 4.2 * (1 - (k / 0.75) ** 2) : 0.22 * Math.sin(((k - 0.75) / 0.25) * Math.PI);
+            b.group.position.y = Math.max(0, y);
+            if (k < 1) requestAnimationFrame(fall);
+            else { b.group.position.y = 0; this.triggerScreenShake(0.08, 160); }
+        };
+        requestAnimationFrame(fall);
+        setTimeout(() => { if (audio.playBarrier) audio.playBarrier(); }, 290);
+    }
+
+    /** الدجاجة غادرت المسار: يرتفع الحاجز ويختفي وتعود السيارات للحركة. */
+    liftBarrier(laneIndex) {
+        const b = this.barriers.get(laneIndex);
+        if (!b) return;
+        this.barriers.delete(laneIndex);
+        const t0 = performance.now();
+        const y0 = b.group.position.y;
+        const up = () => {
+            const k = Math.min(1, (performance.now() - t0) / 420);
+            b.group.position.y = y0 + 5 * k * k;
+            b.group.scale.setScalar(1 - 0.4 * k);
+            if (k < 1) requestAnimationFrame(up);
+            else this.disposeBarrier(b);
+        };
+        requestAnimationFrame(up);
+    }
+
+    disposeBarrier(b) {
+        this.scene.remove(b.group);
+        b.group.traverse((o) => {
+            if (o.geometry) o.geometry.dispose();
+            const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+            mats.forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
+        });
+    }
+
+    /** وميض الأضواء، وصرير فرامل أوّل سيارة تقف عند الحاجز. */
+    updateBarriers(delta) {
+        this.barriers.forEach((b, laneIndex) => {
+            b.t += delta;
+            const on = Math.floor(b.t * 3) % 2 === 0;
+            b.lights.forEach((l, i) => { l.material.emissiveIntensity = (on === (i === 0)) ? 2.2 : 0.15; });
+            if (!b.braked) {
+                const hard = this.vehicles.some((v) => {
+                    if (v.laneIndex !== laneIndex || v.scripted || Math.abs(v.speed || 0) < 3) return false;
+                    const front = v.mesh.position.x * v.direction + v.length / 2;
+                    return front > -4.5 && front < -1.5;
+                });
+                if (hard) { b.braked = true; audio.playBrake(); }
+            }
+        });
+    }
+
     onSafeLanding(laneIndex) {
         audio.playSafe(laneIndex);
+        this.dropBarrier(laneIndex);
         this.spawnSafeGlow(this.chicken.position.z);
 
         const wingL = this.chicken.getObjectByName("wingL");
@@ -878,6 +1047,8 @@ class GameWorld {
     resetChicken() {
         this.clearDizzyStars();
         this.blockedLanes.clear();
+        this.barriers.forEach((b) => this.disposeBarrier(b));
+        this.barriers.clear();
         this.currentLane = 0;
         this.crashCar = null;
         this.vehicles.forEach(v => { v.scripted = false; });
@@ -933,6 +1104,7 @@ class GameWorld {
 
         if (!this.isPaused) {
             this.updateTraffic(delta);
+            this.updateBarriers(delta);
             this.updateParticles(delta);
             this.updateDizzyStars(delta);
 

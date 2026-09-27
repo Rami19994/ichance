@@ -106,6 +106,32 @@ class SoundEngine {
         });
     }
 
+    // نزول حاجز الطريق: ضربة قصيرة ورنّة معدنية
+    playBarrier() {
+        if (this.isMuted) return;
+        this.resume();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const thud = this.ctx.createOscillator();
+        const tg = this.ctx.createGain();
+        thud.type = 'sine';
+        thud.frequency.setValueAtTime(180, now);
+        thud.frequency.exponentialRampToValueAtTime(55, now + 0.18);
+        tg.gain.setValueAtTime(0.35, now);
+        tg.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        thud.connect(tg); tg.connect(this.ctx.destination);
+        thud.start(now); thud.stop(now + 0.25);
+        const clank = this.ctx.createOscillator();
+        const cg = this.ctx.createGain();
+        clank.type = 'square';
+        clank.frequency.setValueAtTime(820, now);
+        clank.frequency.exponentialRampToValueAtTime(520, now + 0.08);
+        cg.gain.setValueAtTime(0.05, now);
+        cg.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        clank.connect(cg); cg.connect(this.ctx.destination);
+        clank.start(now); clank.stop(now + 0.14);
+    }
+
     // 3. صوت فرامل حاد (Brake Screech)
     playBrake() {
         if (this.isMuted) return;
