@@ -50,8 +50,8 @@ function timeOf(ts) {
 }
 
 function boardMini(cards) {
-  return `<span class="board-mini">${cards
-    .map((m) => `<i data-tier="${tierOf(m)}">${m === 0 ? '✕' : m}</i>`)
+  return `<span class="board-mini">${(Array.isArray(cards) ? cards : [])
+    .map((m) => `<i data-tier="${tierOf(m)}">${m === 0 ? '✕' : Number(m)}</i>`)
     .join('')}</span>`;
 }
 
@@ -606,24 +606,152 @@ function renderLive(d) {
     <div class="live-cell"><span>مبالغ معرّضة</span><b class="num">${fmt(L.exposure)}</b></div>`;
 }
 
-function renderRounds(rounds) {
+/* ------------------------------- سجل الجولات -------------------------------
+   السجلّ في الخادم دائم (كل جولة صفّ لا يُحذف). هنا نافذة عليه: أحدث
+   الجولات من التحديث الدوري، و«عرض جولات أقدم» يجلب صفحة بعد صفحة حتى أول
+   جولة لُعبت. التصفية بلعبة تقرأ من الخادم مباشرة. */
+let roundFilter = '';
+let roundsList = [];          // المعروض، الأحدث أولاً
+let roundsShown = 60;         // كم جولة يحتفظ بها العرض (يكبر مع «الأقدم»)
+let roundsOldestKey = null;   // مفتاح أقدم جولة في السجلّ كلّه متى بلغناها
+let roundsLoading = false;
+
+const roundKey = (r) => r.logKey || `${r.roundId}|${r.endedAt || r.ts}`;
+/** مفتاح ترتيب زمني موحّد لجولات السجلّ الدائم وجولات الذاكرة القديمة. */
+const roundSortKey = (r) => (r.logKey ? r.logKey.slice(5) : String(r.endedAt || r.ts || 0).padStart(13, '0'));
+
+function mergeRounds(list, { reset = false } = {}) {
+  const map = new Map(reset ? [] : roundsList.map((r) => [roundKey(r), r]));
+  for (const r of list || []) map.set(roundKey(r), r);
+  roundsList = [...map.values()]
+    .sort((a, b) => (roundSortKey(a) < roundSortKey(b) ? 1 : -1))
+    .slice(0, roundsShown);
+}
+
+function dateTimeOf(ts) {
+  const d = new Date(ts);
+  if (d.toDateString() === new Date().toDateString()) return timeOf(ts);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${timeOf(ts).slice(0, 5)}`;
+}
+
+function paintRoundsFooter() {
+  const oldest = roundsList[roundsList.length - 1];
+  const more = !!oldest && !!oldest.logKey && oldest.logKey !== roundsOldestKey;
+  el('roundsMore').hidden = !more;
+  el('roundsMore').disabled = roundsLoading;
+  el('roundsMore').textContent = roundsLoading ? 'جارٍ التحميل…' : 'عرض جولات أقدم';
+  el('roundsCount').textContent = roundsList.length
+    ? `معروض ${fmt(roundsList.length)} جولة${more ? '' : ' — هذا كل السجلّ منذ أول جولة'}`
+    : '';
+}
+
+function fillRoundFilter() {
+  const sel = el('roundGame');
+  if (!sel || sel.options.length > 1) return;
+  for (const [id, g] of Object.entries(GAME_META)) {
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = `${g.emoji} ${g.name}`;
+    sel.appendChild(o);
+  }
+}
+
+async function fetchRounds({ before = null } = {}) {
+  const q = new URLSearchParams({ limit: '100' });
+  if (before) q.set('before', before);
+  if (roundFilter) q.set('game', roundFilter);
+  const out = await adminGet(`/api/admin/rounds?${q}`);
+  const list = out.rounds || [];
+  if (!out.next) {
+    const last = list[list.length - 1] || roundsList[roundsList.length - 1];
+    roundsOldestKey = last ? last.logKey || null : null;
+  }
+  return list;
+}
+
+async function loadOlderRounds() {
+  const oldest = roundsList[roundsList.length - 1];
+  if (!oldest || !oldest.logKey || roundsLoading) return;
+  roundsLoading = true;
+  paintRoundsFooter();
+  try {
+    const list = await fetchRounds({ before: oldest.logKey });
+    roundsShown = roundsList.length + list.length;
+    mergeRounds(list);
+  } catch (err) {
+    toast(`تعذّر تحميل الجولات: ${err.message}`, 'error', 5000);
+  } finally {
+    roundsLoading = false;
+    renderRounds();
+  }
+}
+
+async function setRoundFilter(game) {
+  roundFilter = game;
+  roundsShown = game ? 100 : 60;
+  roundsOldestKey = null;
+  openRound = null;
+  roundsList = [];
+  if (!game) {
+    if (lastData) {
+      if (!lastData.roundsNext && lastData.rounds.length) roundsOldestKey = lastData.rounds[lastData.rounds.length - 1].logKey || null;
+      mergeRounds(lastData.rounds, { reset: true });
+    }
+    renderRounds();
+    return;
+  }
+  renderRounds();
+  try {
+    mergeRounds(await fetchRounds(), { reset: true });
+  } catch (err) {
+    toast(`تعذّر تحميل الجولات: ${err.message}`, 'error', 5000);
+  }
+  renderRounds();
+}
+
+/** من التحديث الدوري: أحدث الجولات تنضمّ للمعروض دون أن تُسقط ما حمّله المالك. */
+async function refreshRounds(d) {
+  if (!roundFilter) {
+    if (!d.roundsNext && d.rounds.length && roundsList.length <= d.rounds.length) {
+      roundsOldestKey = d.rounds[d.rounds.length - 1].logKey || null;
+    }
+    mergeRounds(d.rounds);
+    renderRounds();
+    return;
+  }
+  try {
+    const q = new URLSearchParams({ limit: '60', game: roundFilter });
+    const out = await adminGet(`/api/admin/rounds?${q}`);
+    mergeRounds(out.rounds);
+    renderRounds();
+  } catch { /* التحديث التالي يعيد المحاولة */ }
+}
+
+el('roundGame')?.addEventListener('change', (e) => setRoundFilter(e.target.value));
+el('roundsMore')?.addEventListener('click', loadOlderRounds);
+
+function renderRounds() {
   const body = el('roundsBody');
+  const rounds = roundsList;
+  paintRoundsFooter();
   if (!rounds.length) {
-    body.innerHTML = '<tr><td colspan="8" class="empty-cell">لم تُلعب أي جولة بعد.</td></tr>';
+    body.innerHTML = `<tr><td colspan="8" class="empty-cell">${roundFilter ? 'لا جولات لهذه اللعبة بعد.' : 'لم تُلعب أي جولة بعد.'}</td></tr>`;
     return;
   }
 
   body.innerHTML = rounds.map((r) => {
     const h = roundHouse(r);
-    const humans = r.seats.filter((s) => !s.isBot).length;
-    const detail = openRound === r.roundId ? detailRow(r) : '';
+    const seats = Array.isArray(r.seats) ? r.seats : [];
+    const humans = seats.filter((s) => !s.isBot).length;
+    const key = roundKey(r);
+    const detail = openRound === key ? detailRow(r) : '';
     return `
-      <tr class="clickable" data-round="${r.roundId}">
-        <td class="mono">${r.roundId}</td>
-        <td class="dim num">${timeOf(r.endedAt || r.ts)}</td>
-        <td>${escapeHtml(r.templateName || r.patternName || r.game || '—')}</td>
+      <tr class="clickable" data-round="${escapeHtml(key)}">
+        <td class="mono">${escapeHtml(r.roundId || '—')}</td>
+        <td class="dim num">${dateTimeOf(r.endedAt || r.ts)}</td>
+        <td>${escapeHtml(r.templateName || r.patternName || (GAME_META[r.game] || {}).name || r.game || '—')}</td>
         <td>${boardMini(r.cards)}</td>
-        <td class="num">${humans}<span class="dim"> / ${r.seats.length}</span></td>
+        <td class="num">${humans}<span class="dim"> / ${seats.length}</span></td>
         <td class="num">${fmt(h.wagered)}</td>
         <td class="num">${fmt(h.paid)}</td>
         <td class="num ${h.profit > 0 ? 'pos' : h.profit < 0 ? 'neg' : 'dim'}">${h.bets ? fmtSigned(h.profit) : '—'}</td>
@@ -633,30 +761,35 @@ function renderRounds(rounds) {
   body.querySelectorAll('tr.clickable').forEach((row) => {
     row.addEventListener('click', () => {
       openRound = openRound === row.dataset.round ? null : row.dataset.round;
-      if (lastData) renderRounds(lastData.rounds);
+      renderRounds();
     });
   });
 }
 
 function detailRow(r) {
-  if (!r.seats.length) {
+  const seats = Array.isArray(r.seats) ? r.seats : [];
+  if (!seats.length) {
     return '<tr class="detail-row"><td colspan="8"><div class="detail-box dim">لم يشارك أحد في هذه الجولة.</div></td></tr>';
   }
-  const chips = r.seats
+  const isCards = !r.game || r.game === 'cards';
+  const mult = (v) => `×${Number(Number(v) || 0).toFixed(2).replace(/\.?0+$/, '')}`;
+  const chips = seats
     .slice()
-    .sort((a, b) => b.stake - a.stake)
+    .sort((a, b) => (b.stake || 0) - (a.stake || 0))
     .map((s) => `
       <div class="seat-chip${s.isBot ? ' is-bot' : ''}">
-        <b>${escapeHtml(s.id)}</b>${s.isBot ? '<span class="badge-bot">BOT</span>' : ''}${s.capped ? `<span class="badge-cap">سقف ×${s.multiplier}</span>` : ''}
-        <div class="row2"><span class="dim">كرت ${s.cardIndex + 1}${s.auto ? ' (تلقائي)' : ''}</span><span>×${s.cardValue}</span></div>
+        <b>${escapeHtml(s.id)}</b>${s.isBot ? '<span class="badge-bot">BOT</span>' : ''}${s.capped ? `<span class="badge-cap">سقف ${mult(s.multiplier)}</span>` : ''}
+        <div class="row2"><span class="dim">${isCards ? `كرت ${(Number(s.cardIndex) || 0) + 1}${s.auto ? ' (تلقائي)' : ''}` : 'المضاعف'}</span><span>${mult(s.cardValue)}</span></div>
         <div class="row2"><span class="dim">راهن ${fmt(s.stake)}</span><span class="${s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : 'dim'}">${fmtSigned(s.net)}</span></div>
       </div>`).join('');
 
+  const seed = typeof r.serverSeed === 'string' && r.serverSeed
+    ? ` · البذرة: <span class="mono">${escapeHtml(r.serverSeed.slice(0, 32))}…</span>` : '';
   return `
     <tr class="detail-row">
       <td colspan="8">
         <div class="detail-box">
-          <h4>تفاصيل لاعبي ${escapeHtml(r.roundId)} · البذرة: <span class="mono">${escapeHtml(r.serverSeed.slice(0, 32))}…</span></h4>
+          <h4>تفاصيل ${escapeHtml(r.roundId || '')} · ${dateTimeOf(r.endedAt || r.ts)}${seed}</h4>
           <div class="seat-chips">${chips}</div>
         </div>
       </td>
@@ -778,7 +911,8 @@ function render(d) {
   renderEconomics(d);
   renderChart(d.rounds);
   renderLive(d);
-  renderRounds(d.rounds);
+  fillRoundFilter();
+  refreshRounds(d);
   renderPlayers(d.players);
   renderRules(d.settings);
 }

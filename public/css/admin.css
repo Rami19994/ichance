@@ -384,6 +384,25 @@
 .card__body { padding: 16px 18px; }
 .card__body--flush { padding: 0; }
 
+/* سجل الجولات: تصفية بلعبة + صفحات أقدم حتى أول جولة */
+.rounds-filter {
+  margin-inline-start: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 7px 10px;
+  color: var(--txt);
+  font-family: inherit; font-size: 12.5px;
+  max-width: 100%;
+}
+.rounds-filter:focus { outline: none; border-color: var(--gold-2); }
+.rounds-more {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
 /* ------------------------------ مخطط الأرباح ------------------------------ */
 .profit-chart {
   display: flex;

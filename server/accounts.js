@@ -882,15 +882,29 @@ async function cashierPlayers(cashierId) {
   return db.accounts.filter((a) => a.role === 'player' && a.cashier_id === cashierId).map(strip);
 }
 
+/** limit: عدد، أو 'all' لكل اللاعبين منذ البداية (صفحات من 1000). */
 async function allPlayers({ limit = 200 } = {}) {
-  const n = Math.min(Math.max(Number(limit) || 200, 1), 1000);
+  const all = limit === 'all';
+  const n = all ? Infinity : Math.min(Math.max(Number(limit) || 200, 1), 1000);
   if (useDb()) {
+    const PAGE = 1000;
+    const readAll = async (table, filter) => {
+      const out = [];
+      for (let offset = 0; out.length < n; offset += PAGE) {
+        const size = Math.min(PAGE, n - out.length);
+        const rows = await sb.select(table, `${filter}&order=created_at.desc,id.desc&limit=${size}&offset=${offset}`);
+        const list = Array.isArray(rows) ? rows : [];
+        out.push(...list);
+        if (list.length < size) break;
+      }
+      return out;
+    };
     try {
-      return stripAll(await sb.select('player_summary', `select=*&order=created_at.desc&limit=${n}`));
+      return stripAll(await readAll('player_summary', 'select=*'));
     } catch (err) {
       // العرض قد يغيب في قاعدة قديمة — نقرأ الجدول مباشرة قبل أن نستسلم
       try {
-        return stripAll(await sb.select('accounts', `role=eq.player&order=created_at.desc&limit=${n}`));
+        return stripAll(await readAll('accounts', 'role=eq.player'));
       } catch (err2) {
         throw readFailed('allPlayers', err2);
       }
@@ -898,7 +912,8 @@ async function allPlayers({ limit = 200 } = {}) {
   }
   if (!localAllowed()) return [];
   const db = getLocal();
-  return db.accounts.filter((a) => a.role === 'player').slice(0, n).map(strip);
+  const list = db.accounts.filter((a) => a.role === 'player');
+  return (all ? list : list.slice(0, n)).map(strip);
 }
 
 async function transactions({ cashierId, playerId, limit = 100 } = {}) {

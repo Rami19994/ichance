@@ -1378,7 +1378,7 @@ async function handleApi(req, res, url) {
     }
 
     if (route === '/api/admin/players' && req.method === 'GET') {
-      return sendJson(res, 200, { players: await accounts.allPlayers({ limit: 500 }) });
+      return sendJson(res, 200, { players: await accounts.allPlayers({ limit: 'all' }) });
     }
 
     if (route === '/api/admin/cashiers' && req.method === 'GET') {
@@ -1459,12 +1459,29 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true, key: result.key, generated: result.generated });
     }
 
+    if (route === '/api/admin/rounds' && req.method === 'GET') {
+      // السجلّ الدائم صفحةً صفحة حتى أوّل جولة لُعبت
+      try {
+        const page = await store.roundHistory({
+          before: url.searchParams.get('before') || null,
+          game: url.searchParams.get('game') || null,
+          limit: url.searchParams.get('limit') || 100
+        });
+        return sendJson(res, 200, page);
+      } catch (err) {
+        return sendJson(res, 503, { error: 'تعذّرت قراءة سجلّ الجولات — حاول بعد قليل' });
+      }
+    }
+
     if (route === '/api/admin/overview' && req.method === 'GET') {
       await store.syncWithDb({ force: true });
       const ledger = store.ledgerSummary();
-      const rounds = store.rounds(60);
-      // جلب اللاعبين الحقيقيين من قاعدة البيانات (Supabase أو محلي)
-      const realAccounts = await accounts.allPlayers({ limit: 200 }).catch(() => []);
+      // أحدث الجولات من السجلّ الدائم (كل النسخ)، لا من ذاكرة هذه النسخة وحدها
+      const recent = await store.roundHistory({ limit: 60 }).catch(() => null);
+      const rounds = recent ? recent.rounds : store.rounds(60);
+      const roundsNext = recent ? recent.next : null;
+      // كل اللاعبين الحقيقيين من قاعدة البيانات (Supabase أو محلي) — بلا سقف
+      const realAccounts = await accounts.allPlayers({ limit: 'all' }).catch(() => []);
       // دمج بيانات اللعب مع بيانات الحسابات
       const gamePlayersMap = {};
       for (const p of store.allPlayers()) {
@@ -1529,6 +1546,7 @@ async function handleApi(req, res, url) {
         economics: buildEconomics(rounds, ledger),
         live: game.adminSnapshot(),
         rounds,
+        roundsNext,
         players: mergedPlayers,
         playerCount: Math.max(mergedPlayers.length, store.playerCount()),
         online: countHumanViewers(),

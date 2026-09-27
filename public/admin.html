@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/theme.css?v=29">
-<link rel="stylesheet" href="/css/admin.css?v=29">
+<link rel="stylesheet" href="/css/admin.css?v=30">
 </head>
 <body>
 
@@ -380,7 +380,10 @@
     <section class="panel card">
       <div class="card__head">
         <h2>سجل الجولات</h2>
-        <span class="card__hint">اضغط أي صف لعرض تفاصيل اللاعبين · البوتات لا تدخل الحسابات</span>
+        <span class="card__hint">محفوظ كاملاً منذ أول جولة — لا يُحذف شيء · اضغط أي صف لعرض التفاصيل</span>
+        <select id="roundGame" class="rounds-filter" aria-label="تصفية حسب اللعبة">
+          <option value="">كل الألعاب</option>
+        </select>
       </div>
       <div class="card__body card__body--flush">
         <div class="table-wrap">
@@ -399,6 +402,10 @@
             </thead>
             <tbody id="roundsBody"></tbody>
           </table>
+        </div>
+        <div class="rounds-more">
+          <span class="card__hint" id="roundsCount"></span>
+          <button class="btn btn--dark btn--sm" type="button" id="roundsMore" hidden>عرض جولات أقدم</button>
         </div>
       </div>
     </section>
@@ -597,6 +604,6 @@
 </div>
 
 <script src="/js/common.js?v=29"></script>
-<script src="/js/admin.js?v=31"></script>
+<script src="/js/admin.js?v=33"></script>
 </body>
 </html>

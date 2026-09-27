@@ -6,6 +6,8 @@ const accounts = require('./accounts');
 const path = require('path');
 const crypto = require('crypto');
 const { WALLET, SERVER } = require('./config');
+const { merge3, clone } = require('./merge3');
+const roundArchive = require('./roundLog');
 
 /**
  * تخزين بسيط للاعبين في ملف JSON.
@@ -56,43 +58,42 @@ const ledger = {
   since: Date.now()
 };
 
-function applyStorePayload(raw) {
+const STAT_FIELDS = ['stats', 'slotStats', 'neonStats', 'tankStats', 'minesStats', 'plinkoStats', 'bullseyeStats', 'chickenStats'];
+
+/** دفتر بصيغة قديمة جداً (مسطّح بلا real/bot) يُقرأ كدلو البشر. */
+function upgradeLedger(L) {
+  if (!L || typeof L !== 'object' || L.real || L.bot) return L;
+  const real = {};
+  for (const k of Object.keys(emptyBucket())) if (Number.isFinite(L[k])) real[k] = L[k];
+  return { ...L, real };
+}
+
+/**
+ * ما تحفظه هذه النسخة في store_data: الدفتر وإحصاءات اللاعبين. (سجلّ
+ * الجولات لم يعد هنا — كل جولة صفّ دائم في roundLog.)
+ */
+function currentPayload() {
+  return clone({ ledger, playerStats: extractPlayerStats() });
+}
+
+/**
+ * يضع حالة كاملة (ناتج دمج) في الذاكرة مكان الحالية. لا يُستدعى إلّا بقيم
+ * ناتجة عن merge3 — أي بعد إضافة ما في الذاكرة إليها، فلا يضيع منها شيء.
+ */
+function applyPayload(raw) {
   if (!raw) return;
-  if (Array.isArray(raw.rounds)) {
-    roundLog.length = 0;
-    roundLog.push(...raw.rounds.slice(0, SERVER.historySize));
-  }
-  if (raw.ledger) {
-    const L = raw.ledger;
-    if (L.real || L.bot) {
-      for (const bucket of ['real', 'bot']) {
-        if (L[bucket]) {
-          for (const k of Object.keys(ledger[bucket])) {
-            if (Number.isFinite(L[bucket][k])) ledger[bucket][k] = L[bucket][k];
-          }
-        }
-      }
-    } else {
-      for (const k of Object.keys(ledger.real)) {
-        if (Number.isFinite(L[k])) ledger.real[k] = L[k];
-      }
+  const L = upgradeLedger(raw.ledger);
+  if (L && typeof L === 'object') {
+    for (const bucket of ['real', 'bot']) {
+      ledger[bucket] = { ...emptyBucket(), ...(L[bucket] || {}) };
     }
-    if (L.tankByDifficulty && typeof L.tankByDifficulty === 'object') {
-      ledger.tankByDifficulty = L.tankByDifficulty;
+    const games = {};
+    for (const g of new Set([...Object.keys(ledger.games), ...Object.keys(L.games || {})])) {
+      games[g] = { ...emptyBucket(), ...((L.games || {})[g] || {}) };
     }
-    if (L.games) {
-      for (const g of Object.keys(ledger.games)) {
-        if (L.games[g]) {
-          for (const k of Object.keys(ledger.games[g])) {
-            if (Number.isFinite(L.games[g][k])) ledger.games[g][k] = L.games[g][k];
-          }
-        }
-      }
-    }
-    if (L.slotBuys) {
-      if (Number.isFinite(L.slotBuys.count)) ledger.slotBuys.count = L.slotBuys.count;
-      if (Number.isFinite(L.slotBuys.wagered)) ledger.slotBuys.wagered = L.slotBuys.wagered;
-    }
+    ledger.games = games;
+    if (L.tankByDifficulty && typeof L.tankByDifficulty === 'object') ledger.tankByDifficulty = clone(L.tankByDifficulty);
+    ledger.slotBuys = { count: 0, wagered: 0, ...(L.slotBuys || {}) };
     if (Number.isFinite(L.faucet)) ledger.faucet = L.faucet;
     if (Number.isFinite(L.since)) ledger.since = L.since;
   }
@@ -107,22 +108,24 @@ function applyStorePayload(raw) {
           balance: Number.isFinite(st.balance) ? st.balance : WALLET.startingBalance,
           createdAt: st.createdAt || Date.now()
         });
-        p.accountId = st.accountId || null;
-        p.username = st.username || null;
         players.set(id, p);
         if (p.token) tokenIndex.set(p.token, id);
       }
-      if (st.stats) p.stats = { ...p.stats, ...st.stats };
-      if (st.neonStats) p.neonStats = { ...st.neonStats };
-      if (st.tankStats) p.tankStats = { ...st.tankStats };
-      if (st.minesStats) p.minesStats = { ...st.minesStats };
-      if (st.plinkoStats) p.plinkoStats = { ...st.plinkoStats };
-      if (st.bullseyeStats) p.bullseyeStats = { ...st.bullseyeStats };
-      if (st.chickenStats) p.chickenStats = { ...st.chickenStats };
-      if (st.slotStats) p.slotStats = { ...st.slotStats };
+      if (st.accountId && !p.accountId) p.accountId = st.accountId;
+      if (st.username && !p.username) p.username = st.username;
+      for (const f of STAT_FIELDS) {
+        if (st[f] && typeof st[f] === 'object') p[f] = f === 'stats' ? { ...p.stats, ...clone(st[f]) } : clone(st[f]);
+      }
     }
   }
 }
+
+/**
+ * ما كانت عليه القاعدة حين تزامنت هذه النسخة آخر مرّة. ما في الذاكرة فوقه
+ * هو ما أضافته هذه النسخة ولم يُكتب بعد. null = لم تُقرأ القاعدة بعد، فكل ما
+ * في الذاكرة إضافة (نسخة فتيّة تبدأ بأصفار، فلا تمحو شيئاً).
+ */
+let syncBase = null;
 
 function load() {
   try {
@@ -133,7 +136,11 @@ function load() {
         players.set(p.id, normalize(p));
         tokenIndex.set(p.token, p.id);
       }
-      applyStorePayload(raw);
+      if (Array.isArray(raw.rounds)) roundLog.push(...raw.rounds.slice(0, SERVER.historySize));
+      applyPayload(raw);
+      // ما في الملف كان قد تزامن حتى syncBase المحفوظ معه؛ ملف أقدم بلا
+      // syncBase نعدّه متزامناً كلّه — كي لا يُضاف تاريخ القاعدة إليها مرّتين.
+      syncBase = raw.syncBase ? raw.syncBase : currentPayload();
       console.log(`[store] تم تحميل ${players.size} لاعب من الملف`);
     }
   } catch (err) {
@@ -573,11 +580,21 @@ function recordChicken(player, { bet, win, multiplier, difficulty, steps }) {
   persistSoon();
 }
 
-/** يحفظ ملخّص جولة منتهية في أعلى السجل. */
+/**
+ * جولة منتهية: إلى السجلّ الدائم (صفّ لا يُحذف — roundLog.js)، وإلى قائمة
+ * الذاكرة القصيرة التي يعرضها تاريخ كروت الحظ.
+ */
 function recordRoundLog(summary) {
+  roundArchive.add(summary);
   roundLog.unshift(summary);
   if (roundLog.length > SERVER.historySize) roundLog.length = SERVER.historySize;
   persistSoon();
+}
+
+/** صفحة من السجلّ الدائم للوحة الإدارة، الأحدث أولاً. */
+async function roundHistory({ before, game, limit } = {}) {
+  const page = await roundArchive.list({ before, game, limit });
+  return { rounds: page.rounds.map(normalizeRound), next: page.next };
 }
 
 /**
@@ -693,33 +710,119 @@ function extractPlayerStats() {
   return map;
 }
 
-let savingDb = false;
-let dbSavePending = false;
+// ------------------------------------------------------------ الحفظ في القاعدة
+//
+// store_data صفّ واحد تتشاركه كل نسخ الخادم. كانت كل نسخة تكتب ذاكرتها فوقه
+// كلّه كل ثانية ونصف — فنسخة فتيّة (ذاكرتها أصفار) أو متأخّرة تمحو تاريخاً
+// كاملاً، ونسختان متزامنتان تمحو إحداهما عمل الأخرى. الآن:
+//   • ما يُكتب = القاعدة الآن + ما أضافته هذه النسخة منذ آخر مزامنة (merge3)
+//   • الكتابة «قارن ثم بدّل» على updated_at: إن كتبت نسخة أخرى بين قراءتنا
+//     وكتابتنا نعيد القراءة والدمج — لا تُكتب قيمة محسوبة من حالة قديمة
+//   • صفّ لا يُقرأ (تالف) لا يُكتب فوقه أبداً
+//   • لا كتابة إن لم يتغيّر شيء
+
 let lastDbSync = 0;
 let dbInitialSyncDone = false;
 const DB_SYNC_INTERVAL_MS = 3000;
+const STORE_KEY = 'store_data';
+
+// كل تعديل يرفع changeSeq، والحفظ الناجح يسجّل ما وصل إليه
+let changeSeq = 0;
+let savedSeq = 0;
+
+// السجلّ القديم (آخر 100 جولة داخل store_data) يُنسخ إلى السجلّ الدائم مرّة
+// واحدة ثم يُعلَّم roundsArchived. لا يُحذف من store_data.
+let legacyQueued = false;
+let legacyArchived = false;
+
+let casBroken = false;
+
+/** نداءات store_data تمرّ واحداً بعد الآخر داخل النسخة. */
+let dbChain = Promise.resolve();
+function exclusive(fn) {
+  const run = dbChain.then(fn, fn);
+  dbChain = run.catch(() => {});
+  return run;
+}
+
+function parseValue(v) {
+  if (v && typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
+/** { value, tag } أو null إن لم يوجد الصفّ. صفّ موجود لا يُقرأ يرمي — كي لا نكتب فوقه. */
+async function readStoreRow() {
+  const row = await supabase.selectOne('site_secrets', `select=value,updated_at&key=eq.${STORE_KEY}`);
+  if (!row) return null;
+  const value = row.value == null ? {} : parseValue(row.value);
+  if (!value || typeof value !== 'object') {
+    throw new Error('قيمة store_data في القاعدة غير مقروءة — لن نكتب فوقها');
+  }
+  return { value: { ...value, ledger: upgradeLedger(value.ledger) }, tag: row.updated_at };
+}
+
+function noteLegacy(db) {
+  if (legacyQueued || db.roundsArchived || !Array.isArray(db.rounds) || !db.rounds.length) return;
+  roundArchive.addLegacy(db.rounds);
+  legacyQueued = true;
+}
+
+function payloadForSave() {
+  const p = currentPayload();
+  if (legacyArchived) p.roundsArchived = true;
+  return p;
+}
+
+function nextStamp(prevTag) {
+  const prev = prevTag ? Date.parse(prevTag) : 0;
+  return new Date(Math.max(Date.now(), (Number.isFinite(prev) ? prev : 0) + 1)).toISOString();
+}
+
+async function writeStoreRow(row, value) {
+  const raw = JSON.stringify(value);
+  if (!row) {
+    try {
+      await supabase.request('/rest/v1/site_secrets', {
+        method: 'POST',
+        body: [{ key: STORE_KEY, value: raw, updated_at: nextStamp(null) }],
+        prefer: 'return=minimal'
+      });
+      return true;
+    } catch (err) {
+      if (err && (err.code === '23505' || err.status === 409)) return false;   // سبقتنا نسخة
+      throw err;
+    }
+  }
+  const cond = casBroken ? '' : `&updated_at=eq.${supabase.enc(row.tag)}`;
+  const rows = await supabase.request(`/rest/v1/site_secrets?key=eq.${STORE_KEY}${cond}&select=key`, {
+    method: 'PATCH',
+    body: { value: raw, updated_at: nextStamp(row.tag) },
+    prefer: 'return=representation'
+  });
+  return Array.isArray(rows) && rows.length === 1;
+}
 
 async function syncWithDb({ force = false } = {}) {
   if (!supabase.configured()) return false;
-  const now = Date.now();
-  if (!force && dbInitialSyncDone && (now - lastDbSync < DB_SYNC_INTERVAL_MS)) {
+  if (!force && dbInitialSyncDone && (Date.now() - lastDbSync < DB_SYNC_INTERVAL_MS)) {
     return true;
   }
-
-  try {
-    const row = await supabase.selectOne('site_secrets', 'key=eq.store_data');
-    if (row && row.value) {
-      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-      applyStorePayload(parsed);
-      lastDbSync = now;
+  return exclusive(async () => {
+    try {
+      const row = await readStoreRow();
+      const db = row ? row.value : {};
+      noteLegacy(db);
+      // القاعدة + ما في ذاكرتنا ولم يُكتب بعد؛ ثم القاعدة هي الأساس الجديد
+      applyPayload(merge3(db, payloadForSave(), syncBase || {}));
+      syncBase = clone(db);
+      lastDbSync = Date.now();
       dbInitialSyncDone = true;
       return true;
+    } catch (err) {
+      console.warn('[store] تعذّرت مزامنة البيانات من Supabase:', err.message);
+      return false;
     }
-    dbInitialSyncDone = true;
-  } catch (err) {
-    console.warn('[store] تعذّرت مزامنة البيانات من Supabase:', err.message);
-  }
-  return false;
+  });
 }
 
 async function ensureDbLoaded() {
@@ -728,50 +831,61 @@ async function ensureDbLoaded() {
   }
 }
 
-async function saveToDb() {
-  if (!supabase.configured()) return false;
-  if (savingDb) {
-    dbSavePending = true;
-    return false;
+function saveToDb() {
+  if (!supabase.configured()) return Promise.resolve(false);
+  return exclusive(saveOnce);
+}
+
+async function saveOnce() {
+  const roundsOk = await roundArchive.flush();
+  if (roundsOk && legacyQueued && !legacyArchived) {
+    legacyArchived = true;
+    changeSeq += 1;
   }
-  savingDb = true;
-  dbSavePending = false;
+  if (changeSeq === savedSeq) return roundsOk;
 
   try {
-    const payload = {
-      savedAt: Date.now(),
-      ledger,
-      rounds: roundLog.slice(0, 100),
-      playerStats: extractPlayerStats()
-    };
-
-    await supabase.request('/rest/v1/site_secrets?on_conflict=key', {
-      method: 'POST',
-      body: [{
-        key: 'store_data',
-        value: JSON.stringify(payload),
-        updated_at: new Date().toISOString()
-      }],
-      prefer: 'resolution=merge-duplicates,return=minimal'
-    });
-    lastDbSync = Date.now();
-    return true;
+    let failedTag = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const row = await readStoreRow();
+      // فشلت المقارنة والوسم لم يتغيّر: لا منافس — المرشّح نفسه لا يطابق في
+      // هذه القاعدة. نكتب بالمفتاح وحده (ما زال دمجاً فوق أحدث قراءة).
+      if (row && failedTag !== null && row.tag === failedTag && !casBroken) {
+        casBroken = true;
+        console.warn('[store] مقارنة updated_at لا تطابق في هذه القاعدة — الكتابة بالمفتاح وحده');
+      }
+      const db = row ? row.value : {};
+      noteLegacy(db);
+      const seq = changeSeq;
+      const local = payloadForSave();
+      const merged = merge3(db, local, syncBase || {});
+      merged.savedAt = Date.now();
+      if (!(await writeStoreRow(row, merged))) {
+        failedTag = row ? row.tag : null;
+        continue;
+      }
+      // ما أُضيف إلى الذاكرة أثناء انتظار الكتابة يبقى فوق ما كُتب
+      applyPayload(merge3(merged, payloadForSave(), local));
+      syncBase = merged;
+      savedSeq = seq;
+      lastDbSync = Date.now();
+      dbInitialSyncDone = true;
+      return roundsOk;
+    }
+    console.warn('[store] تزاحم متواصل على store_data — يُعاد في الحفظ التالي');
+    return false;
   } catch (err) {
     console.error('[store] فشل الحفظ في Supabase:', err.message);
-    dbSavePending = true;
     return false;
-  } finally {
-    savingDb = false;
-    if (dbSavePending) {
-      setTimeout(() => saveToDb().catch(() => {}), 1000);
-    }
   }
 }
 
 function persistSoon() {
   dirty = true;
-  saveToDb().catch(() => {});
+  changeSeq += 1;
 }
+
+const hasUnsaved = () => changeSeq !== savedSeq || roundArchive.pendingCount() > 0;
 
 async function flushLocal() {
   if (writing) return;
@@ -780,6 +894,8 @@ async function flushLocal() {
     savedAt: Date.now(),
     ledger,
     rounds: roundLog.slice(0, SERVER.historySize),
+    playerStats: extractPlayerStats(),
+    syncBase,
     players: [...players.values()]
   });
   const tmp = `${DATA_FILE}.tmp`;
@@ -798,10 +914,14 @@ async function flushLocal() {
 
 async function flush() {
   dirty = false;
-  await Promise.allSettled([
-    flushLocal(),
-    saveToDb()
-  ]);
+  if (supabase.configured()) {
+    await Promise.allSettled([flushLocal(), saveToDb()]);
+    return;
+  }
+  // بلا قاعدة: الملف هو المخزن، والجولات تُلحق بـ rounds.jsonl
+  const seq = changeSeq;
+  const [, rounds] = await Promise.allSettled([flushLocal(), roundArchive.flush()]);
+  if (rounds.status === 'fulfilled' && rounds.value) savedSeq = seq;
 }
 
 function shortId() {
@@ -1183,14 +1303,16 @@ function publicProfile(player) {
   };
 }
 
+roundArchive.setLocalFile(DATA_FILE);
 load();
-const flushTimer = setInterval(flush, 1500);
+// يكتب فقط حين يوجد ما لم يُحفظ — الكتابة الدورية بلا تغيير كانت تمحو التاريخ
+const flushTimer = setInterval(() => { if (hasUnsaved()) flush().catch(() => {}); }, 1500);
 if (flushTimer.unref) flushTimer.unref();
 
 module.exports = {
   createPlayer, byToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
   recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, ledgerSummary,
-  tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, allPlayers, playerCount: () => players.size,
-  syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty
+  tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, roundHistory, allPlayers, playerCount: () => players.size,
+  syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty || hasUnsaved()
 };
