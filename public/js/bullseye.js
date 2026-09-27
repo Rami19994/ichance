@@ -842,21 +842,26 @@
   }
 
   function finishRound(data) {
-    S.balance = Number(data.balance) || 0;
-    paintBalance(S.balance);
-    showResult(data);
-    const m = data.bet ? data.win / data.bet : 0;
-    addTicker(m);
-    pushHist(data);
-    els.lastWin.textContent = money(data.win);
-    els.lastMult.textContent = multText(m);
-    if (data.win > 0) { Snd.win(m >= 3); if (m >= 3) winFlash = 1; }
-    else Snd.lose();
-    S.gamble = data.gamble && data.gamble.available ? data.gamble : null;
-    showRisk();
-    if (data.mode === 'gamble' && !S.gamble) setTimeout(() => { if (!S.busy) setWheel(S.modes[S.mode].wheel); }, 2200);
-    readyVisible = true;
-    setBusy(false);
+    try {
+      S.balance = Number(data.balance) || 0;
+      paintBalance(S.balance);
+      showResult(data);
+      const m = data.bet ? data.win / data.bet : 0;
+      addTicker(m);
+      pushHist(data);
+      els.lastWin.textContent = money(data.win);
+      els.lastMult.textContent = multText(m);
+      if (data.win > 0) { Snd.win(m >= 3); if (m >= 3) winFlash = 1; }
+      else Snd.lose();
+      S.gamble = data.gamble && data.gamble.available ? data.gamble : null;
+      showRisk();
+      if (data.mode === 'gamble' && !S.gamble) setTimeout(() => { if (!S.busy) setWheel(S.modes[S.mode].wheel); }, 2200);
+    } catch (err) {
+      console.error('[Bullseye] finishRound error:', err);
+    } finally {
+      readyVisible = true;
+      setBusy(false);
+    }
   }
 
   function handleError(err) {

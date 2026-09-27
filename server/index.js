@@ -1173,7 +1173,7 @@ async function handleApi(req, res, url) {
 
   if (route === '/api/buffalo-ways/spin' && req.method === 'POST') {
     if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
-    if (!rateLimit(`buffalo:${player.id}`, 12, 10_000)) {
+    if (!rateLimit(`buffalo:${player.id}`, 30, 10_000)) {
       return sendJson(res, 429, { error: 'لفات سريعة جداً — تمهّل قليلاً' });
     }
     const body = await readBody(req);
@@ -1184,7 +1184,7 @@ async function handleApi(req, res, url) {
 
   if (route === '/api/buffalo-ways/demo' && req.method === 'POST') {
     // تجربة بلا مال للزوّار — المحرّك نفسه، لا خصم ولا تسجيل
-    if (!rateLimit(`buffalo-demo:${ip}`, 12, 10_000)) {
+    if (!rateLimit(`buffalo-demo:${ip}`, 30, 10_000)) {
       return sendJson(res, 429, { error: 'لفات سريعة جداً — تمهّل قليلاً' });
     }
     const body = await readBody(req);

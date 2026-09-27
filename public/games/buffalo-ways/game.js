@@ -261,20 +261,22 @@
     }
     runFx();
   }
-  function coinShower(ms = 2400) {
+  function coinShower(ms = 2200) {
     const w = els.fx.width;
     const u = CW * fx.dpr / 14;
     const end = performance.now() + ms;
     const spawn = () => {
       if (performance.now() > end) return;
-      for (let i = 0; i < 3; i++) {
-        fx.parts.push({
-          x: Math.random() * w, y: -u * 3, vx: (Math.random() - 0.5) * u * 0.6, vy: u * (0.8 + Math.random() * 1.2),
-          life: 1, decay: 0.006, r: u * (1.4 + Math.random() * 0.8), rot: Math.random() * 6, vr: 0.1 + Math.random() * 0.2,
-          kind: 'coin'
-        });
+      if (fx.parts.length < 60) {
+        for (let i = 0; i < 2; i++) {
+          fx.parts.push({
+            x: Math.random() * w, y: -u * 2, vx: (Math.random() - 0.5) * u * 0.5, vy: u * (0.9 + Math.random() * 1.1),
+            life: 1, decay: 0.015, r: u * (1.2 + Math.random() * 0.7), rot: Math.random() * 6, vr: 0.12 + Math.random() * 0.2,
+            kind: 'coin'
+          });
+        }
       }
-      setTimeout(spawn, 60);
+      setTimeout(spawn, 75);
     };
     spawn();
     runFx();
@@ -285,7 +287,8 @@
     const tick = () => {
       g.clearRect(0, 0, els.fx.width, els.fx.height);
       const u = CW * fx.dpr / 14;
-      fx.parts = fx.parts.filter((p) => p.life > 0 && p.y < els.fx.height + u * 6);
+      fx.parts = fx.parts.filter((p) => p.life > 0 && p.y < els.fx.height + u * 4);
+      if (fx.parts.length > 70) fx.parts.splice(0, fx.parts.length - 70);
       for (const p of fx.parts) {
         p.x += p.vx; p.y += p.vy;
         p.life -= p.decay;
@@ -296,13 +299,11 @@
           g.beginPath(); g.arc(p.x, p.y, p.r * (0.4 + p.life * 0.6), 0, Math.PI * 2); g.fill();
         } else {
           p.vy += u * 0.02; p.rot += p.vr;
-          g.globalAlpha = Math.min(1, p.life * 1.5);
+          g.globalAlpha = Math.min(1, p.life * 1.4);
           const sx = Math.abs(Math.cos(p.rot));
-          const grd = g.createLinearGradient(p.x - p.r, p.y - p.r, p.x + p.r, p.y + p.r);
-          grd.addColorStop(0, '#fff3b0'); grd.addColorStop(0.5, '#f2b633'); grd.addColorStop(1, '#8a5a12');
-          g.fillStyle = grd;
+          g.fillStyle = '#f5c038';
           g.beginPath(); g.ellipse(p.x, p.y, Math.max(1, p.r * sx), p.r, 0, 0, Math.PI * 2); g.fill();
-          g.strokeStyle = 'rgba(90,50,5,.8)'; g.lineWidth = u * 0.15; g.stroke();
+          g.strokeStyle = '#8a5a12'; g.lineWidth = Math.max(1, u * 0.12); g.stroke();
         }
       }
       g.globalAlpha = 1;
@@ -531,15 +532,20 @@
     $('bigWinValue').textContent = '0';
     ov.hidden = false;
     A.sfx.bigWin();
-    coinShower(3200);
+    coinShower(2400);
     let skip = false;
+    let pollTimer = null;
     ov.onclick = () => { skip = true; };
-    const counting = countUp($('bigWinValue'), 0, win, 3600);
-    await Promise.race([counting, new Promise((r) => { const t = setInterval(() => { if (skip) { clearInterval(t); r(); } }, 50); })]);
+    const counting = countUp($('bigWinValue'), 0, win, 2800);
+    const skipPromise = new Promise((r) => {
+      pollTimer = setInterval(() => { if (skip) { clearInterval(pollTimer); r(); } }, 40);
+    });
+    await Promise.race([counting, skipPromise]);
+    clearInterval(pollTimer);
     $('bigWinValue').textContent = money(win);
     await new Promise((r) => {
-      const t = setTimeout(r, S.auto > 0 ? 1600 : 4000);
-      ov.onclick = () => { clearTimeout(t); r(); };
+      let t = setTimeout(() => { ov.onclick = null; r(); }, S.auto > 0 ? 1200 : 3000);
+      ov.onclick = () => { clearTimeout(t); ov.onclick = null; r(); };
     });
     ov.hidden = true;
   }
@@ -573,32 +579,41 @@
       return false;
     }
 
-    // الرصيد يُظهر الخصم فوراً، والنتيجة في النهاية
-    S.balance -= cost;
-    paintBalance();
+    try {
+      // الرصيد يُظهر الخصم فوراً، والنتيجة في النهاية
+      S.balance -= cost;
+      paintBalance();
 
-    const baseWin = await animateSpin(res.base, { startMult: 1, label: 'ربح' });
-    let total = baseWin;
-    if (res.feature) total = await playFeature(res.feature, res.base.win);
-    total = res.win;
+      const baseWin = await animateSpin(res.base, { startMult: 1, label: 'ربح' });
+      let total = baseWin;
+      if (res.feature) total = await playFeature(res.feature, res.base.win);
+      total = res.win;
 
-    if (total > 0) {
-      showWin(res.feature || res.base.steps.length > 1 ? 'إجمالي الربح' : 'ربح', total);
-      await bigWin(total);
-    } else {
-      showTips();
+      if (total > 0) {
+        showWin(res.feature || res.base.steps.length > 1 ? 'إجمالي الربح' : 'ربح', total);
+        await bigWin(total);
+      } else {
+        showTips();
+      }
+
+      if (S.demo) {
+        S.balance = demoBalance() - cost + total;
+        remember(DEMO_KEY, String(S.balance));
+      } else {
+        S.balance = Number(res.balance);
+      }
+      paintBalance();
+      ladderTo(1, false);
+      return { ok: true, feature: !!res.feature };
+    } catch (animErr) {
+      console.error('[BuffaloWays] Animation error:', animErr);
+      if (res && res.balance != null) S.balance = Number(res.balance);
+      paintBalance();
+      ladderTo(1, false);
+      return { ok: true, feature: !!(res && res.feature) };
+    } finally {
+      setBusy(false);
     }
-
-    if (S.demo) {
-      S.balance = demoBalance() - cost + total;
-      remember(DEMO_KEY, String(S.balance));
-    } else {
-      S.balance = Number(res.balance);
-    }
-    paintBalance();
-    ladderTo(1, false);
-    setBusy(false);
-    return { ok: true, feature: !!res.feature };
   }
 
   function setBusy(on) {
@@ -805,12 +820,20 @@
     paintBalance();
     $('loadNote').textContent = S.demo ? 'وضع تجريبي برصيد وهمي — سجّل دخولك للّعب برصيدك' : `أهلاً ${S.username || ''} — رصيدك جاهز`;
     $('startBtn').hidden = false;
-    $('startBtn').onclick = () => {
+    $('startBtn').onclick = async () => {
       $('loader').hidden = true;
       S.started = true;
+      setBusy(true);
       A.start();
       measure(); measureLadder(); sizeFx();
-      dropOut().then(() => dropIn(randomGrid()));
+      try {
+        await dropOut();
+        await dropIn(randomGrid());
+      } catch (e) {
+        console.warn('[BuffaloWays] Initial drop error:', e);
+      } finally {
+        setBusy(false);
+      }
     };
   }
 

@@ -72,6 +72,8 @@ function initAudio() {
   audioCtx = new AudioContext();
 }
 
+let bgmTimer = null;
+
 function playBGM() {
   if (isMuted) return;
   initAudio();
@@ -92,7 +94,8 @@ function playBGM() {
     
     bgmOsc.start();
     
-    setInterval(() => {
+    clearInterval(bgmTimer);
+    bgmTimer = setInterval(() => {
       if (!bgmOsc || isMuted) return;
       const now = audioCtx.currentTime;
       bgmOsc.frequency.linearRampToValueAtTime(115, now + 2);
@@ -104,6 +107,8 @@ function playBGM() {
 }
 
 function stopBGM() {
+  clearInterval(bgmTimer);
+  bgmTimer = null;
   if (bgmGain) {
     bgmGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
     setTimeout(() => {

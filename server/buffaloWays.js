@@ -207,7 +207,8 @@ function playSpin(rng, mode, budget, { forced = 0 } = {}) {
   let win = 0;
   let capped = false;
 
-  for (;;) {
+  const MAX_STEPS = 50;
+  for (let stepCount = 0; stepCount < MAX_STEPS; stepCount++) {
     const ev = evaluate(grid);
     if (!ev.positions.length) break;
     let stepWin = ev.pay * mult;

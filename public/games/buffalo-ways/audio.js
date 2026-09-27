@@ -37,24 +37,26 @@ window.BWAudio = (() => {
     master.connect(comp); comp.connect(ctx.destination);
     musicBus = ctx.createGain(); musicBus.gain.value = opts.music ? 0.55 : 0; musicBus.connect(master);
     sfxBus = ctx.createGain(); sfxBus.gain.value = opts.sfx ? 0.9 : 0; sfxBus.connect(master);
-    // صدى قاعة صغيرة من استجابة مُولّدة
-    reverb = ctx.createConvolver();
-    reverb.buffer = impulse(2.2, 2.6);
-    reverbSend = ctx.createGain(); reverbSend.gain.value = 0.32;
-    reverb.connect(reverbSend); reverbSend.connect(master);
-    noiseBuf = makeNoise(2);
+    // صدى ناعم وخفيف جداً عبر DelayNode وفلتر منخفض بدون استهلاك للمعالج أو الذاكرة
+    const delay = ctx.createDelay();
+    delay.delayTime.value = 0.07;
+    const delayFeedback = ctx.createGain();
+    delayFeedback.gain.value = 0.26;
+    const delayFilter = ctx.createBiquadFilter();
+    delayFilter.type = 'lowpass';
+    delayFilter.frequency.value = 2200;
+    delay.connect(delayFilter);
+    delayFilter.connect(delayFeedback);
+    delayFeedback.connect(delay);
+    reverb = delay;
+    reverbSend = ctx.createGain();
+    reverbSend.gain.value = 0.28;
+    delayFilter.connect(reverbSend);
+    reverbSend.connect(master);
+    noiseBuf = makeNoise(1.2);
     return true;
   }
 
-  function impulse(sec, decay) {
-    const len = Math.floor(ctx.sampleRate * sec);
-    const b = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = b.getChannelData(ch);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
-    }
-    return b;
-  }
   function makeNoise(sec) {
     const len = Math.floor(ctx.sampleRate * sec);
     const b = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -64,7 +66,7 @@ window.BWAudio = (() => {
   }
 
   /** وتر مقروص (Karplus-Strong) — يُحسب مرّة لكل نغمة ويُخزَّن. */
-  function pluckBuffer(midi, dur = 2.2, bright = 0.55, decay = 0.996) {
+  function pluckBuffer(midi, dur = 1.2, bright = 0.55, decay = 0.994) {
     const key = `${midi}|${dur}|${bright}|${decay}`;
     if (pluckCache.has(key)) return pluckCache.get(key);
     const sr = ctx.sampleRate;
@@ -205,7 +207,7 @@ window.BWAudio = (() => {
     music.nextTime = ctx.currentTime + 0.15;
     music.step = 0;
     startWind();
-    music.timer = setInterval(schedule, 25);
+    music.timer = setInterval(schedule, 75);
   }
   function musicStop() {
     if (!music.on) return;
@@ -242,8 +244,9 @@ window.BWAudio = (() => {
   }
 
   function schedule() {
+    if (!ctx || !music.on) return;
     const bus = music.gain;
-    while (music.nextTime < ctx.currentTime + 0.12) {
+    while (music.nextTime < ctx.currentTime + 0.22) {
       const fs = music.mode === 'fs';
       const spb = 60 / TEMPO[music.mode];     // ثانية/نبضة
       const s16 = spb / 4;

@@ -319,6 +319,8 @@
       updateActionBtn();
     } catch (err) {
       toast('خطأ في الاتصال بالخادم', 'error');
+      actionBtn.disabled = false;
+      updateActionBtn();
     } finally {
       isProcessing = false;
     }
@@ -548,6 +550,8 @@
       syncWallet();
     } catch (err) {
       toast('خطأ في الاتصال بالخادم', 'error');
+      actionBtn.disabled = false;
+      updateActionBtn();
     } finally {
       isProcessing = false;
     }
