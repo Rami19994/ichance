@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#3f9be6">
+<title>ماتادور فييستا — Matador Fiesta | LuckyArena</title>
+<meta name="description" content="ماتادور فييستا على LuckyArena: 243 طريقة فوز، رموز تنفجر وتسقط، الماتادور WILD بمضاعفات، لفات مجانية وأربع جوائز جاكبوت.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="/games/matador/assets/bg.svg" as="image">
+<link rel="stylesheet" href="/games/matador/game.css?v=1">
+</head>
+<body class="mt-page">
+
+<div class="mt-bg" aria-hidden="true"></div>
+
+<main class="mt-viewport" id="viewport">
+  <div class="mt-stage is-land" id="stage">
+
+    <!-- الجاكبوت -->
+    <div class="mt-jp mt-jp--mini" data-jp="mini"><em>MINI</em><b data-v>0.00</b><img src="/games/matador/assets/gem-mini.svg" alt=""></div>
+    <div class="mt-jp mt-jp--minor" data-jp="minor"><em>MINOR</em><b data-v>0.00</b><img src="/games/matador/assets/gem-minor.svg" alt=""></div>
+    <div class="mt-jp mt-jp--major" data-jp="major"><em>MAJOR</em><b data-v>0.00</b><img src="/games/matador/assets/gem-major.svg" alt=""></div>
+    <div class="mt-jp mt-jp--grand" data-jp="grand"><em>GRAND</em><b data-v>0.00</b><img src="/games/matador/assets/gem-grand.svg" alt=""></div>
+
+    <!-- الثور -->
+    <div class="mt-bull" id="bull"><img src="/games/matador/assets/bull.svg" alt="" draggable="false"></div>
+
+    <!-- الشعار وزر الشراء -->
+    <div class="mt-logo" aria-label="Matador Fiesta">
+      <img src="/games/matador/assets/logo-art.svg" alt="" draggable="false">
+      <span class="mt-logo__top" dir="ltr">FIESTA</span>
+      <span class="mt-logo__main" dir="ltr">MATADOR</span>
+    </div>
+    <button class="mt-buy" id="buyBtn" type="button">
+      <img src="/games/matador/assets/buy.svg" alt="" draggable="false">
+      <span>شراء</span>
+    </button>
+
+    <!-- اللوح -->
+    <div class="mt-board" id="board" dir="ltr">
+      <div class="mt-reels" id="reels">
+        <i class="mt-col-bg"></i><i class="mt-col-bg"></i><i class="mt-col-bg"></i><i class="mt-col-bg"></i><i class="mt-col-bg"></i>
+      </div>
+      <img class="mt-frame" src="/games/matador/assets/frame.svg" alt="" draggable="false">
+      <div class="mt-scroll" id="scroll"><span id="scrollText">243 WAYS</span></div>
+      <div class="mt-burst" id="burst" hidden><i class="mt-burst__rays"></i><b id="burstValue">0.00</b></div>
+      <canvas class="mt-fx" id="fx" aria-hidden="true"></canvas>
+      <div class="mt-msg" id="msg"><span id="msgText">حظاً طيباً!</span></div>
+    </div>
+
+    <!-- زر اللف -->
+    <button class="mt-spin" id="spinBtn" type="button" aria-label="لفّ">
+      <svg viewBox="0 0 100 100" aria-hidden="true" class="mt-spin__icon">
+        <path d="M22 30 C22 44 32 52 42 54 M78 30 C78 44 68 52 58 54" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        <path d="M33 58 C33 46 40 40 50 40 C60 40 67 46 67 58 C67 70 60 78 50 78 C40 78 33 70 33 58 Z" fill="#fff"/>
+        <circle cx="44" cy="68" r="3" fill="#1d4fd8"/><circle cx="56" cy="68" r="3" fill="#1d4fd8"/>
+      </svg>
+      <svg viewBox="0 0 100 100" aria-hidden="true" class="mt-spin__stop"><rect x="32" y="32" width="36" height="36" rx="6" fill="#fff"/></svg>
+      <span class="mt-spin__auto" id="autoCount" hidden>0</span>
+    </button>
+
+    <!-- الشريط السفلي -->
+    <div class="mt-bar">
+      <button class="mt-ico mt-ico--menu" id="menuBtn" type="button" aria-label="القائمة">
+        <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="mt-ico mt-ico--info" id="infoBtn" type="button" aria-label="معلومات">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="6.5" r="1.7" fill="currentColor"/><path d="M12 10.5v8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+      </button>
+      <button class="mt-ico mt-ico--sound" id="soundBtn" type="button" aria-label="الصوت">
+        <svg viewBox="0 0 24 24"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4Z M16 8.5a5 5 0 0 1 0 7 M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="mt-pill mt-pill--bal"><em>الرصيد</em><b id="balance">0.00</b></div>
+
+      <button class="mt-arrow mt-arrow--prev" id="betPrev" type="button" aria-label="رهانات أقل">
+        <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="mt-chips" id="chips" dir="ltr"></div>
+      <button class="mt-arrow mt-arrow--next" id="betNext" type="button" aria-label="رهانات أعلى">
+        <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="mt-pill mt-pill--win"><em id="winLabel">آخر مكسب</em><b id="lastWin">0.00</b></div>
+      <button class="mt-ico mt-ico--auto" id="autoBtn" type="button" aria-label="لعب تلقائي">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 9.5c0-1 1-2 3.5-2s3.5 1 3.5 2M9 16c1-2 2-3 3-3s2 1 3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="mt-ico mt-ico--turbo" id="turboBtn" type="button" aria-label="لعب سريع">
+        <svg viewBox="0 0 24 24"><path d="M13.5 2 5 13.5h6L9.5 22 19 9.8h-6.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="mt-ico mt-ico--repeat" id="repeatBtn" type="button" aria-label="لفّات متتالية">
+        <svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 0 1-12 5M5 12a7 7 0 0 1 12-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M17 3v4h-4M7 21v-4h4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="mt-foot">
+      <span class="mt-foot__brand" dir="ltr"><b>LUCKY</b>ARENA</span>
+      <span class="mt-foot__name">Matador Fiesta <i id="modeBadge">وضع تجريبي</i></span>
+      <span class="mt-foot__round" dir="ltr"><span id="roundId">#—</span> <span class="mt-foot__clock" id="clock">00:00</span></span>
+    </div>
+
+    <a class="mt-home" href="/" title="العودة للردهة" aria-label="العودة للردهة">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </a>
+
+    <!-- ======================== النوافذ ======================== -->
+    <div class="mt-overlay mt-loader" id="loader">
+      <img class="mt-loader__art" src="/assets/thumb_matador.svg" alt="Matador Fiesta">
+      <div class="mt-loader__bar"><i id="loadBar"></i></div>
+      <button class="mt-btn mt-btn--gold" id="startBtn" type="button" hidden>اضغط للبدء</button>
+      <p class="mt-loader__note" id="loadNote">جارٍ التحميل…</p>
+    </div>
+
+    <div class="mt-overlay mt-bigwin" id="bigWin" hidden>
+      <i class="mt-bigwin__rays"></i>
+      <div class="mt-bigwin__title" id="bigWinTitle">ربح كبير</div>
+      <div class="mt-bigwin__value" id="bigWinValue">0.00</div>
+      <div class="mt-bigwin__hint">اضغط للمتابعة</div>
+    </div>
+
+    <div class="mt-overlay mt-bigwin mt-jpwin" id="jpWin" hidden>
+      <i class="mt-bigwin__rays"></i>
+      <img class="mt-jpwin__gem" id="jpGem" src="/games/matador/assets/gem-mini.svg" alt="">
+      <div class="mt-bigwin__title"><span dir="ltr">JACKPOT</span> <b id="jpName" dir="ltr">MINI</b></div>
+      <div class="mt-bigwin__value" id="jpValue">0.00</div>
+      <div class="mt-bigwin__hint">اضغط للمتابعة</div>
+    </div>
+
+    <div class="mt-overlay mt-fs" id="fsIntro" hidden>
+      <div class="mt-panel">
+        <div class="mt-panel__kicker">¡Olé! مبروك</div>
+        <div class="mt-panel__big"><b id="fsIntroCount">10</b> لفات مجانية</div>
+        <p class="mt-panel__text">الرموز المؤطّرة أكثر، وكل شارة مضاعف تفوز <b>تُضاف إلى المضاعف</b> ويبقى حتى نهاية اللفات.</p>
+        <button class="mt-btn mt-btn--gold" id="fsStart" type="button">ابدأ</button>
+      </div>
+    </div>
+
+    <div class="mt-overlay mt-fs" id="fsOutro" hidden>
+      <div class="mt-panel">
+        <div class="mt-panel__kicker">انتهت اللفات المجانية</div>
+        <div class="mt-panel__label">إجمالي الربح</div>
+        <div class="mt-panel__big"><b id="fsOutroWin">0.00</b></div>
+        <button class="mt-btn mt-btn--gold" id="fsDone" type="button">متابعة</button>
+      </div>
+    </div>
+
+    <div class="mt-overlay" id="buyConfirm" hidden>
+      <div class="mt-panel">
+        <div class="mt-panel__kicker">شراء اللفات المجانية</div>
+        <p class="mt-panel__text">ادخل مباشرة إلى <b>10 لفات مجانية</b> أو أكثر مقابل</p>
+        <div class="mt-panel__big"><b id="buyConfirmCost">0.00</b></div>
+        <div class="mt-panel__row">
+          <button class="mt-btn" data-close type="button">إلغاء</button>
+          <button class="mt-btn mt-btn--gold" id="buyYes" type="button">شراء</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-overlay" id="autoMenu" hidden>
+      <div class="mt-panel">
+        <div class="mt-panel__kicker">لعب تلقائي</div>
+        <div class="mt-chipsel" id="autoChips">
+          <button type="button" data-n="10">10</button>
+          <button type="button" data-n="25">25</button>
+          <button type="button" data-n="50">50</button>
+          <button type="button" data-n="100">100</button>
+        </div>
+        <p class="mt-panel__text mt-panel__text--small">يتوقف عند اللفات المجانية أو الجاكبوت أو نفاد الرصيد.</p>
+        <button class="mt-btn" data-close type="button">إغلاق</button>
+      </div>
+    </div>
+
+    <div class="mt-overlay mt-info" id="infoModal" hidden>
+      <div class="mt-panel mt-panel--scroll">
+        <button class="mt-panel__x" data-close type="button" aria-label="إغلاق">✕</button>
+        <div class="mt-panel__kicker">معلومات اللعبة</div>
+        <div class="mt-toggles">
+          <label><input type="checkbox" id="optMusic" checked> الموسيقى</label>
+          <label><input type="checkbox" id="optSfx" checked> المؤثرات</label>
+        </div>
+        <h3>جدول الدفع <small>(للطريقة الواحدة، برهانك الحالي)</small></h3>
+        <div class="mt-pays" id="payTable"></div>
+        <h3>الجاكبوت</h3>
+        <div class="mt-jptable" id="jpTable"></div>
+        <h3>طريقة اللعب</h3>
+        <ul class="mt-rules" id="rules"></ul>
+      </div>
+    </div>
+
+    <div class="mt-toast" id="toast" hidden></div>
+  </div>
+</main>
+
+<script src="/games/matador/audio.js?v=1"></script>
+<script src="/games/matador/game.js?v=1"></script>
+</body>
+</html>

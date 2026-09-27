@@ -28,6 +28,7 @@ const plinkoGame = require('./plinkoGame');
 const bullseyeGame = require('./bullseyeGame');
 const chickenGame = require('./chickenGame');
 const buffaloWays = require('./buffaloWays');
+const matador = require('./matador');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -374,7 +375,8 @@ const ROUTE_GAME = {
   '/api/bullseye/throw': 'bullseye', '/api/bullseye/gamble': 'bullseye',
   // الإيقاف يمنع جولة جديدة فقط: جولة جارية تُكمل (خطوة/جمع) فلا يُحتجز رهان
   '/api/chicken/start': 'chicken', '/api/chicken/demo-step': 'chicken',
-  '/api/buffalo-ways/spin': 'buffalo-ways', '/api/buffalo-ways/demo': 'buffalo-ways'
+  '/api/buffalo-ways/spin': 'buffalo-ways', '/api/buffalo-ways/demo': 'buffalo-ways',
+  '/api/matador/spin': 'matador', '/api/matador/demo': 'matador'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -1216,6 +1218,33 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // ---------------------------------------------------- ماتادور فييستا
+  if (route === '/api/matador/state' && req.method === 'GET') {
+    return sendJson(res, 200, matador.stateFor(player));
+  }
+
+  if (route === '/api/matador/spin' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    if (!rateLimit(`matador:${player.id}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'لفات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = await matador.spin(player, { bet: body.bet, buy: body.buy === true });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/matador/demo' && req.method === 'POST') {
+    // تجربة بلا مال للزوّار — المحرّك نفسه، لا خصم ولا تسجيل
+    if (!rateLimit(`matador-demo:${ip}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'لفات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = matador.demo({ bet: body.bet, buy: body.buy === true });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
   // ------------------------------------------------------------------ الإدارة
   if (route === '/api/countries' && req.method === 'GET') {
     return sendJson(res, 200, { countries: countries.list() });
@@ -1721,6 +1750,7 @@ async function handleApi(req, res, url) {
         bullseye: siteConfig.getGameRtp('bullseye', 96.0),
         chicken: siteConfig.getGameRtp('chicken', 96.0),
         'buffalo-ways': siteConfig.getGameRtp('buffalo-ways', 96.0),
+        matador: siteConfig.getGameRtp('matador', 96.0),
         tank: siteConfig.getGameRtp('tank', 80.0)
       };
       return sendJson(res, 200, {
@@ -1942,6 +1972,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/bullseye') return sendStatic(req, res, '/bullseye.html');
   if (url.pathname === '/chicken-road') return sendStatic(req, res, '/chicken-road.html');
   if (url.pathname === '/buffalo-ways') return sendStatic(req, res, '/buffalo-ways.html');
+  if (url.pathname === '/matador') return sendStatic(req, res, '/matador.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

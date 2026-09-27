@@ -51,7 +51,7 @@ const ledger = {
   real: emptyBucket(),
   bot: emptyBucket(),
   // ربحية كل لعبة على حدة — بدونها لا يعرف المالك أي لعبة تكسب وأيها تخسر
-  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket(), chicken: emptyBucket(), 'buffalo-ways': emptyBucket() },
+  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket(), chicken: emptyBucket(), 'buffalo-ways': emptyBucket(), matador: emptyBucket() },
   // شراء الميزة صفقة واحدة بمبلغ يعادل مئات الدورات. لو خُلط مع الدورات
   // العادية في عدّاد واحد لقفز "متوسط الرهان" وصار التقرير مضلّلاً.
   slotBuys: { count: 0, wagered: 0 },
@@ -59,7 +59,7 @@ const ledger = {
   since: Date.now()
 };
 
-const STAT_FIELDS = ['stats', 'slotStats', 'neonStats', 'tankStats', 'minesStats', 'plinkoStats', 'bullseyeStats', 'chickenStats', 'buffaloStats'];
+const STAT_FIELDS = ['stats', 'slotStats', 'neonStats', 'tankStats', 'minesStats', 'plinkoStats', 'bullseyeStats', 'chickenStats', 'buffaloStats', 'matadorStats'];
 
 /** دفتر بصيغة قديمة جداً (مسطّح بلا real/bot) يُقرأ كدلو البشر. */
 function upgradeLedger(L) {
@@ -636,6 +636,63 @@ function recordBuffaloWays(player, { bet, win, buy = false, freeSpins = 0, multi
 }
 
 /**
+ * جولة ماتادور فييستا (لفة، أو شراء علاوة مع لفاتها المجانية، مع جاكبوت إن
+ * فاز) — تُسجَّل جولةً واحدة: الرهان كاملاً والربح كاملاً.
+ */
+const MATADOR_JACKPOTS = { mini: 'MINI', minor: 'MINOR', major: 'MAJOR', grand: 'GRAND' };
+function recordMatador(player, { bet, win, buy = false, freeSpins = 0, jackpot = null, multiplier = 0 }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  if (!ledger.games.matador) ledger.games.matador = emptyBucket();
+  const g = ledger.games.matador;
+  g.wagered += bet;
+  g.paid += win;
+  g.bets += 1;
+  g.rounds += 1;
+
+  if (!player.matadorStats) player.matadorStats = { spins: 0, buys: 0, freeSpins: 0, jackpots: 0, wagered: 0, won: 0, best: 0 };
+  const st = player.matadorStats;
+  st.spins = (st.spins || 0) + 1;
+  if (buy) st.buys = (st.buys || 0) + 1;
+  st.freeSpins = (st.freeSpins || 0) + freeSpins;
+  if (jackpot) st.jackpots = (st.jackpots || 0) + 1;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  let name = buy
+    ? `ماتادور فييستا — شراء علاوة · ${freeSpins} لفة مجانية`
+    : (freeSpins ? `ماتادور فييستا — لفة + ${freeSpins} لفة مجانية` : 'ماتادور فييستا');
+  if (jackpot) name += ` · جاكبوت ${MATADOR_JACKPOTS[jackpot] || jackpot}`;
+  const now = Date.now();
+  recordRoundLog({
+    roundId: `matador-${now.toString(36).toUpperCase()}`,
+    ts: now,
+    endedAt: now,
+    game: 'matador',
+    patternName: name,
+    templateName: name,
+    cards: [],
+    seats: [{
+      id: player.id, stake: bet, cardIndex: 0, cardValue: multiplier,
+      net: win - bet, multiplier, isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
+/**
  * جولة منتهية: إلى السجلّ الدائم (صفّ لا يُحذف — roundLog.js)، وإلى قائمة
  * الذاكرة القصيرة التي يعرضها تاريخ كروت الحظ.
  */
@@ -760,6 +817,7 @@ function extractPlayerStats() {
       bullseyeStats: p.bullseyeStats,
       chickenStats: p.chickenStats,
       buffaloStats: p.buffaloStats,
+      matadorStats: p.matadorStats,
       slotStats: p.slotStats
     };
   }
@@ -1420,7 +1478,7 @@ if (flushTimer.unref) flushTimer.unref();
 module.exports = {
   createPlayer, byToken, forgetToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
-  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, recordBuffaloWays, ledgerSummary,
+  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, recordBuffaloWays, recordMatador, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, roundHistory, allPlayers, playerCount: () => players.size,
   syncWithDb, saveToDb, ensureDbLoaded,
   /** يوقف الحفظ الدوري (للاختبارات: نسخ متعدّدة في عملية واحدة). */

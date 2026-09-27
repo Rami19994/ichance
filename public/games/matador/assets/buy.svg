@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 140"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#5fb0ff"/><stop offset=".5" stop-color="#1d63d8"/><stop offset="1" stop-color="#0b2d86"/>
+  </linearGradient>
+  <linearGradient id="ribbon" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ff5a4c"/><stop offset=".6" stop-color="#c8101d"/><stop offset="1" stop-color="#6e0612"/>
+  </linearGradient>
+  <linearGradient id="ruby" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff9aa0"/><stop offset=".5" stop-color="#d4141f"/><stop offset="1" stop-color="#6e0612"/>
+  </linearGradient></defs>
+  <path d="M10 98 L40 88 L40 124 L10 132 L22 114 Z" fill="url(#ribbon)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M210 98 L180 88 L180 124 L210 132 L198 114 Z" fill="url(#ribbon)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M30 94 C70 108 150 108 190 94 L190 122 C150 136 70 136 30 122 Z" fill="url(#ribbon)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M34 110 C72 122 148 122 186 110" fill="none" stroke="url(#gold)" stroke-width="3"/>
+  <path d="M110 12 L128 26 H170 C178 26 184 32 184 40 V88 C184 100 176 108 164 110 C146 112 128 114 110 120 C92 114 74 112 56 110 C44 108 36 100 36 88 V40 C36 32 42 26 50 26 H92 Z" fill="url(#blue)" stroke="#4a2a10" stroke-width="3.5"/>
+  <path d="M110 12 L128 26 H170 C178 26 184 32 184 40 V88 C184 100 176 108 164 110 C146 112 128 114 110 120 C92 114 74 112 56 110 C44 108 36 100 36 88 V40 C36 32 42 26 50 26 H92 Z" fill="none" stroke="url(#gold)" stroke-width="6" transform="translate(110 66) scale(.94) translate(-110 -66)"/>
+  <path d="M52 38 C80 34 140 34 168 38" stroke="#bfe0ff" stroke-width="4" opacity=".6" fill="none" stroke-linecap="round"/>
+  <path d="M110 4 l13 14 -13 14 -13 -14 Z" fill="url(#ruby)" stroke="#4a2a10" stroke-width="2.6"/>
+  <path d="M110 8 l6 7 -6 3 -6 -3 Z" fill="#fff" opacity=".55"/></svg>

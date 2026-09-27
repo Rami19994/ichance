@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <radialGradient id="sky" cx=".5" cy=".3" r=".9">
+    <stop offset="0" stop-color="#fff7d6"/><stop offset=".45" stop-color="#ffd07a"/><stop offset="1" stop-color="#e0662c"/>
+  </radialGradient>
+  <radialGradient id="skin" cx=".45" cy=".35" r=".75">
+    <stop offset="0" stop-color="#ffe0c2"/><stop offset=".7" stop-color="#f0b78d"/><stop offset="1" stop-color="#c98a62"/>
+  </radialGradient>
+  <linearGradient id="cape" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff5a52"/><stop offset=".5" stop-color="#d0121f"/><stop offset="1" stop-color="#6e0612"/>
+  </linearGradient>
+  <linearGradient id="jacket" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff2b0"/><stop offset=".4" stop-color="#f2bd35"/><stop offset="1" stop-color="#9a5e10"/>
+  </linearGradient>
+  <linearGradient id="montera" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#5a3b33"/><stop offset="1" stop-color="#1b100d"/>
+  </linearGradient>
+  <linearGradient id="ray" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient></defs>
+  <clipPath id="clip"><path d="M26 16 H174 C182 16 186 20 186 28 V172 C186 180 182 184 174 184 H26 C18 184 14 180 14 172 V28 C14 20 18 16 26 16 Z"/></clipPath>
+  <g clip-path="url(#clip)">
+    <rect x="0" y="0" width="200" height="200" fill="url(#sky)"/>
+    <path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(0 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(30 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(60 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(90 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(120 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(150 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(180 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(210 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(240 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(270 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(300 100 70)"/><path d="M100 70 L94 -40 L106 -40 Z" fill="url(#ray)" opacity=".35" transform="rotate(330 100 70)"/>
+    <!-- الرداء الأحمر -->
+    <path d="M-10 200 C10 150 40 128 70 124 C60 150 64 176 76 200 Z" fill="url(#cape)" stroke="#4a2a10" stroke-width="2.6"/>
+    <path d="M210 200 C196 150 170 132 140 128 C150 150 150 176 140 200 Z" fill="url(#cape)" stroke="#4a2a10" stroke-width="2.6"/>
+    <!-- السترة الذهبية -->
+    <path d="M52 200 C54 164 72 142 100 140 C128 142 146 164 148 200 Z" fill="url(#jacket)" stroke="#4a2a10" stroke-width="2.6"/>
+    <path d="M70 160 C74 172 76 186 76 200 M130 160 C126 172 124 186 124 200" stroke="#9a5e10" stroke-width="2" fill="none"/>
+    <circle cx="64" cy="172" r="4" fill="#fff3b0" stroke="#9a5e10" stroke-width="1.2"/><circle cx="60" cy="188" r="4" fill="#fff3b0" stroke="#9a5e10" stroke-width="1.2"/><circle cx="136" cy="172" r="4" fill="#fff3b0" stroke="#9a5e10" stroke-width="1.2"/><circle cx="140" cy="188" r="4" fill="#fff3b0" stroke="#9a5e10" stroke-width="1.2"/><circle cx="80" cy="152" r="4" fill="#fff3b0" stroke="#9a5e10" stroke-width="1.2"/><circle cx="120" cy="152" r="4" fill="#fff3b0" stroke="#9a5e10" stroke-width="1.2"/>
+    <path d="M86 142 L100 172 L114 142 Z" fill="#ffffff" stroke="#4a2a10" stroke-width="2"/>
+    <path d="M94 150 L100 166 L106 150 Z" fill="#d0121f"/>
+    <!-- الرقبة والوجه -->
+    <path d="M90 124 H110 V146 C104 150 96 150 90 146 Z" fill="url(#skin)" stroke="#4a2a10" stroke-width="2"/>
+    <path d="M66 86 C64 60 80 46 100 46 C120 46 136 60 134 86 C133 106 124 126 100 132 C76 126 67 106 66 86 Z" fill="url(#skin)" stroke="#4a2a10" stroke-width="2.6"/>
+    <ellipse cx="66" cy="94" rx="6" ry="10" fill="url(#skin)" stroke="#4a2a10" stroke-width="2"/>
+    <ellipse cx="134" cy="94" rx="6" ry="10" fill="url(#skin)" stroke="#4a2a10" stroke-width="2"/>
+    <!-- الشعر -->
+    <path d="M66 82 C62 60 76 46 100 46 C122 46 138 58 134 82 C128 70 118 64 104 66 C92 62 78 68 66 82 Z" fill="#2a1a12" stroke="#120a06" stroke-width="2"/>
+    <path d="M66 80 C64 92 66 100 70 106 C68 96 68 88 70 82 Z" fill="#2a1a12"/>
+    <path d="M134 80 C136 92 134 100 130 106 C132 96 132 88 130 82 Z" fill="#2a1a12"/>
+    <!-- الحاجبان والعينان والفم -->
+    <path d="M78 84 C84 79 92 80 96 84" fill="none" stroke="#2a1a12" stroke-width="3.6" stroke-linecap="round"/>
+    <path d="M122 84 C116 79 108 80 104 84" fill="none" stroke="#2a1a12" stroke-width="3.6" stroke-linecap="round"/>
+    <path d="M80 93 C84 88 92 88 95 93 C92 96 84 96 80 93 Z" fill="#fff" stroke="#3a2418" stroke-width="1.4"/>
+    <path d="M120 93 C116 88 108 88 105 93 C108 96 116 96 120 93 Z" fill="#fff" stroke="#3a2418" stroke-width="1.4"/>
+    <circle cx="88" cy="92.5" r="3.4" fill="#3b2412"/><circle cx="112" cy="92.5" r="3.4" fill="#3b2412"/>
+    <circle cx="89" cy="91.5" r="1.1" fill="#fff"/><circle cx="113" cy="91.5" r="1.1" fill="#fff"/>
+    <path d="M100 96 C98 104 96 108 100 110 C102 110 104 109 104 108" fill="none" stroke="#b77a55" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M86 116 C92 123 108 123 114 116 C108 119 92 119 86 116 Z" fill="#fff" stroke="#8a3a2a" stroke-width="2"/>
+    <path d="M78 104 C80 108 84 110 88 110 M122 104 C120 108 116 110 112 110" fill="none" stroke="#e39a7a" stroke-width="2" opacity=".6"/>
+    <!-- القبعة (مونتيرا) -->
+    <path d="M60 62 C60 40 78 28 100 30 C122 28 140 40 140 62 C128 56 116 54 100 56 C84 54 72 56 60 62 Z" fill="url(#montera)" stroke="#120a06" stroke-width="2.4"/>
+    <circle cx="66" cy="58" r="11" fill="url(#montera)" stroke="#120a06" stroke-width="2.4"/>
+    <circle cx="134" cy="58" r="11" fill="url(#montera)" stroke="#120a06" stroke-width="2.4"/>
+    <path d="M70 40 C84 34 116 34 130 40" fill="none" stroke="#7a5a4a" stroke-width="2" opacity=".8"/>
+    <path d="M62 60 C78 54 122 54 138 60" fill="none" stroke="url(#gold)" stroke-width="3"/>
+  </g>
+  <path d="M26 16 H174 C182 16 186 20 186 28 V172 C186 180 182 184 174 184 H26 C18 184 14 180 14 172 V28 C14 20 18 16 26 16 Z" fill="none" stroke="url(#gold)" stroke-width="9"/>
+  <path d="M26 16 H174 C182 16 186 20 186 28 V172 C186 180 182 184 174 184 H26 C18 184 14 180 14 172 V28 C14 20 18 16 26 16 Z" fill="none" stroke="#4a2a10" stroke-width="2"/>
+  <path d="M28 22 H172" stroke="#fff6c2" stroke-width="2" opacity=".8"/></svg>

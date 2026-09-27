@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 780"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <linearGradient id="stoneV" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f7dcae"/><stop offset=".5" stop-color="#e2b578"/><stop offset="1" stop-color="#b98348"/>
+  </linearGradient>
+  <linearGradient id="pillar" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#c79253"/><stop offset=".35" stop-color="#f1d09c"/><stop offset=".7" stop-color="#e2b578"/><stop offset="1" stop-color="#a8733c"/>
+  </linearGradient>
+  <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#e9c38a"/><stop offset="1" stop-color="#cf9d5f"/>
+  </linearGradient>
+  <radialGradient id="medal" cx=".45" cy=".35" r=".75">
+    <stop offset="0" stop-color="#f9e2b8"/><stop offset=".6" stop-color="#e0b074"/><stop offset="1" stop-color="#b37d42"/>
+  </radialGradient>
+  <radialGradient id="relief" cx=".45" cy=".35" r=".8">
+    <stop offset="0" stop-color="#f6d9a8"/><stop offset=".7" stop-color="#d9a766"/><stop offset="1" stop-color="#a8733c"/>
+  </radialGradient>
+  <linearGradient id="ruby" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff9aa0"/><stop offset=".5" stop-color="#d4141f"/><stop offset="1" stop-color="#6e0612"/>
+  </linearGradient>
+  <linearGradient id="scroll" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f7e0b4"/><stop offset="1" stop-color="#d8a868"/>
+  </linearGradient>
+  <linearGradient id="shadowTop" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2a1408" stop-opacity=".75"/><stop offset="1" stop-color="#2a1408" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="shadowL" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#2a1408" stop-opacity=".6"/><stop offset="1" stop-color="#2a1408" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="shadowR" x1="1" y1="0" x2="0" y2="0">
+    <stop offset="0" stop-color="#2a1408" stop-opacity=".6"/><stop offset="1" stop-color="#2a1408" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f4d6a2"/><stop offset=".4" stop-color="#e0b074"/><stop offset="1" stop-color="#a8733c"/>
+  </linearGradient></defs>
+  <!-- ظلال داخلية فوق البكرات -->
+  <rect x="70" y="200" width="800" height="36" fill="url(#shadowTop)"/>
+  <rect x="70" y="200" width="26" height="490" fill="url(#shadowL)"/>
+  <rect x="844" y="200" width="26" height="490" fill="url(#shadowR)"/>
+  
+    <rect x="0" y="150" width="70" height="560" fill="url(#pillar)" stroke="#4a2a10" stroke-width="3"/>
+    <path d="M4 250 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 252 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M4 314 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 316 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M4 378 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 380 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M4 442 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 444 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M4 506 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 508 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M4 570 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 572 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M4 634 H66" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M4 636 H66" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/>
+    <rect x="-10" y="136" width="90" height="30" rx="4" fill="url(#stoneV)" stroke="#4a2a10" stroke-width="3"/>
+    <path d="M35 190 l18 22 -18 22 -18 -22 Z" fill="url(#ruby)" stroke="#4a2a10" stroke-width="2.6"/>
+    <path d="M35 196 l8 12 -8 4 -8 -4 Z" fill="#fff" opacity=".5"/>
+    <rect x="12" y="560" width="46" height="110" rx="4" fill="#d9ad72" stroke="#9c6a38" stroke-width="2.4"/>
+    <path d="M20 580 L35 600 L50 580 M20 610 L35 630 L50 610 M20 640 L35 660 L50 640" fill="none" stroke="#9c6a38" stroke-width="3"/>
+    <path d="M8 170 V700" stroke="#f7ddb0" stroke-width="4" opacity=".6"/>
+    <rect x="870" y="150" width="70" height="560" fill="url(#pillar)" stroke="#4a2a10" stroke-width="3"/>
+    <path d="M874 250 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 252 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M874 314 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 316 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M874 378 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 380 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M874 442 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 444 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M874 506 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 508 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M874 570 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 572 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/><path d="M874 634 H936" stroke="#9c6a38" stroke-width="2.4" opacity=".7"/><path d="M874 636 H936" stroke="#f7ddb0" stroke-width="1.4" opacity=".6"/>
+    <rect x="860" y="136" width="90" height="30" rx="4" fill="url(#stoneV)" stroke="#4a2a10" stroke-width="3"/>
+    <path d="M905 190 l18 22 -18 22 -18 -22 Z" fill="url(#ruby)" stroke="#4a2a10" stroke-width="2.6"/>
+    <path d="M905 196 l8 12 -8 4 -8 -4 Z" fill="#fff" opacity=".5"/>
+    <rect x="882" y="560" width="46" height="110" rx="4" fill="#d9ad72" stroke="#9c6a38" stroke-width="2.4"/>
+    <path d="M890 580 L905 600 L920 580 M890 610 L905 630 L920 610 M890 640 L905 660 L920 640" fill="none" stroke="#9c6a38" stroke-width="3"/>
+    <path d="M932 170 V700" stroke="#a87444" stroke-width="4" opacity=".6"/>
+  <!-- العتبة -->
+  <rect x="22" y="128" width="896" height="74" fill="url(#band)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M96 176 V144 H130 V168 H108 V156 H120" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M97.5 177.5 V145.5 H131.5 V169.5 H109.5 V157.5 H121.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M140 176 V144 H174 V168 H152 V156 H164" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M141.5 177.5 V145.5 H175.5 V169.5 H153.5 V157.5 H165.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M184 176 V144 H218 V168 H196 V156 H208" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M185.5 177.5 V145.5 H219.5 V169.5 H197.5 V157.5 H209.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M228 176 V144 H262 V168 H240 V156 H252" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M229.5 177.5 V145.5 H263.5 V169.5 H241.5 V157.5 H253.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M272 176 V144 H306 V168 H284 V156 H296" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M273.5 177.5 V145.5 H307.5 V169.5 H285.5 V157.5 H297.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M316 176 V144 H350 V168 H328 V156 H340" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M317.5 177.5 V145.5 H351.5 V169.5 H329.5 V157.5 H341.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M360 176 V144 H394 V168 H372 V156 H384" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M361.5 177.5 V145.5 H395.5 V169.5 H373.5 V157.5 H385.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M580 176 V144 H614 V168 H592 V156 H604" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M581.5 177.5 V145.5 H615.5 V169.5 H593.5 V157.5 H605.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M624 176 V144 H658 V168 H636 V156 H648" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M625.5 177.5 V145.5 H659.5 V169.5 H637.5 V157.5 H649.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M668 176 V144 H702 V168 H680 V156 H692" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M669.5 177.5 V145.5 H703.5 V169.5 H681.5 V157.5 H693.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M712 176 V144 H746 V168 H724 V156 H736" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M713.5 177.5 V145.5 H747.5 V169.5 H725.5 V157.5 H737.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M756 176 V144 H790 V168 H768 V156 H780" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M757.5 177.5 V145.5 H791.5 V169.5 H769.5 V157.5 H781.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/><path d="M800 176 V144 H834 V168 H812 V156 H824" fill="none" stroke="#8d5a2c" stroke-width="5" stroke-linejoin="miter"/><path d="M801.5 177.5 V145.5 H835.5 V169.5 H813.5 V157.5 H825.5" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/>
+  <rect x="8" y="104" width="924" height="30" rx="4" fill="url(#stoneV)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M14 110 H926" stroke="#fff3d6" stroke-width="3" opacity=".7"/>
+  <rect x="30" y="196" width="880" height="12" fill="#b98348" stroke="#4a2a10" stroke-width="2.4"/>
+  <!-- الميدالية: رأس ثور منقوش -->
+  <circle cx="470" cy="100" r="92" fill="url(#medal)" stroke="#4a2a10" stroke-width="3.5"/>
+  <circle cx="470" cy="100" r="80" fill="none" stroke="#a8733c" stroke-width="4"/>
+  <circle cx="470" cy="100" r="76" fill="none" stroke="#fbe6bd" stroke-width="2" opacity=".7"/>
+  <g stroke="#8d5a2c" stroke-width="3" stroke-linejoin="round">
+    <path d="M430 66 C412 62 400 48 398 28 C410 40 422 44 440 48 Z" fill="url(#relief)"/>
+    <path d="M510 66 C528 62 540 48 542 28 C530 40 518 44 500 48 Z" fill="url(#relief)"/>
+    <path d="M428 78 C416 74 406 80 410 88 C416 92 426 90 432 86 Z" fill="url(#relief)"/>
+    <path d="M512 78 C524 74 534 80 530 88 C524 92 514 90 508 86 Z" fill="url(#relief)"/>
+    <path d="M470 46 C494 46 510 62 508 84 C506 100 500 110 498 120 C494 138 486 150 470 150 C454 150 446 138 442 120 C440 110 434 100 432 84 C430 62 446 46 470 46 Z" fill="url(#relief)"/>
+    <path d="M446 124 C446 112 458 108 470 108 C482 108 494 112 494 124 C494 138 484 146 470 146 C456 146 446 138 446 124 Z" fill="#f3d3a0"/>
+  </g>
+  <circle cx="452" cy="48" r="7" fill="#e7bb7c" stroke="#8d5a2c" stroke-width="2"/><circle cx="462" cy="42" r="7" fill="#e7bb7c" stroke="#8d5a2c" stroke-width="2"/><circle cx="474" cy="41" r="7" fill="#e7bb7c" stroke="#8d5a2c" stroke-width="2"/><circle cx="486" cy="44" r="7" fill="#e7bb7c" stroke="#8d5a2c" stroke-width="2"/><circle cx="494" cy="50" r="7" fill="#e7bb7c" stroke="#8d5a2c" stroke-width="2"/>
+  <path d="M448 86 C454 82 460 82 464 86 M476 86 C480 82 486 82 492 86" fill="none" stroke="#6e4220" stroke-width="3.4" stroke-linecap="round"/>
+  <circle cx="460" cy="124" r="3.4" fill="#8d5a2c"/><circle cx="480" cy="124" r="3.4" fill="#8d5a2c"/>
+  <path d="M458 136 C464 140 476 140 482 136" fill="none" stroke="#8d5a2c" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- اللفافة تحت الميدالية -->
+  <path d="M378 176 H562 C572 176 578 184 578 192 C578 200 572 208 562 208 H378 C368 208 362 200 362 192 C362 184 368 176 378 176 Z" fill="url(#scroll)" stroke="#4a2a10" stroke-width="2.6"/>
+  <path d="M362 192 C352 188 346 196 350 204 C354 212 366 212 372 206" fill="#d8a868" stroke="#4a2a10" stroke-width="2.4"/>
+  <path d="M578 192 C588 188 594 196 590 204 C586 212 574 212 568 206" fill="#d8a868" stroke="#4a2a10" stroke-width="2.4"/>
+  <!-- القاعدة -->
+  <path d="M40 686 H900 L918 716 V770 H22 V716 Z" fill="url(#base)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M40 690 H900" stroke="#fff3d6" stroke-width="3" opacity=".7"/>
+  <path d="M22 716 H918" stroke="#9c6a38" stroke-width="2.4"/>
+  <path d="M70 720 l16 20 -16 20 -16 -20 Z" fill="url(#ruby)" stroke="#4a2a10" stroke-width="2.4"/><path d="M30 740 l12 -12 12 12 -12 12 Z M86 740 l12 -12 12 12 -12 12 Z" fill="#c78f55" stroke="#8d5a2c" stroke-width="2"/><path d="M870 720 l16 20 -16 20 -16 -20 Z" fill="url(#ruby)" stroke="#4a2a10" stroke-width="2.4"/><path d="M830 740 l12 -12 12 12 -12 12 Z M886 740 l12 -12 12 12 -12 12 Z" fill="#c78f55" stroke="#8d5a2c" stroke-width="2"/>
+  <path d="M-10 772 C60 752 120 760 180 772 Z M760 772 C820 756 880 752 950 772 Z" fill="#e8c088" opacity=".9"/></svg>

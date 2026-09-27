@@ -295,6 +295,26 @@ function buffaloWays(n = Number(process.env.BW_ROUNDS || 1500000)) {
   return est;
 }
 
+// ═════════════════════════════════════════════ 5c) ماتادور فييستا
+function matadorFiesta(n = 30000) {
+  const H = require('../server/matador');
+  const { run, JACKPOT_EV } = require('./tuneMatador.js');
+  const nb = Math.round(n / 5);
+  console.log(`
+■ ماتادور فييستا   (محاكاة ${n.toLocaleString()} لفة + ${nb.toLocaleString()} شراء — الأدقّ: tools/tuneMatador.js)`);
+  const b = run(n, false, 20260927);
+  const s = run(nb, true, 20260928);
+  const fsValue = s.rtp * H.BUY_COST_X - s.baseRtp * H.BUY_COST_X;
+  const est = b.baseRtp + b.trigger * fsValue + JACKPOT_EV;
+  const ci = 1.96 * s.se;
+  console.log(line('اللعب العادي (مُفكّك)', pct(est), verdict(est)));
+  console.log(line('  بلا مجانية', pct(b.baseRtp), `مجانية كل ${Math.round(1 / b.trigger)} لفة × ${fsValue.toFixed(1)}× + جاكبوت ${pct(JACKPOT_EV)}`));
+  console.log(line('شراء العلاوة', pct(s.rtp), `± ${pct(ci)} · ${verdict(s.rtp)}`));
+  console.log(line('  المُقاس على 4 ملايين جولة', pct(H.RTP), 'انظر رأس server/matador.js'));
+  console.log(line('  السقف', `${H.MAX_WIN_X}×`, 'للجولة كاملة'));
+  return est;
+}
+
 // ═════════════════════════════════════════════ 6) معركة الدبابات
 function tanks() {
   const T = require('../public/js/tankSim.js');
@@ -327,6 +347,7 @@ const results = {
   'بولزآي X': bullseye(),
   'طريق الدجاجة': chicken(),
   'بافالو وايز': buffaloWays(),
+  'ماتادور فييستا': matadorFiesta(),
   'الدبابات': tanks()
 };
 

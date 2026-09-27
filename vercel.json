@@ -78,6 +78,10 @@
       "destination": "/buffalo-ways.html"
     },
     {
+      "source": "/matador",
+      "destination": "/matador.html"
+    },
+    {
       "source": "/master",
       "destination": "/master.html"
     },

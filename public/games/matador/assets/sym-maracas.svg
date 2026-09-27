@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <radialGradient id="marA" cx=".35" cy=".3" r=".8">
+    <stop offset="0" stop-color="#b8f0ff"/><stop offset=".45" stop-color="#2aa7e0"/><stop offset="1" stop-color="#0b4d8c"/>
+  </radialGradient>
+  <radialGradient id="marB" cx=".35" cy=".3" r=".8">
+    <stop offset="0" stop-color="#c8fff4"/><stop offset=".45" stop-color="#1fb8b2"/><stop offset="1" stop-color="#0b5f6e"/>
+  </radialGradient></defs>
+  <g transform="translate(76 72) rotate(-24)">
+    <path d="M-7 30 L-5 92 C-5 98 5 98 5 92 L7 30 Z" fill="url(#gold)" stroke="#4a2a10" stroke-width="2.6"/>
+    <path d="M-3 36 L-2 90" stroke="#fff3b0" stroke-width="2" opacity=".8"/>
+    <ellipse cx="0" cy="94" rx="9" ry="5" fill="url(#goldH)" stroke="#4a2a10" stroke-width="2.4"/>
+    <ellipse cx="0" cy="-8" rx="34" ry="42" fill="url(#marA)" stroke="#4a2a10" stroke-width="3"/>
+    <path d="M-33 -2 L-24 -12 L-14 -2 L-4 -12 L6 -2 L16 -12 L26 -2 L33 -10 L33 2 L26 10 L16 0 L6 10 L-4 0 L-14 10 L-24 0 L-33 10 Z" fill="url(#gold)" stroke="#4a2a10" stroke-width="1.6"/>
+    <path d="M-30 -24 C-14 -30 14 -30 30 -24" fill="none" stroke="#ffd84f" stroke-width="3.4"/>
+    <path d="M-28 22 C-12 28 12 28 28 22" fill="none" stroke="#ffd84f" stroke-width="3.4"/>
+    <circle cx="-12" cy="-36" r="3" fill="#ffd84f"/><circle cx="2" cy="-40" r="3" fill="#ffd84f"/><circle cx="15" cy="-35" r="3" fill="#ffd84f"/>
+    <ellipse cx="-13" cy="-26" rx="8" ry="13" fill="#fff" opacity=".35" transform="rotate(20 -13 -26)"/>
+    <path d="M-6 34 C-3 30 3 30 6 34" fill="url(#goldH)" stroke="#4a2a10" stroke-width="2"/>
+  </g>
+  <g transform="translate(126 70) rotate(20)">
+    <path d="M-7 30 L-5 92 C-5 98 5 98 5 92 L7 30 Z" fill="url(#gold)" stroke="#4a2a10" stroke-width="2.6"/>
+    <path d="M-3 36 L-2 90" stroke="#fff3b0" stroke-width="2" opacity=".8"/>
+    <ellipse cx="0" cy="94" rx="9" ry="5" fill="url(#goldH)" stroke="#4a2a10" stroke-width="2.4"/>
+    <ellipse cx="0" cy="-8" rx="34" ry="42" fill="url(#marB)" stroke="#4a2a10" stroke-width="3"/>
+    <path d="M-33 -2 L-24 -12 L-14 -2 L-4 -12 L6 -2 L16 -12 L26 -2 L33 -10 L33 2 L26 10 L16 0 L6 10 L-4 0 L-14 10 L-24 0 L-33 10 Z" fill="url(#gold)" stroke="#4a2a10" stroke-width="1.6"/>
+    <path d="M-30 -24 C-14 -30 14 -30 30 -24" fill="none" stroke="#ffd84f" stroke-width="3.4"/>
+    <path d="M-28 22 C-12 28 12 28 28 22" fill="none" stroke="#ffd84f" stroke-width="3.4"/>
+    <circle cx="-12" cy="-36" r="3" fill="#ffd84f"/><circle cx="2" cy="-40" r="3" fill="#ffd84f"/><circle cx="15" cy="-35" r="3" fill="#ffd84f"/>
+    <ellipse cx="-13" cy="-26" rx="8" ry="13" fill="#fff" opacity=".35" transform="rotate(20 -13 -26)"/>
+    <path d="M-6 34 C-3 30 3 30 6 34" fill="url(#goldH)" stroke="#4a2a10" stroke-width="2"/>
+  </g>
+  <g stroke="#4a2a10" stroke-width="2">
+    <path d="M100 150 C104 160 108 166 112 170" fill="none" stroke="#e3a322" stroke-width="3"/>
+    <path d="M106 166 L120 164 L126 190 L116 194 L108 190 Z" fill="url(#gold)"/>
+    <path d="M112 172 L114 190 M118 170 L121 190" stroke="#96580d" stroke-width="1.4"/>
+  </g></svg>

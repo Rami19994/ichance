@@ -49,6 +49,23 @@ const GAMES = [
     desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 150 ضعف رهانك.'
   },
   {
+    id: 'matador',
+    title: 'ماتادور فييستا — Matador Fiesta',
+    cat: 'slots',
+    cats: ['slots'],
+    rtpBadge: 'MATADOR',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/matador',
+    thumb: '/assets/thumb_matador.svg',
+    tag: '243 طريقة • 4 جوائز جاكبوت',
+    badge: 'NEW • JACKPOT',
+    badgeClass: 'badge-tag--hot',
+    desc: 'سلوت حلبة الثيران الإسبانية: 243 طريقة فوز، رموز تنفجر وتسقط بدلها أخرى، الرموز المؤطّرة تصير الماتادور WILD ومعها مضاعفات حتى ×10، و3 ثيران تفتح اللفات المجانية بمضاعف يتراكم. وأربع جوائز جاكبوت حتى 1000 ضعف الرهان.'
+  },
+  {
     id: 'buffalo-ways',
     title: 'بافالو وايز 3600 — Buffalo Ways',
     cat: 'slots',

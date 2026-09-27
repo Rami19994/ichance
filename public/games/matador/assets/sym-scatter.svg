@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <radialGradient id="sky" cx=".5" cy=".35" r=".8">
+    <stop offset="0" stop-color="#e8fbff"/><stop offset=".5" stop-color="#7fd3f5"/><stop offset="1" stop-color="#2f8fd0"/>
+  </radialGradient>
+  <radialGradient id="fur" cx=".45" cy=".35" r=".75">
+    <stop offset="0" stop-color="#5a5550"/><stop offset=".5" stop-color="#2b2724"/><stop offset="1" stop-color="#0e0c0b"/>
+  </radialGradient>
+  <radialGradient id="muzzle" cx=".5" cy=".3" r=".8">
+    <stop offset="0" stop-color="#e2cfb5"/><stop offset=".6" stop-color="#a88e70"/><stop offset="1" stop-color="#6e5842"/>
+  </radialGradient>
+  <linearGradient id="horn" x1="0" y1="1" x2="0" y2="0">
+    <stop offset="0" stop-color="#b87a14"/><stop offset=".5" stop-color="#ffd84f"/><stop offset="1" stop-color="#fff6c2"/>
+  </linearGradient>
+  <radialGradient id="rose" cx=".4" cy=".35" r=".7">
+    <stop offset="0" stop-color="#ff7b7b"/><stop offset=".6" stop-color="#d4141f"/><stop offset="1" stop-color="#7a0610"/>
+  </radialGradient></defs>
+  <!-- اللوح والإطار -->
+  <path d="M26 30 H174 C182 30 186 34 186 42 V164 C186 172 182 176 174 176 H26 C18 176 14 172 14 164 V42 C14 34 18 30 26 30 Z" fill="url(#sky)"/>
+  <path d="M26 30 H174 C182 30 186 34 186 42 V164 C186 172 182 176 174 176 H26 C18 176 14 172 14 164 V42 C14 34 18 30 26 30 Z" fill="none" stroke="url(#gold)" stroke-width="9"/>
+  <path d="M26 30 H174 C182 30 186 34 186 42 V164 C186 172 182 176 174 176 H26 C18 176 14 172 14 164 V42 C14 34 18 30 26 30 Z" fill="none" stroke="#4a2a10" stroke-width="2"/>
+  <!-- القرنان يخرجان من الإطار -->
+  <g stroke="#4a2a10" stroke-width="3" stroke-linejoin="round">
+    <path d="M62 70 C40 70 22 56 18 20 C30 40 44 48 66 52 Z" fill="url(#horn)"/>
+    <path d="M138 70 C160 70 178 56 182 20 C170 40 156 48 134 52 Z" fill="url(#horn)"/>
+    <path d="M26 36 C34 48 44 52 58 56" fill="none" stroke="#fff6c2" stroke-width="2.4" opacity=".9"/>
+  </g>
+  <!-- الأذنان -->
+  <g stroke="#4a2a10" stroke-width="3">
+    <path d="M60 74 C44 70 32 80 36 88 C44 92 56 88 64 84 Z" fill="url(#fur)"/>
+    <path d="M140 74 C156 70 168 80 164 88 C156 92 144 88 136 84 Z" fill="url(#fur)"/>
+    <path d="M44 82 C50 82 56 82 60 80" stroke="#c46a6a" stroke-width="3" fill="none"/>
+    <path d="M156 82 C150 82 144 82 140 80" stroke="#c46a6a" stroke-width="3" fill="none"/>
+  </g>
+  <!-- الرأس -->
+  <path d="M100 48 C130 48 146 66 144 90 C142 108 136 116 132 128 C128 142 118 150 100 150 C82 150 72 142 68 128 C64 116 58 108 56 90 C54 66 70 48 100 48 Z"
+    fill="url(#fur)" stroke="#4a2a10" stroke-width="3"/>
+  <path d="M84 50 C88 42 96 40 100 46 C104 40 112 42 116 50 C108 54 92 54 84 50 Z" fill="#1a1715" stroke="#4a2a10" stroke-width="2"/>
+  <!-- الحاجبان والعينان -->
+  <path d="M68 84 C76 76 86 76 92 82" fill="none" stroke="#0a0908" stroke-width="5" stroke-linecap="round"/>
+  <path d="M132 84 C124 76 114 76 108 82" fill="none" stroke="#0a0908" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="82" cy="94" rx="10" ry="8" fill="#fff"/><ellipse cx="118" cy="94" rx="10" ry="8" fill="#fff"/>
+  <circle cx="85" cy="95" r="5" fill="#2a1a10"/><circle cx="115" cy="95" r="5" fill="#2a1a10"/>
+  <circle cx="86.5" cy="93" r="1.8" fill="#fff"/><circle cx="116.5" cy="93" r="1.8" fill="#fff"/>
+  <path d="M71 88 C76 84 88 84 93 89" fill="#2b2724" stroke="#0a0908" stroke-width="2"/>
+  <path d="M129 88 C124 84 112 84 107 89" fill="#2b2724" stroke="#0a0908" stroke-width="2"/>
+  <!-- الخطم -->
+  <path d="M74 116 C74 104 88 102 100 102 C112 102 126 104 126 116 C126 132 116 144 100 144 C84 144 74 132 74 116 Z" fill="url(#muzzle)" stroke="#4a2a10" stroke-width="3"/>
+  <ellipse cx="88" cy="118" rx="5" ry="4" fill="#3a2a1c"/><ellipse cx="112" cy="118" rx="5" ry="4" fill="#3a2a1c"/>
+  <path d="M86 134 C94 139 106 139 114 134" fill="none" stroke="#3a2a1c" stroke-width="3" stroke-linecap="round"/>
+  <!-- الوردة في الفم -->
+  <path d="M104 136 C118 146 132 150 150 148" fill="none" stroke="#1d6b22" stroke-width="4" stroke-linecap="round"/>
+  <path d="M124 146 C128 136 138 134 142 138 C138 146 130 148 124 146 Z" fill="#2c9a35" stroke="#0f3d12" stroke-width="1.6"/>
+  <g transform="translate(150 146)" stroke="#5a0610" stroke-width="1.6">
+    <circle r="13" fill="url(#rose)"/>
+    <path d="M-8 -2 C-6 -10 6 -10 8 -2 C4 4 -4 4 -8 -2 Z" fill="#e8313d"/>
+    <path d="M-4 -3 C-2 -7 3 -7 4 -3" fill="none" stroke="#7a0610" stroke-width="1.6"/>
+  </g></svg>

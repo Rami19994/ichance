@@ -101,6 +101,15 @@ const GAMES = {
     categoryName: 'سلوتس',
     defaultRtp: 96.0,
     emoji: '🦬'
+  },
+  matador: {
+    key: 'matador',
+    name: 'ماتادور فييستا',
+    href: '/matador',
+    category: 'slots',
+    categoryName: 'سلوتس',
+    defaultRtp: 96.0,
+    emoji: '🐂'
   }
 };
 

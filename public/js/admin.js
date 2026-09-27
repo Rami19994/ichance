@@ -407,7 +407,8 @@ const GAME_META = {
   plinko: { name: 'بلينكو', emoji: '🔻', rtp: 96.28 },
   bullseye: { name: 'بولزآي X', emoji: '🎯', rtp: 96.0 },
   chicken: { name: 'طريق الدجاجة', emoji: '🐔', rtp: 96.0 },
-  'buffalo-ways': { name: 'بافالو وايز 3600', emoji: '🦬', rtp: 96.0 }
+  'buffalo-ways': { name: 'بافالو وايز 3600', emoji: '🦬', rtp: 96.0 },
+  matador: { name: 'ماتادور فييستا', emoji: '🐂', rtp: 96.0 }
 };
 
 function renderGames(d) {
