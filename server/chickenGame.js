@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const store = require('./store');
 const rounds = require('./roundStore');
+const siteConfig = require('./siteConfig');
 
 /**
  * LuckyArena — طريق الدجاجة (Chicken Road).
@@ -11,14 +12,8 @@ const rounds = require('./roundStore');
  * (حسب الصعوبة) أو تصدمها سيارة. بعد كل خطوة ناجحة يختار اللاعب: يكمل، أو
  * يجمع الرهان × مضاعف تلك الخطوة.
  *
- * الرياضيات: المضاعف بعد k خطوة = 0.96 ÷ p^k (مقرّباً لأسفل لخانتين). فأياً
- * كانت الخطوة التي يجمع عندها اللاعب — وأياً كانت استراتيجيته — العائد
- * المتوقّع p^k × 0.96/p^k = 96% بالضبط (أقلّ قليلاً بعد التقريب لأسفل).
- * لا توجد نقطة جمع ولا صعوبة يربح عندها اللاعب على المدى، والموقع يربح 4%.
- * (النسخة الأصلية كانت تقرّر في المتصفح، ونسبتها في «سهل» فوق 100%.)
- *
- * لا يُرسل للواجهة إلا المضاعفات — لا احتمالات ولا نسب عائد (طلب المالك).
- * الجولة محفوظة في roundStore (القاعدة) فلا تضيع بين نسخ الخادم.
+ * الرياضيات: المضاعف بعد k خطوة = rtp ÷ p^k (مقرّباً لأسفل لخانتين).
+ * نسبة العائد ديناميكية ومضبوطة من لوحة الإدارة بقاعدة البيانات.
  */
 
 const STEPS = 12;
@@ -34,11 +29,20 @@ const DIFFICULTIES = {
   hard:   { label: 'تحدي', p: 0.70 }
 };
 
-/** مضاعفات الخطوات 1..12 لصعوبة: floor2(RTP / p^k). */
-function ladderFor(p) {
-  return Array.from({ length: STEPS }, (_, i) => Math.floor((RTP / p ** (i + 1)) * 100) / 100);
+/** مضاعفات الخطوات 1..12 لصعوبة: floor2(rtp / p^k). */
+function ladderFor(p, rtp = RTP) {
+  const activeRtp = (rtp != null && Number.isFinite(Number(rtp))) ? Number(rtp) : RTP;
+  return Array.from({ length: STEPS }, (_, i) => Math.floor((activeRtp / p ** (i + 1)) * 100) / 100);
 }
-const LADDERS = Object.fromEntries(Object.entries(DIFFICULTIES).map(([k, d]) => [k, ladderFor(d.p)]));
+const LADDERS = Object.fromEntries(Object.entries(DIFFICULTIES).map(([k, d]) => [k, ladderFor(d.p, RTP)]));
+
+function getActiveLadders(rtp) {
+  const activeRtp = (rtp != null && Number.isFinite(Number(rtp)))
+    ? Number(rtp)
+    : (siteConfig.getGameRtp('chicken', 96.0) / 100);
+  if (Math.abs(activeRtp - RTP) < 1e-6) return LADDERS;
+  return Object.fromEntries(Object.entries(DIFFICULTIES).map(([k, d]) => [k, ladderFor(d.p, activeRtp)]));
+}
 
 /** u منتظم في [0,1) من مولّد التشفير (53 بت). */
 function randomUnit() {
@@ -47,19 +51,25 @@ function randomUnit() {
 }
 
 const keyOf = (player) => `round:chicken:${player.id}`;
-const multAt = (diff, step) => (step > 0 ? LADDERS[diff][step - 1] : 1);
-const payout = (bet, diff, step) => Math.floor(bet * multAt(diff, step));
+const multAt = (diff, step, rtp) => {
+  if (step <= 0) return 1;
+  const ladders = getActiveLadders(rtp);
+  return (ladders[diff] && ladders[diff][step - 1]) || 1;
+};
+const payout = (bet, diff, step, rtp) => Math.floor(bet * multAt(diff, step, rtp));
 
 function publicRound(r) {
   if (!r) return null;
+  const ladders = getActiveLadders(r.rtp);
+  const curLadder = ladders[r.diff] || [];
   return {
     id: r.id,
     bet: r.bet,
     difficulty: r.diff,
     step: r.step,
-    multiplier: multAt(r.diff, r.step),
-    prize: r.step > 0 ? payout(r.bet, r.diff, r.step) : 0,
-    next: r.step < STEPS ? LADDERS[r.diff][r.step] : null
+    multiplier: multAt(r.diff, r.step, r.rtp),
+    prize: r.step > 0 ? payout(r.bet, r.diff, r.step, r.rtp) : 0,
+    next: r.step < STEPS ? curLadder[r.step] : null
   };
 }
 
@@ -71,7 +81,7 @@ function record(player, r, win) {
 
 /** يجمع جولة بعد «حجزها» (status=paid) — الحجز يمنع الدفع مرّتين. */
 async function settlePaid(player, r) {
-  const win = payout(r.bet, r.diff, r.step);
+  const win = payout(r.bet, r.diff, r.step, r.rtp);
   if (win > 0) await store.gameCredit('chicken', player, win, `chicken-${r.id}-win`);
   record(player, r, win);
   return win;
@@ -130,7 +140,8 @@ async function start(player, { bet, difficulty }) {
   }
 
   // المقعد أولاً ثم المال: لو فشل الخصم تُحذف الجولة ولم يُخصم شيء
-  const r = { id: crypto.randomBytes(8).toString('hex'), bet: stake, diff, step: 0, status: 'alive', at: Date.now(), v: 0 };
+  const currentRtp = siteConfig.getGameRtp('chicken', 96.0) / 100;
+  const r = { id: crypto.randomBytes(8).toString('hex'), bet: stake, diff, step: 0, rtp: currentRtp, status: 'alive', at: Date.now(), v: 0 };
   const tag = await rounds.create(keyOf(player), r);
   if (!tag) {
     return { ok: false, error: 'لديك جولة جارية — حدّث الصفحة' };
@@ -171,7 +182,7 @@ async function cross(player) {
     await rounds.remove(keyOf(player), tag).catch(() => {});
     return {
       ok: true, safe: true, lane, finished: true, win,
-      multiplier: multAt(next.diff, lane), round: null, balance: player.balance
+      multiplier: multAt(next.diff, lane, next.rtp), round: null, balance: player.balance
     };
   }
   if (!(await rounds.swap(keyOf(player), found.tag, next))) return { ok: false, error: 'حاول مرّة أخرى', retry: true };
@@ -190,7 +201,7 @@ async function cashOut(player) {
   if (!tag) return { ok: false, error: 'حاول مرّة أخرى', retry: true };
   const win = await settlePaid(player, r);
   await rounds.remove(keyOf(player), tag).catch(() => {});
-  return { ok: true, win, step: r.step, multiplier: multAt(r.diff, r.step), balance: player.balance };
+  return { ok: true, win, step: r.step, multiplier: multAt(r.diff, r.step, r.rtp), balance: player.balance };
 }
 
 /** الوضع التجريبي: نتيجة خطوة بلا مال ولا جولة — الاحتمال يبقى في الخادم. */

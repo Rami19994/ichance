@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const store = require('./store');
+const siteConfig = require('./siteConfig');
 
 /**
  * LuckyArena — محرك لعبة بلينكو عالي التذبذب (High-Volatility Plinko Engine)
@@ -102,7 +103,9 @@ async function dropBall(player, { bet, clientSeed = null }) {
   }
 
   const { decisions, trajectory, path, index } = generatePlinkoPath(serverSeed, cSeed, nonce);
-  const multiplier = MULTIPLIERS[index];
+  const rtpScale = siteConfig.getGameRtpScale('plinko', 96.28);
+  const baseMult = MULTIPLIERS[index];
+  const multiplier = (rtpScale !== 1 && baseMult > 0) ? Number((baseMult * rtpScale).toFixed(2)) : baseMult;
   const winAmount = Math.round(cleanBet * multiplier);
 
   if (winAmount > 0) {

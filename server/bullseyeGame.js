@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const store = require('./store');
+const siteConfig = require('./siteConfig');
 
 /**
  * LuckyArena — بولزآي X (Bullseye X): قرص دوّار وسهم.
@@ -134,8 +135,13 @@ async function throwArrow(player, { mode, bet }) {
     return { ok: false, error: 'تعذّر خصم الرهان — لم يُحتسب شيء' };
   }
 
+  const rtpScale = siteConfig.getGameRtpScale('bullseye', 96.0);
   const arrows = [];
-  for (let a = 0; a < cfg.arrows; a++) arrows.push(landArrow(cfg.wheel));
+  for (let a = 0; a < cfg.arrows; a++) {
+    const raw = landArrow(cfg.wheel);
+    const m = (rtpScale !== 1 && raw.multiplier > 0) ? Number((raw.multiplier * rtpScale).toFixed(4)) : raw.multiplier;
+    arrows.push({ ...raw, multiplier: m });
+  }
 
   // كل سهم يحمل رهان/عدد الأسهم؛ المجموع يُقرَّب لأسفل مرّة واحدة
   const sumMult = arrows.reduce((a, x) => a + x.multiplier, 0);
@@ -180,7 +186,10 @@ async function gamble(player, { amount }) {
     return { ok: false, error: 'تعذّر خصم مبلغ المخاطرة — لم يُحتسب شيء' };
   }
 
-  const arrow = landArrow('gamble');
+  const rtpScale = siteConfig.getGameRtpScale('bullseye', 96.0);
+  const rawArrow = landArrow('gamble');
+  const arrowMult = (rtpScale !== 1 && rawArrow.multiplier > 0) ? Number((rawArrow.multiplier * rtpScale).toFixed(4)) : rawArrow.multiplier;
+  const arrow = { ...rawArrow, multiplier: arrowMult };
   const win = Math.floor(stake * arrow.multiplier);
   if (win > 0) await store.gameCredit('bullseye', player, win, `${txRef}-win`);
 

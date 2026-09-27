@@ -113,6 +113,11 @@ SELECT pg_temp.patch_fn('gw_rollback',
 --    المستودع العام — فحص للقراءة فقط أكّد أنه يستطيع استدعاء الدوال.
 --    الموقع نفسه لا يستدعي القاعدة من المتصفح أبداً (كل شيء عبر الخادم).
 -- -----------------------------------------------------------------------------
+-- نسبة العائد (RTP) للألعاب
+-- -----------------------------------------------------------------------------
+ALTER TABLE public.games ADD COLUMN IF NOT EXISTS rtp NUMERIC NOT NULL DEFAULT 96.0;
+
+-- -----------------------------------------------------------------------------
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;

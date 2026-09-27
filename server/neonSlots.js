@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const store = require('./store');
+const siteConfig = require('./siteConfig');
 
 /**
  * محرك لعبة ماكينة السلوتس الكلاسيكية — نيون فيغاس (Neon Vegas Slots)
@@ -234,16 +235,30 @@ async function playSpin(player, { bet, lineCount = 20 }) {
     lineBet: lineBet
   });
 
+  const rtpScale = siteConfig.getGameRtpScale('neon-slots', 96.01);
+  let finalTotalWin = totalWin;
+  let finalWinningLines = winningLines;
+  let finalScatterWin = scatterWin;
+
+  if (rtpScale !== 1 && totalWin > 0) {
+    finalTotalWin = Math.round(totalWin * rtpScale);
+    finalWinningLines = {};
+    for (const [k, v] of Object.entries(winningLines)) {
+      finalWinningLines[k] = Math.round(v * rtpScale);
+    }
+    finalScatterWin = Math.round(scatterWin * rtpScale);
+  }
+
   // إضافة الربح إلى الرصيد
-  if (totalWin > 0) {
+  if (finalTotalWin > 0) {
     const txRefWin = 'neon-win-' + player.id + '-' + Date.now();
-    await store.gameCredit('neon-slots', player, totalWin, txRefWin);
+    await store.gameCredit('neon-slots', player, finalTotalWin, txRefWin);
   }
 
   // تسجيل الجولة في السجل المالي للنظام وتحديث إحصاءات اللاعب وسجل الإدارة
   store.recordNeonSlots(player, {
     bet: totalBet,
-    win: totalWin
+    win: finalTotalWin
   });
 
   return {
@@ -252,21 +267,21 @@ async function playSpin(player, { bet, lineCount = 20 }) {
     bet: totalBet,
     lineBet: lineBet,
     lineCount: cleanLines,
-    win: totalWin,
-    netProfit: totalWin - totalBet,
+    win: finalTotalWin,
+    netProfit: finalTotalWin - totalBet,
     grid,
     stops,
-    winningLines,
+    winningLines: finalWinningLines,
     linesWinCount,
     scatterCount,
-    scatterWin,
+    scatterWin: finalScatterWin,
     gameable: {
       reel_positions: stops.join(','),
       scatters_count: scatterCount,
-      win_scatters_ttl: scatterWin,
+      win_scatters_ttl: finalScatterWin,
       win_scatters: winScatters,
       lines_win: linesWinCount,
-      win_lines_ttl: winningLines,
+      win_lines_ttl: finalWinningLines,
       win_lines: winLinesPositions
     }
   };

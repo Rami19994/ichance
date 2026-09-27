@@ -1022,7 +1022,11 @@ async function loadOwner() {
       COUNTRIES = cs.countries;
     }
     TIERS = (tiers && tiers.tiers) || [];
-    if (games && games.games) renderGamesToggle(games.games);
+    if (games && Array.isArray(games.games)) {
+      ALL_GAMES = games.games;
+      renderGamesManagement();
+      renderGamesToggle(games.games);
+    }
     if (db) renderDbStatus(db);
     if (cash) renderCashiers(cash);
     renderCountryOptions();
@@ -1044,7 +1048,9 @@ function renderDbStatus(db) {
 }
 
 function renderGamesToggle(games) {
-  el('gamesToggle').innerHTML = (games || []).map((g) => `
+  const box = el('gamesToggle');
+  if (!box) return;
+  box.innerHTML = (games || []).map((g) => `
     <div class="game-switch ${g.enabled ? 'is-on' : 'is-off'}">
       <span>
         <span class="game-switch__name">${escapeHtml(g.name)}</span>
@@ -2165,21 +2171,274 @@ async function openMasterNetworkModal(m) {
   }
 }
 
-/* ═══════════════════════ سجلّ الألعاب الخارجية ═══════════════════════ */
-let GAMES = [];
+/* ═══════════════════════ إدارة الألعاب الشاملة ونسب RTP ═══════════════════════ */
+let ALL_GAMES = [];
+let GAMES = []; // الألعاب الخارجية فقط لسجل الألعاب الخارجية القديم
 
 async function loadGames() {
   try {
-    const out = await adminGet('/api/admin/games/external');
-    GAMES = out.games || [];
-    renderGamesTable();
+    const [resAll, resExt] = await Promise.all([
+      adminGet('/api/admin/games').catch(() => null),
+      adminGet('/api/admin/games/external').catch(() => null)
+    ]);
+    if (resAll && Array.isArray(resAll.games)) {
+      ALL_GAMES = resAll.games;
+      renderGamesManagement();
+      renderGamesToggle(ALL_GAMES.filter((g) => g.type === 'internal'));
+    }
+    if (resExt && Array.isArray(resExt.games)) {
+      GAMES = resExt.games;
+      renderGamesTable();
+    }
   } catch (err) {
     if (err.status !== 401) console.warn('games:', err.message);
   }
 }
 
+function renderGamesManagement() {
+  const tableBody = el('gamesTableBody');
+  if (!tableBody) return;
+
+  const q = (el('gameSearchInput')?.value || '').trim().toLowerCase();
+  const statusFilter = el('gameStatusFilter')?.value || 'all';
+  const typeFilter = el('gameTypeFilter')?.value || 'all';
+
+  // تحديث عدادات الإحصائيات العلوية
+  const total = ALL_GAMES.length;
+  const activeCount = ALL_GAMES.filter((g) => g.enabled).length;
+  const stoppedCount = total - activeCount;
+
+  if (el('statTotalGames')) el('statTotalGames').textContent = total;
+  if (el('statActiveGames')) el('statActiveGames').textContent = activeCount;
+  if (el('statStoppedGames')) el('statStoppedGames').textContent = stoppedCount;
+
+  // تصفية الألعاب بناءً على البحث والحالة والنوع
+  const filtered = ALL_GAMES.filter((g) => {
+    if (statusFilter === 'active' && !g.enabled) return false;
+    if (statusFilter === 'stopped' && g.enabled) return false;
+    if (typeFilter === 'internal' && g.type !== 'internal') return false;
+    if (typeFilter === 'external' && g.type !== 'external') return false;
+    if (q) {
+      const haystack = `${g.name || ''} ${g.slug || ''} ${g.key || ''} ${g.category || ''}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const emptyBox = el('gamesTableEmpty');
+  if (emptyBox) emptyBox.hidden = filtered.length > 0;
+
+  tableBody.innerHTML = filtered.map((g) => {
+    const isInternal = g.type === 'internal';
+    const typeBadge = isInternal
+      ? '<span class="badge--type-internal">أصلية</span>'
+      : '<span class="badge--type-external">خارجية</span>';
+
+    const statusBadge = g.enabled
+      ? '<span class="badge--status-active">تعمل الآن</span>'
+      : '<span class="badge--status-stopped">موقوفة</span>';
+
+    const catMap = {
+      fast: 'سريعة',
+      slots: 'سلوتس',
+      table: 'طاولات',
+      skill: 'مهارة',
+      arcade: 'آركيد',
+      mines: 'ألغام'
+    };
+    const catLabel = catMap[g.category] || g.category || 'عام';
+
+    const currentRtp = Number(g.rtp != null ? g.rtp : 96.0).toFixed(1);
+    const playLink = g.href
+      ? `<a href="${escapeHtml(g.href)}" target="_blank" class="btn-game-play" title="فتح وتجربة اللعبة">🎮 تجربة ↗</a>`
+      : '';
+
+    return `
+      <tr data-game-key="${escapeHtml(g.key)}" data-game-id="${escapeHtml(g.id || '')}">
+        <td>
+          <div class="game-title-cell">
+            <span class="game-emoji-icon">${g.emoji || (isInternal ? '🎲' : '🌐')}</span>
+            <div class="game-name-meta">
+              <b>${escapeHtml(g.name)}</b>
+              <span>${isInternal ? 'مدمجة بالمنصة' : escapeHtml(g.launch_url || 'خارجية')}</span>
+            </div>
+          </div>
+        </td>
+        <td><code class="mono">${escapeHtml(g.slug || g.key)}</code></td>
+        <td><span class="dim">${escapeHtml(catLabel)}</span></td>
+        <td>${typeBadge}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <div class="rtp-input-box" title="نسبة RTP المحسوبة والمحفوظة بقاعدة البيانات">
+            <input type="number"
+                   class="rtp-field"
+                   data-key="${escapeHtml(g.key)}"
+                   data-id="${escapeHtml(g.id || '')}"
+                   min="50"
+                   max="99.9"
+                   step="0.1"
+                   value="${currentRtp}">
+            <span class="rtp-pct">%</span>
+          </div>
+        </td>
+        <td>
+          <div class="game-actions-cell">
+            <button type="button"
+                    class="btn-game-toggle ${g.enabled ? 'is-running' : 'is-paused'}"
+                    data-ga-action="toggle"
+                    data-key="${escapeHtml(g.key)}"
+                    data-id="${escapeHtml(g.id || '')}"
+                    data-next="${g.enabled ? '0' : '1'}">
+              ${g.enabled ? '🛑 إيقاف' : '▶ تشغيل'}
+            </button>
+            <button type="button"
+                    class="btn-game-save"
+                    data-ga-action="save-rtp"
+                    data-key="${escapeHtml(g.key)}"
+                    data-id="${escapeHtml(g.id || '')}">
+              💾 حفظ RTP
+            </button>
+            ${playLink}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function toggleGameStatus(key, id, nextState, toggleBtn) {
+  if (toggleBtn) toggleBtn.disabled = true;
+  try {
+    await adminPost('/api/admin/games/update', {
+      key: key || id,
+      id: id || undefined,
+      enabled: nextState
+    });
+
+    // تحديث الحالة محلياً فوراً
+    const found = ALL_GAMES.find((x) => x.key === key || (id && x.id === id));
+    if (found) found.enabled = nextState;
+    const extFound = GAMES.find((x) => x.slug === key || (id && x.id === id));
+    if (extFound) extFound.enabled = nextState;
+
+    toast(nextState ? `▶ تم تشغيل ${found ? found.name : key} بنجاح` : `🛑 تم إيقاف ${found ? found.name : key} بنجاح`, 'win');
+
+    renderGamesManagement();
+    renderGamesToggle(ALL_GAMES.filter((g) => g.type === 'internal'));
+    renderGamesTable();
+  } catch (err) {
+    toast('تعذّر تغيير حالة اللعبة: ' + err.message, 'error');
+    if (toggleBtn) toggleBtn.disabled = false;
+  }
+}
+
+async function saveGameRtp(key, id, inputEl, saveBtn) {
+  const val = parseFloat(inputEl.value);
+  if (isNaN(val) || val < 50 || val > 99.9) {
+    toast('يرجى كتابة نسبة عائد RTP صالحة بين 50.0% و 99.9%', 'error');
+    inputEl.focus();
+    return;
+  }
+  const prevText = saveBtn ? saveBtn.textContent : '';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+  }
+  try {
+    await adminPost('/api/admin/games/update', {
+      key: key || id,
+      id: id || undefined,
+      rtp: val
+    });
+
+    // تحديث في الذاكرة
+    const found = ALL_GAMES.find((x) => x.key === key || (id && x.id === id));
+    if (found) found.rtp = val;
+    const extFound = GAMES.find((x) => x.slug === key || (id && x.id === id));
+    if (extFound) extFound.rtp = val;
+
+    toast(`✓ تم حفظ نسبة RTP (${val}%) بنجاح للعبة ${found ? found.name : key} وتطبيقها بقاعدة البيانات`, 'win');
+
+    if (saveBtn) {
+      saveBtn.textContent = '✓ تم الحفظ';
+      saveBtn.classList.add('saved');
+      setTimeout(() => {
+        saveBtn.textContent = '💾 حفظ RTP';
+        saveBtn.classList.remove('saved');
+        saveBtn.disabled = false;
+      }, 1800);
+    }
+
+    // تحديث كروت الأرباح في اللوحة الرئيسية
+    adminGet('/api/admin/overview').then(render).catch(() => {});
+  } catch (err) {
+    toast('تعذّر حفظ RTP: ' + err.message, 'error');
+    if (saveBtn) {
+      saveBtn.textContent = prevText;
+      saveBtn.disabled = false;
+    }
+  }
+}
+
+// أزرار البحث والتصفية
+el('gameSearchInput')?.addEventListener('input', () => {
+  const hasVal = Boolean(el('gameSearchInput').value.trim());
+  if (el('clearGameSearchBtn')) el('clearGameSearchBtn').hidden = !hasVal;
+  renderGamesManagement();
+});
+
+el('clearGameSearchBtn')?.addEventListener('click', () => {
+  const inp = el('gameSearchInput');
+  if (inp) inp.value = '';
+  el('clearGameSearchBtn').hidden = true;
+  inp?.focus();
+  renderGamesManagement();
+});
+
+el('gameStatusFilter')?.addEventListener('change', renderGamesManagement);
+el('gameTypeFilter')?.addEventListener('change', renderGamesManagement);
+
+// أحداث جدول الألعاب الشامل
+el('gamesTableBody')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-ga-action]');
+  if (!btn) return;
+  const action = btn.dataset.gaAction;
+  const key = btn.dataset.key;
+  const id = btn.dataset.id;
+  const row = btn.closest('tr');
+
+  if (action === 'toggle') {
+    const nextState = btn.dataset.next === '1';
+    await toggleGameStatus(key, id, nextState, btn);
+  } else if (action === 'save-rtp') {
+    const inputEl = row?.querySelector('.rtp-field');
+    if (inputEl) await saveGameRtp(key, id, inputEl, btn);
+  }
+});
+
+// الحفظ بـ Enter في خانة RTP
+el('gamesTableBody')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList.contains('rtp-field')) {
+    e.preventDefault();
+    const row = e.target.closest('tr');
+    const saveBtn = row?.querySelector('button[data-ga-action="save-rtp"]');
+    if (saveBtn) saveBtn.click();
+  }
+});
+
+// دعم التوافق لمفاتيح التشغيل القديمة إن وجدت
+el('gamesToggle')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-game]');
+  if (!btn) return;
+  const key = btn.dataset.game;
+  const nextState = btn.dataset.next === '1';
+  await toggleGameStatus(key, null, nextState, btn);
+});
+
+/* ═══════════════════════ سجلّ الألعاب الخارجية (الإضافية) ═══════════════════════ */
 function renderGamesTable() {
-  el('gamesEmpty').hidden = GAMES.length > 0;
+  if (!el('gamesBody')) return;
+  if (el('gamesEmpty')) el('gamesEmpty').hidden = GAMES.length > 0;
   el('gamesBody').innerHTML = GAMES.map((g) => `
     <tr>
       <td><b>${escapeHtml(g.name)}</b></td>
@@ -2200,26 +2459,28 @@ function renderGamesTable() {
     </tr>`).join('');
 }
 
-el('newGameForm').addEventListener('submit', async (e) => {
+el('newGameForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const out = el('ngOut');
   out.hidden = true;
   el('ngBtn').disabled = true;
   try {
+    const rtpVal = parseFloat(el('ngRtp')?.value) || 96.0;
     const r = await adminPost('/api/admin/games/external', {
       name: el('ngName').value.trim(),
       slug: el('ngSlug').value.trim().toLowerCase(),
       category: el('ngCat').value,
       launchUrl: el('ngUrl').value.trim(),
       coverUrl: el('ngCover').value.trim() || null,
-      config: el('ngConfig').value.trim() || '{}'
+      config: el('ngConfig').value.trim() || '{}',
+      rtp: rtpVal
     });
     out.hidden = false;
-    // المفتاح يُعرض هنا مرة واحدة فقط ولا يُخرجه الخادم بعدها إطلاقاً
-    out.innerHTML = `<b>سُجّلت اللعبة.</b> انسخ مفتاح التوقيع الآن — لن يظهر مرة أخرى:
+    out.innerHTML = `<b>سُجّلت اللعبة بنجاح (RTP: ${rtpVal}%).</b> انسخ مفتاح التوقيع الآن — لن يظهر مرة أخرى:
       <code>${escapeHtml(r.secret)}</code>
       رابط اللعب: <code>${location.origin}/play/${escapeHtml(r.game.slug)}</code>`;
     el('newGameForm').reset();
+    if (el('ngRtp')) el('ngRtp').value = '96.0';
     await loadGames();
   } catch (err) {
     out.hidden = false;
@@ -2229,7 +2490,7 @@ el('newGameForm').addEventListener('submit', async (e) => {
   }
 });
 
-el('gamesBody').addEventListener('click', async (e) => {
+el('gamesBody')?.addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-ga]');
   if (!b) return;
   const id = b.dataset.id;
@@ -2237,13 +2498,14 @@ el('gamesBody').addEventListener('click', async (e) => {
   const what = b.dataset.ga;
   try {
     if (what === 'toggle') {
-      await adminPost('/api/admin/games/external/update', { id, enabled: b.dataset.next === '1' });
-      toast(b.dataset.next === '1' ? 'شُغّلت اللعبة' : 'أُوقفت اللعبة');
+      const nextState = b.dataset.next === '1';
+      await toggleGameStatus(g ? g.slug : id, id, nextState, b);
     } else if (what === 'url') {
       const next = prompt('رابط اللعبة', g ? g.launch_url : '');
       if (next === null) return;
       await adminPost('/api/admin/games/external/update', { id, launchUrl: next.trim() });
       toast('حُفظ الرابط');
+      await loadGames();
     } else if (what === 'secret') {
       if (!confirm('سيتوقف المفتاح الحالي فوراً وتحتاج تحديثه في لعبتك. متابعة؟')) return;
       const r = await adminPost('/api/admin/games/external/secret', { id });
@@ -2254,7 +2516,7 @@ el('gamesBody').addEventListener('click', async (e) => {
       if (!confirm('حذف اللعبة نهائياً؟ لا تُحذف إن كانت لها حركات لعب.')) return;
       await adminPost('/api/admin/games/external/delete', { id });
       toast('حُذفت اللعبة');
+      await loadGames();
     }
-    await loadGames();
   } catch (err) { toast(err.message, 'error', 6000); }
 });

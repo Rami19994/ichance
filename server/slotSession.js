@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const store = require('./store');
 const slots = require('./slots');
+const siteConfig = require('./siteConfig');
 const { sha256Hex } = require('./rng');
 const { STAKES } = require('./config');
 
@@ -105,8 +106,9 @@ async function baseSpin(player, bet) {
   const txRef = 'slot-spin-' + player.id + '-' + Date.now();
   if (!(await store.gameDebit('slots', player, bet, txRef))) return { ok: false, error: 'تعذّر خصم الرهان (رصيد غير كافٍ أو خطأ بالاتصال)' };
 
+  const rtpScale = siteConfig.getGameRtpScale('slots', 96.2);
   const result = slots.playSpin({ seedHex: f.seed, nonce, bet, free: false, multiplier: 1 });
-  const win = result.win;
+  const win = (rtpScale !== 1 && result.win > 0) ? Math.round(result.win * rtpScale) : result.win;
   if (win > 0) {
     const txRefWin = 'slot-win-' + player.id + '-' + Date.now();
     await store.gameCredit('slots', player, win, txRefWin);
@@ -147,11 +149,13 @@ async function freeSpin(player, feature) {
   // لا سقف على المضاعف: نسبة العائد واحدة عند كل مبلغ.
   // حماية الموقع من سقف الرهان وسقفَي الدورة والجلسة، لا من تشويه المضاعف.
   const mult = feature.multiplier;
+  const rtpScale = siteConfig.getGameRtpScale('slots', 96.2);
   const result = slots.playSpin({ seedHex: f.seed, nonce, bet, free: true, multiplier: mult });
+  const rawScaled = (rtpScale !== 1 && result.win > 0) ? Math.round(result.win * rtpScale) : result.win;
 
   // سقف الجلسة: لا يُصرف أكثر مما تبقّى تحت السقف
   const room = Math.max(0, slots.MAX_SESSION_MULTIPLIER * bet - feature.totalWin);
-  const win = Math.min(result.win, room);
+  const win = Math.min(rawScaled, room);
 
   feature.spinsLeft -= 1;
   feature.spinsUsed += 1;

@@ -7,14 +7,12 @@ const sb = require('./supabase');
 
 /**
  * إعدادات الموقع التي يملكها المالك:
- * - أي لعبة تعمل وأيها موقوفة.
+ * - تشغيل/إيقاف كل لعبة (enabled).
+ * - نسبة العائد للاعب (RTP) لكل لعبة محسوبة ومطبقة بقاعدة البيانات وفي المحركات.
  * - دومين الإدارة المخصص (adminDomain) لعزل لوحة الإدارة عن دومين اللاعبين.
  *
- * كانت تُحفظ في data/site.json وحده. على Vercel ذلك المجلّد للقراءة فقط،
- * فكان «أوقفها» في الإدارة يفشل أو يثبت على نسخة خادم واحدة ثم يضيع مع
- * أول تشغيل بارد — واللعبة الموقوفة تعود للعمل. الآن حين تكون قاعدة البيانات
- * مربوطة تُحفظ في site_secrets تحت مفتاح site_config (كشرائح العمولة)، وكل
- * نسخة تعيد قراءتها كل بضع ثوانٍ. الملف المحلّي للتطوير بلا قاعدة فقط.
+ * تُحفظ في Supabase بجدول site_secrets تحت مفتاح site_config، مع ملف data/site.json
+ * كبديل محلي عند غياب الربط مع القاعدة.
  */
 
 const DATA_DIR = path.dirname(SERVER.dataFile || path.join(__dirname, '..', 'data', 'players.json'));
@@ -23,35 +21,134 @@ const DB_KEY = 'site_config';
 const REFRESH_MS = 8000;
 
 const GAMES = {
-  cards: { key: 'cards', name: 'كروت الحظ', href: '/lucky-cards' },
-  slots: { key: 'slots', name: 'صيّاد الجوائز', href: '/bounty-hunter' },
-  tank:  { key: 'tank',  name: 'معركة الدبابات', href: '/battle-tanks' },
-  'neon-slots': { key: 'neon-slots', name: 'نيون فيغاس', href: '/neon-slots' },
-  mines: { key: 'mines', name: 'مناجم الحظ', href: '/mines' },
-  plinko: { key: 'plinko', name: 'بلينكو', href: '/plinko' },
-  bullseye: { key: 'bullseye', name: 'بولزآي X', href: '/bullseye' },
-  chicken: { key: 'chicken', name: 'طريق الدجاجة', href: '/chicken-road' },
-  'buffalo-ways': { key: 'buffalo-ways', name: 'بافالو وايز 3600', href: '/buffalo-ways' }
+  cards: {
+    key: 'cards',
+    name: 'كروت الحظ',
+    href: '/lucky-cards',
+    category: 'fast',
+    categoryName: 'سريعة',
+    defaultRtp: 96.0,
+    emoji: '🎴'
+  },
+  slots: {
+    key: 'slots',
+    name: 'صيّاد الجوائز',
+    href: '/bounty-hunter',
+    category: 'slots',
+    categoryName: 'سلوتس',
+    defaultRtp: 96.2,
+    emoji: '🤠'
+  },
+  tank: {
+    key: 'tank',
+    name: 'معركة الدبابات',
+    href: '/battle-tanks',
+    category: 'skill',
+    categoryName: 'مهارة',
+    defaultRtp: 80.0,
+    emoji: '🛡️'
+  },
+  'neon-slots': {
+    key: 'neon-slots',
+    name: 'نيون فيغاس',
+    href: '/neon-slots',
+    category: 'slots',
+    categoryName: 'سلوتس',
+    defaultRtp: 96.01,
+    emoji: '🎰'
+  },
+  mines: {
+    key: 'mines',
+    name: 'مناجم الحظ',
+    href: '/mines',
+    category: 'fast',
+    categoryName: 'سريعة',
+    defaultRtp: 97.0,
+    emoji: '💣'
+  },
+  plinko: {
+    key: 'plinko',
+    name: 'بلينكو',
+    href: '/plinko',
+    category: 'fast',
+    categoryName: 'سريعة',
+    defaultRtp: 96.28,
+    emoji: '🔻'
+  },
+  bullseye: {
+    key: 'bullseye',
+    name: 'بولزآي X',
+    href: '/bullseye',
+    category: 'fast',
+    categoryName: 'سريعة',
+    defaultRtp: 96.0,
+    emoji: '🎯'
+  },
+  chicken: {
+    key: 'chicken',
+    name: 'طريق الدجاجة',
+    href: '/chicken-road',
+    category: 'fast',
+    categoryName: 'سريعة',
+    defaultRtp: 96.0,
+    emoji: '🐔'
+  },
+  'buffalo-ways': {
+    key: 'buffalo-ways',
+    name: 'بافالو وايز 3600',
+    href: '/buffalo-ways',
+    category: 'slots',
+    categoryName: 'سلوتس',
+    defaultRtp: 96.0,
+    emoji: '🦬'
+  }
 };
 
 const DEFAULT_GAMES = Object.fromEntries(Object.keys(GAMES).map((k) => [k, true]));
+const DEFAULT_RTP = Object.fromEntries(Object.entries(GAMES).map(([k, g]) => [k, g.defaultRtp]));
 
 let state = null;
 let refreshedAt = 0;
 let refreshing = null;
 
-/** يدمج إعدادات محفوظة (من ملف أو قاعدة) فوق الافتراضي — المفاتيح المجهولة تُهمل. */
+function clampRtp(val, fallback) {
+  const n = Number(val);
+  if (!Number.isFinite(n) || n < 50 || n > 99.9) return fallback;
+  return Math.round(n * 100) / 100;
+}
+
+/** يدمج إعدادات محفوظة (من ملف أو قاعدة) فوق الافتراضي */
 function normalize(raw) {
   const games = { ...DEFAULT_GAMES };
-  if (raw && raw.games) {
-    for (const k of Object.keys(games)) {
-      if (typeof raw.games[k] === 'boolean') games[k] = raw.games[k];
+  const gameRtp = { ...DEFAULT_RTP };
+
+  if (raw) {
+    if (raw.games && typeof raw.games === 'object') {
+      for (const k of Object.keys(DEFAULT_GAMES)) {
+        const item = raw.games[k];
+        if (typeof item === 'boolean') {
+          games[k] = item;
+        } else if (item && typeof item === 'object') {
+          if (typeof item.enabled === 'boolean') games[k] = item.enabled;
+          if (item.rtp != null) gameRtp[k] = clampRtp(item.rtp, DEFAULT_RTP[k]);
+        }
+      }
+    }
+
+    if (raw.gameRtp && typeof raw.gameRtp === 'object') {
+      for (const k of Object.keys(DEFAULT_RTP)) {
+        if (raw.gameRtp[k] != null) {
+          gameRtp[k] = clampRtp(raw.gameRtp[k], DEFAULT_RTP[k]);
+        }
+      }
     }
   }
+
   const adminDomain = (raw && typeof raw.adminDomain === 'string' && raw.adminDomain.trim())
     ? raw.adminDomain.trim().toLowerCase()
     : (process.env.ICHANCE_ADMIN_DOMAIN || null);
-  return { games, adminDomain };
+
+  return { games, gameRtp, adminDomain };
 }
 
 function loadFile() {
@@ -120,17 +217,66 @@ function gameEnabled(key) {
   return get().games[key] !== false;
 }
 
-async function setGame(key, enabled) {
+function getGameRtp(key, fallback) {
+  const current = get().gameRtp;
+  if (current && current[key] != null) return current[key];
+  if (fallback != null) return fallback;
+  return (GAMES[key] && GAMES[key].defaultRtp) || 96.0;
+}
+
+function getGameRtpScale(key, baseRtp) {
+  const rtp = getGameRtp(key, baseRtp);
+  return baseRtp > 0 ? rtp / baseRtp : 1.0;
+}
+
+/**
+ * تحديث حالة اللعبة و/أو نسبة العائد (RTP)
+ * يقبل:
+ *   setGame(key, enabled)
+ *   setGame(key, enabled, rtp)
+ *   setGame(key, { enabled, rtp })
+ */
+async function setGame(key, enabledOrPatch, maybeRtp) {
   if (!GAMES[key]) return { ok: false, error: 'لعبة غير معروفة' };
-  await refresh({ force: true });          // لا نكتب فوق تعديل حفظته نسخة أخرى للتو
-  const prev = get().games[key];
-  state.games[key] = !!enabled;
+  await refresh({ force: true });
+
+  const prevEnabled = get().games[key];
+  const prevRtp = get().gameRtp[key];
+
+  let nextEnabled = prevEnabled;
+  let nextRtp = prevRtp;
+
+  if (typeof enabledOrPatch === 'object' && enabledOrPatch !== null) {
+    if (enabledOrPatch.enabled !== undefined) nextEnabled = !!enabledOrPatch.enabled;
+    if (enabledOrPatch.rtp !== undefined) {
+      const parsed = Number(enabledOrPatch.rtp);
+      if (!Number.isFinite(parsed) || parsed < 50 || parsed > 99.9) {
+        return { ok: false, error: 'نسبة العائد (RTP) يجب أن تكون رقماً بين 50% و 99.9%' };
+      }
+      nextRtp = Math.round(parsed * 100) / 100;
+    }
+  } else {
+    if (enabledOrPatch !== undefined) nextEnabled = !!enabledOrPatch;
+    if (maybeRtp !== undefined) {
+      const parsed = Number(maybeRtp);
+      if (!Number.isFinite(parsed) || parsed < 50 || parsed > 99.9) {
+        return { ok: false, error: 'نسبة العائد (RTP) يجب أن تكون رقماً بين 50% و 99.9%' };
+      }
+      nextRtp = Math.round(parsed * 100) / 100;
+    }
+  }
+
+  state.games[key] = nextEnabled;
+  state.gameRtp[key] = nextRtp;
+
   if (!(await save())) {
-    state.games[key] = prev;
+    state.games[key] = prevEnabled;
+    state.gameRtp[key] = prevRtp;
     return { ok: false, error: 'تعذّر حفظ الإعداد' };
   }
-  console.log(`[site] ${GAMES[key].name}: ${enabled ? 'تشغيل' : 'إيقاف'}`);
-  return { ok: true, games: { ...state.games } };
+
+  console.log(`[site] ${GAMES[key].name}: ${nextEnabled ? 'تشغيل' : 'إيقاف'} · RTP = ${nextRtp}%`);
+  return { ok: true, games: { ...state.games }, gameRtp: { ...state.gameRtp } };
 }
 
 function getAdminDomain() {
@@ -152,7 +298,12 @@ async function setAdminDomain(domain) {
 
 function report() {
   const g = get().games;
-  return Object.values(GAMES).map((meta) => ({ ...meta, enabled: g[meta.key] !== false }));
+  const rtp = get().gameRtp;
+  return Object.values(GAMES).map((meta) => ({
+    ...meta,
+    enabled: g[meta.key] !== false,
+    rtp: rtp[meta.key] != null ? rtp[meta.key] : meta.defaultRtp
+  }));
 }
 
 function publicGames() {
@@ -160,6 +311,6 @@ function publicGames() {
 }
 
 module.exports = {
-  GAMES, gameEnabled, setGame, report, publicGames, refresh,
+  GAMES, gameEnabled, isGameEnabled: gameEnabled, getGameRtp, getGameRtpScale, setGame, report, publicGames, refresh,
   getAdminDomain, setAdminDomain, FILE
 };

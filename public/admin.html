@@ -91,14 +91,59 @@
       </div>
     </section>
 
-    <!-- ═══════════ تشغيل وإيقاف الألعاب ═══════════ -->
-    <section class="panel card">
+    <!-- ═══════════ إدارة وتكوين الألعاب (بحث، تشغيل/إيقاف، وضبط RTP) ═══════════ -->
+    <section class="panel card" id="gamesManagementSection">
       <div class="card__head">
-        <h2>الألعاب</h2>
-        <span class="card__hint">الإيقاف يمنع اللعب من الخادم، لا من الواجهة فقط</span>
+        <div>
+          <h2>إدارة الألعاب ونسب العائد (RTP)</h2>
+          <span class="card__hint">التحكم الفوري بتشغيل وإيقاف الألعاب وتحديد نسبة العائد (RTP) وتطبيقها في قاعدة البيانات لكل لعبة</span>
+        </div>
+        <div class="games-header-stats">
+          <span class="stat-chip stat-chip--gold">إجمالي الألعاب: <b id="statTotalGames">0</b></span>
+          <span class="stat-chip stat-chip--green">تعمل: <b id="statActiveGames">0</b></span>
+          <span class="stat-chip stat-chip--red">موقوفة: <b id="statStoppedGames">0</b></span>
+        </div>
       </div>
       <div class="card__body">
-        <div class="games-toggle" id="gamesToggle"></div>
+        <!-- شريط البحث والتصفية السريعة -->
+        <div class="games-toolbar">
+          <div class="search-box-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="gameSearchInput" placeholder="بحث باسم اللعبة، المعرّف، أو الفئة..." autocomplete="off" spellcheck="false">
+            <button type="button" class="btn-clear-search" id="clearGameSearchBtn" title="مسح البحث" hidden>✕</button>
+          </div>
+          <div class="games-filters">
+            <select id="gameStatusFilter">
+              <option value="all">جميع الحالات</option>
+              <option value="active">تعمل الآن فقط</option>
+              <option value="stopped">الموقوفة فقط</option>
+            </select>
+            <select id="gameTypeFilter">
+              <option value="all">جميع الأنواع</option>
+              <option value="internal">ألعاب المنصة الأصلية</option>
+              <option value="external">ألعاب خارجية</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- جدول الألعاب الشامل -->
+        <div class="table-wrap">
+          <table class="dt dt--compact" id="gamesTable">
+            <thead>
+              <tr>
+                <th style="min-width:180px">اللعبة</th>
+                <th>المعرّف</th>
+                <th>الفئة</th>
+                <th>النوع</th>
+                <th>الحالة</th>
+                <th style="min-width:140px">نسبة العائد (RTP)</th>
+                <th style="min-width:180px">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="gamesTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="gamesTableEmpty" hidden>لا توجد ألعاب مطابقة لمعايير البحث.</div>
       </div>
     </section>
 
@@ -189,6 +234,10 @@
           <div class="field">
             <label for="ngConfig">التبعيات <span class="dim">(JSON)</span></label>
             <input id="ngConfig" type="text" spellcheck="false" placeholder='{"theme":"dark"}'>
+          </div>
+          <div class="field">
+            <label for="ngRtp">نسبة العائد RTP (%) <span class="dim">(50 - 99.9)</span></label>
+            <input id="ngRtp" type="number" min="50" max="99.9" step="0.1" value="96.0" placeholder="96.0">
           </div>
           <div class="field">
             <button class="btn btn--gold btn--block" type="submit" id="ngBtn">سجّل اللعبة</button>

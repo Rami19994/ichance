@@ -1275,17 +1275,60 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, out);
     }
 
+    async function getAllAdminGames() {
+      const internal = siteConfig.report();
+      let external = [];
+      try { external = await gameRegistry.listGames(); } catch { external = []; }
+      return [
+        ...internal.map((g) => ({ ...g, type: 'internal' })),
+        ...external.map((g) => ({
+          key: g.id,
+          id: g.id,
+          slug: g.slug,
+          name: g.name,
+          category: g.category,
+          categoryName: g.category === 'slots' ? 'سلوتس' : g.category === 'fast' ? 'سريعة' : g.category === 'table' ? 'طاولات' : 'مهارة',
+          emoji: '🌐',
+          href: `/play/${encodeURIComponent(g.slug)}`,
+          launchUrl: g.launch_url,
+          coverUrl: g.cover_url,
+          enabled: g.enabled !== false,
+          rtp: Number(g.rtp) || 96.0,
+          defaultRtp: 96.0,
+          type: 'external'
+        }))
+      ];
+    }
+
     if (route === '/api/admin/games' && req.method === 'GET') {
-      return sendJson(res, 200, { games: siteConfig.report() });
+      return sendJson(res, 200, { games: await getAllAdminGames() });
     }
 
-    if (route === '/api/admin/games' && req.method === 'POST') {
+    if ((route === '/api/admin/games' || route === '/api/admin/games/update') && req.method === 'POST') {
       const body = await readBody(req);
-      const out = await siteConfig.setGame(body.game, body.enabled);
-      if (!out.ok) return sendJson(res, 400, { error: out.error });
-      return sendJson(res, 200, { games: siteConfig.report() });
-    }
+      const targetKey = body.key || body.game || body.id;
+      if (!targetKey) return sendJson(res, 400, { error: 'معرّف اللعبة مطلوب' });
 
+      if (siteConfig.GAMES[targetKey]) {
+        // لعبة داخلية من ألعاب المنصة
+        const patch = {};
+        if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+        if (body.rtp !== undefined) patch.rtp = body.rtp;
+        const out = await siteConfig.setGame(targetKey, patch);
+        if (!out.ok) return sendJson(res, 400, { error: out.error });
+      } else {
+        // لعبة خارجية مسجلة بقاعدة البيانات
+        const patch = {};
+        if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+        if (body.rtp !== undefined) patch.rtp = body.rtp;
+        if (body.launchUrl !== undefined) patch.launchUrl = body.launchUrl;
+        if (body.name !== undefined) patch.name = body.name;
+        if (body.category !== undefined) patch.category = body.category;
+        const out = await gameRegistry.updateGame(targetKey, patch);
+        if (!out.ok) return sendJson(res, 400, { error: out.error });
+      }
+      return sendJson(res, 200, { ok: true, games: await getAllAdminGames() });
+    }
 
     if (route === '/api/admin/tiers' && req.method === 'GET') {
       return sendJson(res, 200, { tiers: await accounts.commissionTiers() });
@@ -1318,7 +1361,7 @@ async function handleApi(req, res, url) {
       const out = await gameRegistry.createGame({
         slug: body.slug, name: body.name, category: body.category,
         launchUrl: body.launchUrl, coverUrl: body.coverUrl, accent: body.accent,
-        config: body.config, sortOrder: body.sortOrder
+        config: body.config, sortOrder: body.sortOrder, rtp: body.rtp
       });
       if (!out.ok) return sendJson(res, 400, { error: out.error });
       return sendJson(res, 200, out);
@@ -1647,14 +1690,15 @@ async function handleApi(req, res, url) {
       // العائد النظري لكل لعبة من وحدتها نفسها — لا أرقام مكتوبة يدوياً في اللوحة
       // تتقادم بعد أي ضبط للرياضيات. (الدبابات لعبة مهارة: جدولها منفصل.)
       const gameRtp = {
-        cards: Number((check.rtp * 100).toFixed(2)),
-        slots: slots.MEASURED.rtp,
-        'neon-slots': Number((neonSlots.THEORETICAL_RTP * 100).toFixed(2)),
-        mines: Number((minesGame.DEFAULT_RTP * 100).toFixed(2)),
-        plinko: Number((plinkoGame.RTP * 100).toFixed(2)),
-        bullseye: Number((bullseyeGame.RTP.classic * 100).toFixed(2)),
-        chicken: Number((chickenGame.RTP * 100).toFixed(2)),
-        'buffalo-ways': Number((buffaloWays.RTP * 100).toFixed(2))
+        cards: siteConfig.getGameRtp('cards', 96.0),
+        slots: siteConfig.getGameRtp('slots', 96.2),
+        'neon-slots': siteConfig.getGameRtp('neon-slots', 96.01),
+        mines: siteConfig.getGameRtp('mines', 97.0),
+        plinko: siteConfig.getGameRtp('plinko', 96.28),
+        bullseye: siteConfig.getGameRtp('bullseye', 96.0),
+        chicken: siteConfig.getGameRtp('chicken', 96.0),
+        'buffalo-ways': siteConfig.getGameRtp('buffalo-ways', 96.0),
+        tank: siteConfig.getGameRtp('tank', 80.0)
       };
       return sendJson(res, 200, {
         ledger,

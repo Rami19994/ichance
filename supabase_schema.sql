@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS public.games (
   config JSONB NOT NULL DEFAULT '{}'::jsonb,
   sort_order INT NOT NULL DEFAULT 0,
   enabled BOOLEAN NOT NULL DEFAULT true,
+  rtp NUMERIC NOT NULL DEFAULT 96.0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

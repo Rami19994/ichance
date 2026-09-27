@@ -46,6 +46,7 @@ function checkUrl(url) {
 function publicGame(row) {
   if (!row) return null;
   const { api_secret, ...safe } = row;
+  safe.rtp = row.rtp != null ? Number(row.rtp) : 96.0;
   return safe;
 }
 
@@ -67,7 +68,7 @@ async function getById(id) {
   catch { return null; }
 }
 
-async function createGame({ slug, name, category, launchUrl, coverUrl, accent, config, sortOrder }) {
+async function createGame({ slug, name, category, launchUrl, coverUrl, accent, config, sortOrder, rtp }) {
   const s = checkSlug(slug); if (!s.ok) return s;
   const u = checkUrl(launchUrl); if (!u.ok) return u;
   const n = String(name || '').trim();
@@ -81,6 +82,10 @@ async function createGame({ slug, name, category, launchUrl, coverUrl, accent, c
     if (Array.isArray(cfg) || cfg === null) return { ok: false, error: 'التبعيات يجب أن تكون كائن JSON' };
   }
 
+  const cleanRtp = (rtp != null && Number.isFinite(Number(rtp)))
+    ? Math.max(50, Math.min(99.9, Math.round(Number(rtp) * 100) / 100))
+    : 96.0;
+
   const secret = newSecret();
   try {
     const rows = await sb.insert('games', {
@@ -92,7 +97,8 @@ async function createGame({ slug, name, category, launchUrl, coverUrl, accent, c
       accent: accent ? String(accent).trim() : null,
       api_secret: secret,
       config: cfg,
-      sort_order: Number(sortOrder) || 0
+      sort_order: Number(sortOrder) || 0,
+      rtp: cleanRtp
     });
     // المفتاح يُعرض مرة واحدة هنا فقط — بعدها لا يُخرَج من الخادم
     return { ok: true, game: publicGame(rows[0]), secret };
@@ -123,6 +129,13 @@ async function updateGame(id, patch) {
   if (patch.accent !== undefined) body.accent = patch.accent || null;
   if (patch.enabled !== undefined) body.enabled = !!patch.enabled;
   if (patch.sortOrder !== undefined) body.sort_order = Number(patch.sortOrder) || 0;
+  if (patch.rtp !== undefined) {
+    const p = Number(patch.rtp);
+    if (!Number.isFinite(p) || p < 50 || p > 99.9) {
+      return { ok: false, error: 'نسبة العائد (RTP) يجب أن تكون بين 50% و 99.9%' };
+    }
+    body.rtp = Math.round(p * 100) / 100;
+  }
   if (patch.config !== undefined) {
     let cfg = patch.config;
     if (typeof cfg === 'string') {
@@ -184,10 +197,12 @@ async function createLaunch(game, { accountId, displayId }) {
   }
 
   const sep = game.launch_url.includes('?') ? '&' : '?';
+  const gameRtp = game.rtp != null ? Number(game.rtp) : 96.0;
   const url = `${game.launch_url}${sep}token=${encodeURIComponent(token)}`
             + `&game=${encodeURIComponent(game.id)}`
-            + `&player=${encodeURIComponent(displayId || '')}`;
-  return { ok: true, token, url, expiresAt: expires };
+            + `&player=${encodeURIComponent(displayId || '')}`
+            + `&rtp=${encodeURIComponent(gameRtp)}`;
+  return { ok: true, token, url, expiresAt: expires, rtp: gameRtp };
 }
 
 /** يحوّل رمز الإقلاع إلى لاعب — تستعمله اللعبة في أول نداء. */

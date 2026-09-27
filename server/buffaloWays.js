@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const siteConfig = require('./siteConfig');
 
 /**
  * بافالو وايز 3600 — سلوت «طرق» بانهيار الرموز ومضاعف يتضاعف.
@@ -270,8 +271,9 @@ function playRound({ buy = false, rng = cryptoRng } = {}) {
 // ─────────────────────────────────────────────────────────── بالمال
 
 /** يحوّل مبالغ الجولة (مضاعفات) إلى عملة: أرقام صحيحة، والمجموع = ما يُدفع. */
-function toMoney(round, bet) {
-  const m = (x) => Math.floor(x * bet + 1e-7);
+function toMoney(round, bet, rtpScale = 1.0) {
+  const scale = Number.isFinite(rtpScale) && rtpScale > 0 ? rtpScale : 1.0;
+  const m = (x) => Math.floor(x * bet * scale + 1e-7);
   const spinOut = (s) => ({
     grid: s.grid,
     scatters: s.scatters,
@@ -318,7 +320,8 @@ async function spin(player, { bet: rawBet, buy = false } = {}) {
   if (!(await store.gameDebit(GAME_ID, player, cost, `${GAME_ID}-${id}-bet`))) {
     return { ok: false, error: 'تعذّر خصم الرهان — حاول مجدداً' };
   }
-  const out = toMoney(playRound({ buy: !!buy }), bet);
+  const rtpScale = siteConfig.getGameRtpScale(GAME_ID, 96.0);
+  const out = toMoney(playRound({ buy: !!buy }), bet, rtpScale);
   if (out.win > 0) {
     await store.gameCredit(GAME_ID, player, out.win, `${GAME_ID}-${id}-win`);
   }
@@ -335,7 +338,8 @@ function demo({ bet: rawBet, buy = false } = {}) {
   const b = checkBet(rawBet);
   if (!b.ok) return b;
   const cost = buy ? b.bet * BUY_COST_X : b.bet;
-  return { ok: true, demo: true, bet: b.bet, cost, buy: !!buy, ...toMoney(playRound({ buy: !!buy }), b.bet) };
+  const rtpScale = siteConfig.getGameRtpScale(GAME_ID, 96.0);
+  return { ok: true, demo: true, bet: b.bet, cost, buy: !!buy, ...toMoney(playRound({ buy: !!buy }), b.bet, rtpScale) };
 }
 
 function stateFor(player) {

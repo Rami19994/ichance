@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const store = require('./store');
+const siteConfig = require('./siteConfig');
 
 /**
  * محرك لعبة مناجم الحظ الأصلية (Stake Mines Clone)
@@ -10,7 +11,7 @@ const store = require('./store');
  * الأمان والعدالة والرياضيات:
  * - حساب النتيجة بالكامل على الخادم (Server-Side).
  * - مبدأ العدالة المثبتة (Provably Fair) مع تجزئة SHA-256 قبل بدء اللعب وبذور قابلة للتحقق.
- * - نسبة العائد (RTP) مضبوطة عند 97% مع هامش ربح للموقع 3.0% ثابت ومستدام.
+ * - نسبة العائد (RTP) ديناميكية ومضبوطة من لوحة الإدارة وقاعدة البيانات (الافتراضي 97%).
  * - حجز الرهان فوري وصرف الفوز ذري عبر store.adjustBalance وتسجيل الأرباح في الدفتر المالي.
  */
 
@@ -27,13 +28,16 @@ const activeSessions = new Map();
 /**
  * حساب المضاعف العادل بدقة متطابقة مع Stake
  */
-function calculateMultiplier(minesCount, revealedCount, rtp = DEFAULT_RTP) {
+function calculateMultiplier(minesCount, revealedCount, rtp) {
+  const activeRtp = (rtp != null && Number.isFinite(Number(rtp)))
+    ? Number(rtp)
+    : (siteConfig.getGameRtp('mines', 97.0) / 100);
   if (revealedCount <= 0) return 1.0;
   let multiplier = 1.0;
   for (let i = 0; i < revealedCount; i++) {
     multiplier *= (TOTAL_TILES - i) / (TOTAL_TILES - minesCount - i);
   }
-  const result = multiplier * rtp;
+  const result = multiplier * activeRtp;
   // تقريب المضاعف لرقمين عشريين أو أربعة للأرقام الحساسة
   return Number(result.toFixed(2));
 }
@@ -116,8 +120,9 @@ async function startGame(player, { bet, minesCount = 3, clientSeed = null }) {
     nonce,
     minePositions,
     revealedTiles: [],
+    rtp: siteConfig.getGameRtp('mines', 97.0) / 100,
     currentMultiplier: 1.0,
-    nextMultiplier: calculateMultiplier(cleanMines, 1),
+    nextMultiplier: calculateMultiplier(cleanMines, 1, siteConfig.getGameRtp('mines', 97.0) / 100),
     startedAt: Date.now(),
     status: 'active'
   };
@@ -187,7 +192,7 @@ async function revealTile(player, tileIndex) {
   // أصاب جوهرة (نجاح وتقدم)
   session.revealedTiles.push(idx);
   const revealedCount = session.revealedTiles.length;
-  const multiplier = calculateMultiplier(session.minesCount, revealedCount);
+  const multiplier = calculateMultiplier(session.minesCount, revealedCount, session.rtp);
   session.currentMultiplier = multiplier;
 
   const currentProfit = Math.round(session.bet * multiplier) - session.bet;
@@ -219,7 +224,7 @@ async function revealTile(player, tileIndex) {
   }
 
   // حساب المضاعف للمربع التالي
-  const nextMultiplier = calculateMultiplier(session.minesCount, revealedCount + 1);
+  const nextMultiplier = calculateMultiplier(session.minesCount, revealedCount + 1, session.rtp);
   session.nextMultiplier = nextMultiplier;
   const nextProfit = Math.round(session.bet * nextMultiplier) - session.bet;
 

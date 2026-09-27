@@ -2,6 +2,7 @@
 
 const EventEmitter = require('events');
 const store = require('./store');
+const siteConfig = require('./siteConfig');
 const { newServerSeed, sha256Hex, deriveBoard, randInt } = require('./rng');
 const {
   STAKES, TIMING, FULL_TABLE_LAUNCH_MS, ALL_PICKED_TAIL_MS,
@@ -205,7 +206,9 @@ class LuckyCards extends EventEmitter {
   assignCard(seat, i, auto) {
     const raw = this.board.cards[i];
     // سقف المضاعف على المبالغ الكبيرة — قاعدة معلنة مسبقاً في /api/config والواجهة
-    const paid = cappedMultiplier(seat.stake, raw);
+    const rtpScale = siteConfig.getGameRtpScale('cards', 96.0);
+    const basePaid = cappedMultiplier(seat.stake, raw);
+    const paid = (rtpScale !== 1 && basePaid > 0) ? basePaid * rtpScale : basePaid;
 
     this.cardOwners[i] = seat.id;
     seat.cardIndex = i;

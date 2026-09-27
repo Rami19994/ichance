@@ -2,6 +2,7 @@
 
 const config = require('./config');
 const store = require('./store');
+const siteConfig = require('./siteConfig');
 const { sha256Hex, newServerSeed } = require('./rng');
 const T = require('../public/js/tankSim.js');
 
@@ -199,8 +200,10 @@ function validateInputs(inputs) {
 }
 
 async function settle(player, session, { won, replay, rejected }) {
+  const rtpScale = siteConfig.getGameRtpScale('tank', 80.0);
   const diff = T.DIFFICULTY[session.difficulty];
-  const win = won ? Math.floor(session.bet * diff.payout / 100) : 0;
+  const mult = (rtpScale !== 1) ? Number((diff.payout * rtpScale / 100).toFixed(2)) : (diff.payout / 100);
+  const win = won ? Math.floor(session.bet * mult) : 0;
   if (win > 0) {
     const txRefWin = 'tank-win-' + player.id + '-' + Date.now();
     await store.gameCredit('tank', player, win, txRefWin);
@@ -216,7 +219,7 @@ async function settle(player, session, { won, replay, rejected }) {
     won,
     win,
     bet: session.bet,
-    multiplier: diff.payout / 100,
+    multiplier: mult,
     balance: player.balance,
     reason: rejected ? 'rejected' : (replay ? replay.reason : 'abandoned'),
     rejected: rejected || null,
