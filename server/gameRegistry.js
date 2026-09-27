@@ -276,6 +276,47 @@ async function walletRollback(game, { targetRef, txRef }) {
   } catch (err) { return { ok: false, error: err.message }; }
 }
 
+// ------------------------------------------------ منع التكرار (idempotency)
+//
+// دوال المحفظة في القاعدة لا ترفض رقم حركة مكرّراً: خادم لعبة يعيد الإرسال
+// بعد مهلة، أو طلب موقَّع يُعاد إرساله داخل نافذة التوقيع، كان يُصرف مرّتين.
+// وgw_rollback كان يعيد الرهان نفسه في كل نداء برقم تراجع جديد. هذا فحص
+// الخادم؛ الضمان الكامل فهرس فريد في القاعدة (supabase_hardening_2026_09.sql).
+// خطأ القاعدة هنا يُرمى: لا نصرف ما لم نتأكّد أنه لم يُصرف.
+
+/** الحركة المسجّلة بهذا الرقم لهذه اللعبة، أو null. */
+async function findTx(gameId, txRef) {
+  const rows = await sb.select('game_rounds',
+    `select=id,action,amount,balance_after&game_id=eq.${sb.enc(gameId)}&tx_ref=eq.${sb.enc(txRef)}&limit=1`);
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+/**
+ * هل بقي لهذا الهدف ما يُتراجع عنه؟ الحركة التي تختارها gw_rollback (الأحدث
+ * بين tx_ref / round_ref / id) — ثم عدد التراجعات بمثل مبلغها في جولتها لا
+ * يجوز أن يبلغ عدد حركاتها الأصلية.
+ */
+async function rollbackAllowed(gameId, targetRef) {
+  const t = String(targetRef || '');
+  if (!t) return { ok: false, error: 'target_ref مطلوب' };
+  const targets = await sb.select('game_rounds',
+    `select=id,player_id,round_ref,action,amount&game_id=eq.${sb.enc(gameId)}`
+    + `&or=(tx_ref.eq.${sb.orVal(t)},round_ref.eq.${sb.orVal(t)},id.eq.${sb.orVal(t)})`
+    + '&order=created_at.desc&limit=1');
+  const target = Array.isArray(targets) && targets[0];
+  if (!target) return { ok: false, error: 'الحركة المطلوب التراجع عنها غير موجودة' };
+  if (target.action === 'rollback') return { ok: false, error: 'تمّ التراجع عن هذه الحركة من قبل' };
+  const round = target.round_ref == null ? 'round_ref=is.null' : `round_ref=eq.${sb.enc(target.round_ref)}`;
+  const same = await sb.select('game_rounds',
+    `select=action&game_id=eq.${sb.enc(gameId)}&player_id=eq.${sb.enc(target.player_id)}`
+    + `&amount=eq.${Number(target.amount)}&${round}`);
+  const list = Array.isArray(same) ? same : [];
+  const originals = list.filter((r) => r.action === 'debit' || r.action === 'credit').length;
+  const undone = list.filter((r) => r.action === 'rollback').length;
+  if (undone >= originals) return { ok: false, error: 'تمّ التراجع عن هذه الحركة من قبل' };
+  return { ok: true };
+}
+
 /** آخر حركات اللعب — للوحة الإدارة. */
 async function recentRounds({ gameId, playerId, limit = 100 } = {}) {
   const parts = ['select=*', 'order=created_at.desc', `limit=${Math.min(Number(limit) || 100, 500)}`];
@@ -292,5 +333,6 @@ module.exports = {
   SIGNATURE_WINDOW_MS, LAUNCH_TTL_MS,
   listGames, getBySlug, getById, createGame, updateGame, rotateSecret, deleteGame,
   createLaunch, resolveLaunch, verifySignature, publicGame,
-  walletBalance, walletDebit, walletCredit, walletRollback, recentRounds
+  walletBalance, walletDebit, walletCredit, walletRollback, recentRounds,
+  findTx, rollbackAllowed
 };

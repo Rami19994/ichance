@@ -956,7 +956,7 @@ function createPlayer() {
  * محاسبية لها). الرصيد يُؤخذ من Supabase لأنها المرجع — إلّا إن كانت هناك
  * فروق لعب لم تُكتب بعد، فحينها الذاكرة أحدث ولا يجوز أن نرجع بها للوراء.
  */
-function attachAccount(row) {
+function attachAccount(row, { quiet = false } = {}) {
   if (!row || !row.display_id) return null;
   let player = players.get(row.display_id);
 
@@ -986,8 +986,17 @@ function attachAccount(row) {
   }
 
   player.lastSeen = Date.now();
-  persistSoon();
+  // إعادة التحقّق الدورية (quiet) لا تكتب store_data: لا إحصاء تغيّر
+  if (!quiet) persistSoon();
   return player;
+}
+
+/** رمز لم يعد صالحاً (حساب موقوف أو رمز مستبدل): لا يدلّ على لاعب بعد الآن. */
+function forgetToken(token) {
+  const id = tokenIndex.get(token);
+  tokenIndex.delete(token);
+  const p = id ? players.get(id) : null;
+  if (p && p.token === token) p.token = '';
 }
 
 function byToken(token) {
@@ -1310,7 +1319,7 @@ const flushTimer = setInterval(() => { if (hasUnsaved()) flush().catch(() => {})
 if (flushTimer.unref) flushTimer.unref();
 
 module.exports = {
-  createPlayer, byToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
+  createPlayer, byToken, forgetToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
   recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, roundHistory, allPlayers, playerCount: () => players.size,

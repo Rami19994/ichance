@@ -187,6 +187,22 @@ function rateLimit(key, max = 30, windowMs = 10_000) {
   b.count += 1;
   return b.count <= max;
 }
+
+/**
+ * محاولات الدخول الفاشلة لكل حساب. حدّ العنوان وحده يتجاوزه من يوزّع
+ * التخمين على عناوين كثيرة. تُعدّ الإخفاقات فقط: الدخول الصحيح لا يُحسب.
+ */
+const LOGIN_FAILS_MAX = 10;
+const LOGIN_FAILS_WINDOW_MS = 15 * 60_000;
+const loginKey = (kind, identifier) => `fail:${kind}:${String(identifier || '').trim().toLowerCase().slice(0, 120)}`;
+function loginLocked(kind, identifier) {
+  const b = buckets.get(loginKey(kind, identifier));
+  return !!b && Date.now() <= b.reset && b.count >= LOGIN_FAILS_MAX;
+}
+function loginFailed(kind, identifier) {
+  rateLimit(loginKey(kind, identifier), LOGIN_FAILS_MAX, LOGIN_FAILS_WINDOW_MS);
+}
+const LOCKED = 'محاولات دخول خاطئة كثيرة لهذا الحساب — انتظر ربع ساعة';
 setInterval(() => {
   const now = Date.now();
   for (const [k, b] of buckets) if (now > b.reset) buckets.delete(k);
@@ -261,13 +277,38 @@ setInterval(() => {
  * مرة واحدة ثم نثبّته في الذاكرة. بلا هذا التخزين كان كل طلب لعب سيدفع
  * ~450 مللي ثانية للوصول إلى Supabase.
  */
+/**
+ * اللاعب صاحب الرمز. اللاعب المحفوظ في الذاكرة يُعاد التحقّق منه في القاعدة
+ * كل 15 ثانية: كان يبقى صالحاً ما عاشت النسخة، فحساب أوقفه الكاشير أو
+ * الإدارة، أو رمز استُبدل، يظلّ يلعب. تعذّر السؤال (انقطاع) لا يُخرج أحداً.
+ */
+const PLAYER_RECHECK_MS = 15_000;
 async function resolvePlayer(token) {
   if (!token) return null;
   const cached = store.byToken(token);
-  if (cached) return cached;
+  if (cached && (!cached.accountId || Date.now() - (cached.checkedAt || 0) < PLAYER_RECHECK_MS)) {
+    return cached;
+  }
+  if (cached) {
+    let row;
+    try {
+      row = await accounts.byToken(token, { strict: true });
+    } catch {
+      cached.checkedAt = Date.now();
+      return cached;
+    }
+    if (!row || row.role !== 'player' || row.id !== cached.accountId) {
+      store.forgetToken(token);
+      return null;
+    }
+    cached.checkedAt = Date.now();
+    return store.attachAccount(row, { quiet: true });
+  }
   const row = await accounts.byToken(token);
   if (!row || row.role !== 'player') return null;
-  return store.attachAccount(row);
+  const p = store.attachAccount(row);
+  p.checkedAt = Date.now();
+  return p;
 }
 
 /** رمز الكاشير منفصل عن رمز اللاعب: حسابان مختلفان قد يعملان على جهاز واحد. */
@@ -281,22 +322,21 @@ async function resolveCashier(req, url) {
 /**
  * التحقق من صلاحية الوصول إلى مسارات الإدارة:
  * 1. إذا كان الطلب قادماً من دومين الإدارة المخصص (adminDomain).
- * 2. أو إذا كان يحمل برهان البوابة السرية (query ?gate=... أو cookie أو header).
- * 3. أو إذا كان يحمل مفتاح إدارة صحيح ومصادقاً.
+ * 2. أو إذا كان يحمل برهان البوابة السرية (ترويسة X-Gate أو cookie).
+ * (المفتاح الصحيح يُفحص عند المستدعي.)
  */
 async function isAdminAllowed(req, url) {
   const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
   const adminDomain = siteConfig.getAdminDomain();
   if (adminDomain && host === adminDomain) return true;
 
-  const gateProof = url.searchParams.get('gate') ||
-                    (req.headers['x-gate'] || '') ||
+  // المفتاح والبوابة في الترويسات فقط: ما في الرابط يُحفظ في سجلّات الطلبات
+  // (Vercel) وتاريخ المتصفح
+  const gateProof = (req.headers['x-gate'] || '') ||
                     (req.headers['cookie'] || '').match(/ichance_admin_gate=([A-Za-z0-9_-]+)/)?.[1];
   if (gateProof && await adminGate.matches('/' + gateProof)) return true;
 
-  const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
-  if (key && await adminAuth.verify(key)) return true;
-
+  // المفتاح تحقّق منه المستدعي قبل هذا (مرّة واحدة — كل تحقّق scrypt لكل مفتاح)
   return false;
 }
 
@@ -376,10 +416,16 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
     }
     const body = await readBody(req);
+    if (loginLocked('player', body.identifier)) return sendJson(res, 429, { error: LOCKED });
     const out = await accounts.login(body.identifier, body.password, { expectRole: 'player' });
-    if (!out.ok) return sendJson(res, 401, { error: out.error });
+    if (!out.ok) {
+      loginFailed('player', body.identifier);
+      return sendJson(res, 401, { error: out.error });
+    }
     const row = await accounts.byToken(out.token);
     const p = store.attachAccount(row);
+    if (!p) return sendJson(res, 503, { error: 'تعذّر فتح الجلسة — أعد المحاولة' });
+    p.checkedAt = Date.now();
     return sendJson(res, 200, { token: out.token, player: store.publicProfile(p) });
   }
 
@@ -421,10 +467,39 @@ async function handleApi(req, res, url) {
       return sendJson(res, 503, { error: 'تعذّرت مزامنة رصيد اللاعب مع قاعدة البيانات — أعد المحاولة بعد لحظات' });
     }
 
+    // رقم الحركة إلزامي، والمسجّل منه لا يُطبَّق ثانيةً (إعادة إرسال بعد
+    // مهلة أو إعادة تشغيل طلب موقَّع): نعيد نتيجته الأولى بدل صرفه مرّتين.
+    if (route !== '/api/gw/balance') {
+      const txRef = String(body.tx_ref || '').trim();
+      if (!txRef || txRef.length > 128) return sendJson(res, 400, { error: 'tx_ref مطلوب (حتى 128 حرفاً)' });
+      const want = route.slice('/api/gw/'.length);
+      let prior;
+      try {
+        prior = await gameRegistry.findTx(game.id, txRef);
+        if (!prior && want === 'rollback') {
+          const allowed = await gameRegistry.rollbackAllowed(game.id, body.target_ref);
+          if (!allowed.ok) return sendJson(res, 409, { error: allowed.error });
+        }
+      } catch {
+        return sendJson(res, 503, { error: 'تعذّر التحقّق من رقم الحركة — أعد المحاولة' });
+      }
+      if (prior) {
+        if (prior.action !== want) return sendJson(res, 409, { error: 'رقم الحركة مستعمل لحركة أخرى' });
+        return sendJson(res, 200, { ok: true, duplicate: true, balance: Number(prior.balance_after), tx_id: prior.id });
+      }
+    }
+
     let out;
     if (route === '/api/gw/balance') {
       out = await gameRegistry.walletBalance(game, session.player_id);
     } else if (route === '/api/gw/debit') {
+      // رمز الإقلاع يبقى صالحاً حتى ينتهي، وgw_debit في القاعدة لا يفحص
+      // الإيقاف — فحساب أوقفه الكاشير كان يراهن في الألعاب الخارجية. الرهان
+      // الجديد يُمنع؛ الربح والتراجع يمرّان كي لا يضيع مال رهانٍ قائم.
+      let acc;
+      try { acc = await accounts.byId(session.player_id); }
+      catch { return sendJson(res, 503, { error: 'تعذّر التحقّق من حساب اللاعب — أعد المحاولة' }); }
+      if (!acc || !acc.active || acc.role !== 'player') return sendJson(res, 403, { error: 'الحساب موقوف' });
       out = await gameRegistry.walletDebit(game, session.player_id, {
         amount: body.amount, txRef: body.tx_ref, roundRef: body.round_ref
       });
@@ -455,8 +530,12 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
     }
     const body = await readBody(req);
+    if (loginLocked('master', body.identifier)) return sendJson(res, 429, { error: LOCKED });
     const out = await accounts.login(body.identifier, body.password, { expectRole: 'master' });
-    if (!out.ok) return sendJson(res, 401, { error: out.error });
+    if (!out.ok) {
+      loginFailed('master', body.identifier);
+      return sendJson(res, 401, { error: out.error });
+    }
     return sendJson(res, 200, { token: out.token, master: out.account });
   }
 
@@ -558,8 +637,12 @@ async function handleApi(req, res, url) {
       return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر دقيقة' });
     }
     const body = await readBody(req);
+    if (loginLocked('cashier', body.identifier)) return sendJson(res, 429, { error: LOCKED });
     const out = await accounts.login(body.identifier, body.password, { expectRole: 'cashier' });
-    if (!out.ok) return sendJson(res, 401, { error: out.error });
+    if (!out.ok) {
+      loginFailed('cashier', body.identifier);
+      return sendJson(res, 401, { error: out.error });
+    }
     return sendJson(res, 200, { token: out.token, cashier: out.account });
   }
 
@@ -597,7 +680,10 @@ async function handleApi(req, res, url) {
     if ((route === '/api/cashier/deposit' || route === '/api/cashier/withdraw') && req.method === 'POST') {
       const body = await readBody(req);
       const target = await accounts.byId(body.playerId);
-      if (!target) return sendJson(res, 400, { error: 'اللاعب غير موجود' });
+      if (!target || target.role !== 'player') return sendJson(res, 400, { error: 'اللاعب غير موجود' });
+      // لاعب الكاشير وحده. دالّة القاعدة كانت تقبل لاعباً بلا كاشير (أنشأته
+      // الإدارة مباشرة) من أيّ كاشير — فيسحب كاشير رصيده إلى عهدته.
+      if (target.cashier_id !== cashier.id) return sendJson(res, 403, { error: 'هذا اللاعب ليس من حساباتك' });
 
       // نكتب فروق اللعب المعلّقة أولاً: بدونها قد تُحسب التعبئة على رصيد قديم.
       // وإن تعذّرت كتابتها لا نمضي — سحبٌ على رصيد ناقص يُخرج مالاً غير موجود.
@@ -1105,17 +1191,18 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true });
     }
 
-    const key = String(req.headers['x-admin-key'] || url.searchParams.get('key') || '').trim();
+    const key = String(req.headers['x-admin-key'] || '').trim();
+    // مفتاح خاطئ متكرّر من العنوان نفسه يُرفض قبل التحقّق: كل تحقّق يحسب
+    // scrypt لكل مفتاح محفوظ، فكان من يتجاهل 429 يُشغل الخادم بلا حدّ.
+    if (key && loginLocked('admin', ip)) return sendJson(res, 429, { error: 'محاولات كثيرة — انتظر ربع ساعة' });
     const isAuthed = key ? (await adminAuth.verify(key)) : false;
+    if (key && !isAuthed) loginFailed('admin', ip);
 
     // فحص عزل دومين الإدارة أو برهان البوابة السرية
     if (!isAuthed) {
       const allowedByGate = await isAdminAllowed(req, url);
       if (!allowedByGate) {
-        if (key) {
-          if (!rateLimit(`admin:${ip}`, 10, 60_000)) return sendJson(res, 429, { error: 'محاولات كثيرة' });
-          return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح أو تم إلغاؤه' });
-        }
+        if (key) return sendJson(res, 401, { error: 'مفتاح الإدارة غير صحيح أو تم إلغاؤه' });
         return sendJson(res, 404, { error: 'الصفحة غير موجودة' });
       }
     }

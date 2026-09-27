@@ -41,11 +41,14 @@ const db = {
 const NET = () => Object.assign(new Error('تعذّر الاتصال بقاعدة البيانات'), { kind: 'network', status: 503 });
 const guard = () => { if (db.down) throw NET(); };
 const eqOf = (q, k) => { const m = q.match(new RegExp(`(?:^|[&(,])${k}=eq\\.([^&),]*)`)); return m && decodeURIComponent(m[1]); };
-const orIds = (q) => [...q.matchAll(/([a-z_]+)\.eq\.([^,)]*)/g)].map((m) => [m[1], decodeURIComponent(m[2])]);
+// داخل or=(...) القيمة بين علامتي تنصيص (sb.orVal) — PostgREST يزيلهما
+const unquote = (v) => (/^".*"$/.test(v) ? v.slice(1, -1).replace(/\\(.)/g, '$1') : v);
+const orIds = (q) => [...q.matchAll(/([a-z_]+)\.eq\.([^,)]*)/g)].map((m) => [m[1], unquote(decodeURIComponent(m[2]))]);
 
 const fake = {
   configured: () => db.configured,
   enc: encodeURIComponent,
+  orVal: (v) => encodeURIComponent(`"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`),
   ping: async () => ({ ok: !db.down }),
   async selectOne(table, q) {
     guard();

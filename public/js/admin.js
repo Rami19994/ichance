@@ -67,9 +67,9 @@ function currentGateProof() {
 }
 
 async function adminGet(path) {
+  // البوابة في الترويسة فقط — الرابط يُحفظ في سجلّات الخادم
   const gate = currentGateProof();
-  const sep = path.includes('?') ? '&' : '?';
-  const url = gate ? `${path}${sep}gate=${encodeURIComponent(gate)}` : path;
+  const url = path;
   const headers = { 'X-Admin-Key': adminKey || '' };
   if (gate) headers['X-Gate'] = gate;
   const res = await fetch(url, { headers });
@@ -86,9 +86,9 @@ async function adminGet(path) {
 }
 
 async function adminPost(path, body) {
+  // البوابة في الترويسة فقط — الرابط يُحفظ في سجلّات الخادم
   const gate = currentGateProof();
-  const sep = path.includes('?') ? '&' : '?';
-  const url = gate ? `${path}${sep}gate=${encodeURIComponent(gate)}` : path;
+  const url = path;
   const headers = { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey || '' };
   if (gate) headers['X-Gate'] = gate;
   const res = await fetch(url, {

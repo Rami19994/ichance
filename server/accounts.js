@@ -454,7 +454,7 @@ async function login(identifier, password, { expectRole } = {}) {
   if (useDb()) {
     let row;
     try {
-      const q = `or=(username_key.eq.${sb.enc(id)},email_key.eq.${sb.enc(id)},display_id.eq.${sb.enc(rawId)},display_id.eq.${sb.enc(rawId.toUpperCase())},id.eq.${sb.enc(rawId)})`;
+      const q = `or=(username_key.eq.${sb.orVal(id)},email_key.eq.${sb.orVal(id)},display_id.eq.${sb.orVal(rawId)},display_id.eq.${sb.orVal(rawId.toUpperCase())},id.eq.${sb.orVal(rawId)})`;
       row = await sb.selectOne('accounts', `select=*&${q}`);
     } catch (err) {
       return { ok: false, error: DB_DOWN };
@@ -491,7 +491,12 @@ async function login(identifier, password, { expectRole } = {}) {
   return { ok: true, token, account: strip(row) };
 }
 
-async function byToken(token) {
+/**
+ * الحساب النشط صاحب الرمز، أو null.
+ * strict: خطأ القاعدة يُرمى بدل null — لمن يحتاج أن يفرّق بين «الرمز لم يعد
+ * صالحاً» و«لم نستطع السؤال» (إعادة التحقّق من لاعب في الذاكرة).
+ */
+async function byToken(token, { strict = false } = {}) {
   const t = String(token || '').trim();
   if (!t) return null;
 
@@ -500,7 +505,8 @@ async function byToken(token) {
     try {
       const row = await sb.selectOne('accounts', `select=*&play_token=eq.${sb.enc(t)}`);
       return row && row.active ? row : null;
-    } catch {
+    } catch (err) {
+      if (strict) throw err;
       return null;
     }
   }
@@ -666,7 +672,7 @@ async function deposit({ cashierId, playerId, amount, note }) {
   if (!cashier.active) return { ok: false, error: 'حساب الكاشير موقوف' };
   if (!player) return { ok: false, error: 'حساب اللاعب غير موجود' };
   if (!player.active) return { ok: false, error: 'حساب اللاعب موقوف' };
-  if (player.cashier_id && player.cashier_id !== cashier.id) {
+  if (player.cashier_id !== cashier.id) {
     return { ok: false, error: 'هذا اللاعب ليس من حساباتك' };
   }
 
@@ -721,7 +727,7 @@ async function withdraw({ cashierId, playerId, amount, note }) {
   if (!cashier.active) return { ok: false, error: 'حساب الكاشير موقوف' };
   if (!player) return { ok: false, error: 'حساب اللاعب غير موجود' };
   if (!player.active) return { ok: false, error: 'حساب اللاعب موقوف' };
-  if (player.cashier_id && player.cashier_id !== cashier.id) {
+  if (player.cashier_id !== cashier.id) {
     return { ok: false, error: 'هذا اللاعب ليس من حساباتك' };
   }
 
@@ -1399,12 +1405,13 @@ async function deleteAccount({ accountId, ownerId, ownerField }) {
 
   if (useDb()) {
     const e = sb.enc(id);
+    const q = sb.orVal(id);   // داخل or=(...)
     try {
-      const deps = await sb.select('accounts', `select=id&or=(cashier_id.eq.${e},master_id.eq.${e})&limit=1`);
+      const deps = await sb.select('accounts', `select=id&or=(cashier_id.eq.${q},master_id.eq.${q})&limit=1`);
       if (deps.length) return { ok: false, error: DEPENDANTS };
 
       const tx = await sb.select('transaction_log',
-        `select=id&or=(player_id.eq.${e},cashier_id.eq.${e},master_id.eq.${e})&limit=1`);
+        `select=id&or=(player_id.eq.${q},cashier_id.eq.${q},master_id.eq.${q})&limit=1`);
       if (tx.length) return { ok: false, error: HISTORY };
       if (row.role === 'player') {
         const rounds = await sb.select('game_rounds', `select=id&player_id=eq.${e}&limit=1`);

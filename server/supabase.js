@@ -181,6 +181,15 @@ async function request(pathname, { method = 'GET', body, prefer } = {}) {
 
 const enc = encodeURIComponent;
 
+/**
+ * قيمة داخل or=(...) / and=(...). ترميز الرابط وحده لا يكفي: PostgREST يفكّ
+ * الترميز ثم يقرأ الفواصل والأقواس كقواعد — فاسم مستخدم فيه «,role.eq.master»
+ * كان يضيف شرطاً. بين علامتي تنصيص تُقرأ القيمة نصّاً حرفياً.
+ */
+function orVal(v) {
+  return enc(`"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+}
+
 /** استعلام قراءة. `query` سلسلة PostgREST جاهزة مثل `select=*&id=eq.x`. */
 function select(table, query = 'select=*') {
   return request(`/rest/v1/${table}?${query}`);
@@ -225,5 +234,5 @@ async function ping() {
 module.exports = {
   configured, config, reload, saveConfig, CONF_FILE,
   select, selectOne, insert, update, rpc, request, ping,
-  SupabaseError, translate, enc
+  SupabaseError, translate, enc, orVal
 };
