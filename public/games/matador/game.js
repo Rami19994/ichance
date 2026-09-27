@@ -10,8 +10,8 @@
   const $ = (id) => document.getElementById(id);
   const A = window.MTAudio;
   const NREELS = 5, ROWS = 3;
-  const CELL = 160;                   // خانة البكرة بوحدات اللوح
-  const REELS_X = 70, REELS_Y = 205;  // موضع البكرات داخل اللوح
+  const CELL_W = 171, CELL_H = 162.3; // خانة البكرة بوحدات اللوح
+  const REELS_X = 261, REELS_Y = 163;  // موضع البكرات داخل اللوح
   const ASSET = '/games/matador/assets/';
   const SYMS = ['hat', 'guitar', 'maracas', 'castanets', 'fan', 'hornRed', 'hornBlue', 'hornPurple', 'hornGreen'];
   const NAMES = {
@@ -100,7 +100,7 @@
     S.port = port;
     els.stage.classList.toggle('is-port', port);
     els.stage.classList.toggle('is-land', !port);
-    const W = port ? 900 : 1600, H = port ? 1600 : 900;
+    const W = port ? 900 : 1376, H = port ? 1600 : 768;
     const k = Math.min(vw / W, vh / H);
     S.scale = k;
     const x = (vw - W * k) / 2, y = (vh - H * k) / 2;
@@ -109,15 +109,13 @@
   }
 
   // ─────────────────────────────────────────────────────── الشبكة
-  const posOf = (c, r) => `translate3d(${c * CELL}px,${r * CELL}px,0)`;
+  const posOf = (c, r) => `translate3d(${c * CELL_W}px,${r * CELL_H}px,0)`;
 
   function symbolHtml(x) {
     const s = x.s;
     let h = '';
-    if (x.g) h += `<img class="mt-sym__frame" src="${ASSET}frame-gold.svg" alt="" draggable="false">`;
-    h += `<img class="mt-sym__art" src="${ASSET}sym-${s}.svg" alt="" draggable="false">`;
-    if (s === 'scatter') h += '<span class="mt-tag">SCATTER</span>';
-    if (s === 'wild') h += '<span class="mt-tag mt-tag--wild">WILD</span>';
+    if (x.g) h += `<img class="mt-sym__frame" src="${ASSET}frame-gold.png" alt="" draggable="false">`;
+    h += `<img class="mt-sym__art" src="${ASSET}sym-${s}.png" alt="" draggable="false">`;
     if (x.g && x.m) h += `<span class="mt-badge">${x.m}X</span>`;
     return h;
   }
@@ -160,7 +158,7 @@
     S.cells.forEach((col, c) => {
       col.forEach((cell, r) => {
         const from = posOf(c, r);
-        const to = `translate3d(${c * CELL}px,${(r + ROWS + 0.6) * CELL}px,0)`;
+        const to = `translate3d(${c * CELL_W}px,${(r + ROWS + 0.6) * CELL_H}px,0)`;
         cell.el.style.transform = to;
         jobs.push(play(cell.el, [
           { transform: from },
@@ -184,9 +182,9 @@
         cell.el.style.transform = to;
         els.reels.appendChild(cell.el);
         return play(cell.el, [
-          { transform: `translate3d(${c * CELL}px,${(r - ROWS - 0.4) * CELL}px,0) scaleY(1.12)`, easing: 'cubic-bezier(.45,0,.9,.55)' },
-          { transform: `translate3d(${c * CELL}px,${(r + 0.07) * CELL}px,0) scaleY(.94)`, offset: 0.78, easing: 'ease-out' },
-          { transform: `translate3d(${c * CELL}px,${(r - 0.025) * CELL}px,0)`, offset: 0.9 },
+          { transform: `translate3d(${c * CELL_W}px,${(r - ROWS - 0.4) * CELL_H}px,0) scaleY(1.12)`, easing: 'cubic-bezier(.45,0,.9,.55)' },
+          { transform: `translate3d(${c * CELL_W}px,${(r + 0.07) * CELL_H}px,0) scaleY(.94)`, offset: 0.78, easing: 'ease-out' },
+          { transform: `translate3d(${c * CELL_W}px,${(r - 0.025) * CELL_H}px,0)`, offset: 0.9 },
           { transform: to }
         ], { duration: 430, delay: delay + (ROWS - 1 - r) * 22 });
       });
@@ -224,7 +222,7 @@
     els.fx.width = Math.round(940 * s);
     els.fx.height = Math.round(780 * s);
   }
-  const cellCenter = (c, r) => ({ x: REELS_X + c * CELL + CELL / 2, y: REELS_Y + r * CELL + CELL / 2 });
+  const cellCenter = (c, r) => ({ x: REELS_X + c * CELL_W + CELL_W / 2, y: REELS_Y + r * CELL_H + CELL_H / 2 });
 
   function burstAt(p, { n = 22, gold = true, power = 1 } = {}) {
     for (let i = 0; i < n; i++) {
@@ -289,14 +287,54 @@
     fx.raf = requestAnimationFrame(tick);
   }
 
-  // ─────────────────────────────────────────────────────── الرسائل
+  // ─────────────────────────────────────────────────────── الرسائل ومؤثرات الربح
+  let winDismissTimer = null;
+
+  function scheduleWinDismiss(delayMs = 2800) {
+    clearTimeout(winDismissTimer);
+    winDismissTimer = setTimeout(() => {
+      dismissWin();
+    }, delayMs);
+  }
+
+  function dismissWin() {
+    clearTimeout(winDismissTimer);
+    winDismissTimer = null;
+    if (els.msg.classList.contains('is-win-active')) {
+      els.msg.classList.remove('is-win-active');
+      els.msg.classList.add('is-fade-out');
+      setTimeout(() => {
+        msgIdle();
+        els.msg.classList.remove('is-fade-out');
+      }, 350);
+    }
+    if (els.burst) {
+      els.burst.classList.remove('is-active');
+      els.burst.hidden = true;
+    }
+    if (els.lastWin) {
+      els.lastWin.classList.add('is-fade-dim');
+      setTimeout(() => {
+        els.lastWin.textContent = money(0);
+        els.lastWin.classList.remove('is-fade-dim');
+      }, 400);
+    }
+  }
+
   function msgIdle() {
+    els.msg.classList.remove('is-win-active');
     els.msgText.innerHTML = S.stageFs ? 'لفات مجانية' : 'حظاً طيباً!';
   }
+
   function msgWin(value, label = 'مكسب') {
     els.msgText.innerHTML = `${label} <b>${money(value)}</b>`;
-    els.msg.classList.remove('is-flash'); void els.msg.offsetWidth; els.msg.classList.add('is-flash');
+    els.msg.classList.remove('is-flash');
+    els.msg.classList.remove('is-fade-out');
+    void els.msg.offsetWidth;
+    els.msg.classList.add('is-flash');
+    els.msg.classList.add('is-win-active');
   }
+
   function setScroll(text, mult = false, pop = false) {
     els.scrollText.textContent = text;
     els.scroll.classList.toggle('is-mult', mult);
@@ -358,6 +396,7 @@
     const from = shown(runningBefore) || 0;
     setBurst(from);
     els.burst.hidden = false;
+    els.burst.classList.add('is-active');
     play(els.burstValue, [
       { transform: 'scale(.3)', opacity: 0 },
       { transform: 'scale(1.15)', opacity: 1, offset: 0.55 },
@@ -368,6 +407,7 @@
     els.lastWin.textContent = money(total);
     await sleep(520);
     await play(els.burst, [{ opacity: 1 }, { opacity: 0 }], { duration: 220 });
+    els.burst.classList.remove('is-active');
     els.burst.hidden = true;
     if (!fs && step.mult > 1) setScroll('243 WAYS');
 
@@ -416,21 +456,21 @@
       const next = fresh.concat(kept);
       const n = fresh.length;
       next.forEach((cell, r) => {
-        const toY = r * CELL;
+        const toY = r * CELL_H;
         let fromY;
         if (r < n) {
-          fromY = (r - n) * CELL - CELL * 0.2;
+          fromY = (r - n) * CELL_H - CELL_H * 0.2;
           els.reels.appendChild(cell.el);
         } else {
-          fromY = col.indexOf(cell) * CELL;
+          fromY = col.indexOf(cell) * CELL_H;
         }
         cell.el.style.opacity = '';
         cell.el.style.transform = posOf(c, r);
         if (fromY === toY) return;
-        const dist = (toY - fromY) / CELL;
+        const dist = (toY - fromY) / CELL_H;
         falls.push(play(cell.el, [
-          { transform: `translate3d(${c * CELL}px,${fromY}px,0)`, easing: 'cubic-bezier(.45,0,.9,.55)' },
-          { transform: `translate3d(${c * CELL}px,${toY + CELL * 0.06}px,0)`, offset: 0.8, easing: 'ease-out' },
+          { transform: `translate3d(${c * CELL_W}px,${fromY}px,0)`, easing: 'cubic-bezier(.45,0,.9,.55)' },
+          { transform: `translate3d(${c * CELL_W}px,${toY + CELL_H * 0.06}px,0)`, offset: 0.8, easing: 'ease-out' },
           { transform: posOf(c, r) }
         ], { duration: 250 + dist * 60, delay: c * 30 }));
       });
@@ -559,6 +599,7 @@
   }
 
   async function spin({ buy = false } = {}) {
+    dismissWin();
     if (S.busy) return false;
     const b = bet();
     const cost = buy ? b * S.buyX : b;
@@ -598,6 +639,8 @@
         msgWin(total, res.feature || res.jackpot ? 'إجمالي المكسب' : 'مكسب');
         els.lastWin.textContent = money(total);
         await bigWin(total - (res.jackpot ? res.jackpot.win : 0));
+        // إخفاء كمية الربح بعد انتهاء عرضها لترجع تختفي تلقائياً
+        scheduleWinDismiss(2800);
       } else {
         msgIdle();
       }
@@ -618,7 +661,10 @@
       paintBalance();
       return { ok: true, feature: !!(res && res.feature) };
     } finally {
-      els.burst.hidden = true;
+      if (els.burst) {
+        els.burst.classList.remove('is-active');
+        els.burst.hidden = true;
+      }
       setBusy(false);
     }
   }
@@ -815,10 +861,17 @@
     resizeT = setTimeout(layout, 60);
   });
 
+  // النقر في أي مكان يلغي أو يخفي عرض الربح فوراً لتفادي بقائه ثابتاً
+  window.addEventListener('pointerdown', (e) => {
+    if (winDismissTimer && !e.target.closest('#bigWin') && !e.target.closest('#jpWin')) {
+      dismissWin();
+    }
+  }, { passive: true });
+
   // ─────────────────────────────────────────────────────── الإقلاع
   function preload() {
-    const names = [...SYMS, 'wild', 'scatter'].map((s) => `sym-${s}.svg`)
-      .concat(['frame-gold.svg', 'frame.svg', 'bull.svg', 'logo-art.svg', 'buy.svg', 'bg.svg']);
+    const names = [...SYMS, 'wild', 'scatter'].map((s) => `sym-${s}.png`)
+      .concat(['frame-gold.png', 'bull.png', 'logo-art.png', 'buy.png', 'bg.jpg']);
     const urls = names.map((n) => ASSET + n);
     let done = 0;
     const bar = $('loadBar');
@@ -855,6 +908,7 @@
   }
 
   async function boot() {
+    dismissWin();
     layout();
     setGrid(randomGrid());
     S.turbo = recall('mt_turbo') === '1';

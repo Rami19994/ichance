@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
-<link rel="preload" href="/games/matador/assets/bg.svg" as="image">
-<link rel="stylesheet" href="/games/matador/game.css?v=1">
+<link rel="preload" href="/games/matador/assets/bg.jpg" as="image">
+<link rel="stylesheet" href="/games/matador/game.css?v=2">
 </head>
 <body class="mt-page">
 
@@ -19,6 +19,7 @@
 
 <main class="mt-viewport" id="viewport">
   <div class="mt-stage is-land" id="stage">
+    <div class="mt-stage__bg" aria-hidden="true"></div>
 
     <!-- الجاكبوت -->
     <div class="mt-jp mt-jp--mini" data-jp="mini"><em>MINI</em><b data-v>0.00</b><img src="/games/matador/assets/gem-mini.svg" alt=""></div>
@@ -27,17 +28,14 @@
     <div class="mt-jp mt-jp--grand" data-jp="grand"><em>GRAND</em><b data-v>0.00</b><img src="/games/matador/assets/gem-grand.svg" alt=""></div>
 
     <!-- الثور -->
-    <div class="mt-bull" id="bull"><img src="/games/matador/assets/bull.svg" alt="" draggable="false"></div>
+    <div class="mt-bull" id="bull"><img src="/games/matador/assets/bull.png" alt="" draggable="false"></div>
 
     <!-- الشعار وزر الشراء -->
-    <div class="mt-logo" aria-label="Matador Fiesta">
-      <img src="/games/matador/assets/logo-art.svg" alt="" draggable="false">
-      <span class="mt-logo__top" dir="ltr">FIESTA</span>
-      <span class="mt-logo__main" dir="ltr">MATADOR</span>
+    <div class="mt-logo" aria-label="Wild Matador">
+      <img src="/games/matador/assets/logo-art.png" alt="Wild Matador" draggable="false">
     </div>
-    <button class="mt-buy" id="buyBtn" type="button">
-      <img src="/games/matador/assets/buy.svg" alt="" draggable="false">
-      <span>شراء</span>
+    <button class="mt-buy" id="buyBtn" type="button" aria-label="شراء اللفات المجانية">
+      <img src="/games/matador/assets/buy.png" alt="شراء" draggable="false">
     </button>
 
     <!-- اللوح -->
@@ -45,7 +43,6 @@
       <div class="mt-reels" id="reels">
         <i class="mt-col-bg"></i><i class="mt-col-bg"></i><i class="mt-col-bg"></i><i class="mt-col-bg"></i><i class="mt-col-bg"></i>
       </div>
-      <img class="mt-frame" src="/games/matador/assets/frame.svg" alt="" draggable="false">
       <div class="mt-scroll" id="scroll"><span id="scrollText">243 WAYS</span></div>
       <div class="mt-burst" id="burst" hidden><i class="mt-burst__rays"></i><b id="burstValue">0.00</b></div>
       <canvas class="mt-fx" id="fx" aria-hidden="true"></canvas>
@@ -108,7 +105,7 @@
 
     <!-- ======================== النوافذ ======================== -->
     <div class="mt-overlay mt-loader" id="loader">
-      <img class="mt-loader__art" src="/assets/thumb_matador.svg" alt="Matador Fiesta">
+      <img class="mt-loader__art" src="/games/matador/assets/logo-art.png" alt="Wild Matador">
       <div class="mt-loader__bar"><i id="loadBar"></i></div>
       <button class="mt-btn mt-btn--gold" id="startBtn" type="button" hidden>اضغط للبدء</button>
       <p class="mt-loader__note" id="loadNote">جارٍ التحميل…</p>

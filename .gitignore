@@ -39,4 +39,5 @@ yarn-error.log*
 .vscode/
 # Standalone admin portal project
 ichadmin/
+scratch/
 
