@@ -88,6 +88,13 @@ function battleSeed(player, nonce) {
 }
 
 // ---------------------------------------------------------------- الوصف
+/** مضاعف الفوز بعد عائد الإدارة — نفسه في العرض وفي الصرف. */
+function payoutFor(d) {
+  const rtpScale = siteConfig.getGameRtpScale('tank', 80.0);
+  return rtpScale !== 1 ? Number((d.payout * rtpScale / 100).toFixed(2)) : d.payout / 100;
+}
+
+/** وصف الصعوبة للاعب: بلا نسبة فوز ولا عائد (طلب المالك — للإدارة فقط). */
 function describeDifficulty(d) {
   return {
     key: d.key,
@@ -96,10 +103,8 @@ function describeDifficulty(d) {
     enemies: d.enemies,
     maxAlive: d.maxAlive,
     armor: d.armor,
-    payout: d.payout / 100,
-    seconds: Math.round(d.timeLimit / T.TICK_HZ),
-    measuredWinRate: d.measured,
-    rtp: Number((d.measured * d.payout).toFixed(2))   // بالمئة
+    payout: payoutFor(d),
+    seconds: Math.round(d.timeLimit / T.TICK_HZ)
   };
 }
 
@@ -107,6 +112,17 @@ function difficulties() {
   return Object.values(T.DIFFICULTY)
     .sort((a, b) => a.order - b.order)
     .map(describeDifficulty);
+}
+
+/** للإدارة: مع نسبة الفوز المقيسة والعائد النظري. */
+function adminDifficulties() {
+  return Object.values(T.DIFFICULTY)
+    .sort((a, b) => a.order - b.order)
+    .map((d) => ({
+      ...describeDifficulty(d),
+      measuredWinRate: d.measured,
+      rtp: Number((d.measured * payoutFor(d) * 100).toFixed(2))   // بالمئة
+    }));
 }
 
 function publicConfig() {
@@ -200,9 +216,8 @@ function validateInputs(inputs) {
 }
 
 async function settle(player, session, { won, replay, rejected }) {
-  const rtpScale = siteConfig.getGameRtpScale('tank', 80.0);
   const diff = T.DIFFICULTY[session.difficulty];
-  const mult = (rtpScale !== 1) ? Number((diff.payout * rtpScale / 100).toFixed(2)) : (diff.payout / 100);
+  const mult = payoutFor(diff);
   const win = won ? Math.floor(session.bet * mult) : 0;
   if (win > 0) {
     const txRefWin = 'tank-win-' + player.id + '-' + Date.now();
@@ -275,7 +290,7 @@ if (sweeper.unref) sweeper.unref();
 
 /** تفصيل الصعوبات كما وقع فعلاً — للوحة الإدارة. */
 function difficultyReport(ledgerTank) {
-  return difficulties().map((d) => {
+  return adminDifficulties().map((d) => {
     const seen = (ledgerTank && ledgerTank[d.key]) || { battles: 0, wins: 0, wagered: 0, paid: 0 };
     return {
       ...d,

@@ -7,7 +7,7 @@ const { newServerSeed, sha256Hex, deriveBoard, randInt } = require('./rng');
 const {
   STAKES, TIMING, FULL_TABLE_LAUNCH_MS, ALL_PICKED_TAIL_MS,
   CARD_COUNT, MAX_PLAYERS, GRID, SERVER,
-  HIGH_STAKE_THRESHOLD, HIGH_STAKE_MAX_MULTIPLIER, cappedMultiplier
+  HIGH_STAKE_THRESHOLD, HIGH_STAKE_MAX_MULTIPLIER, cappedMultiplier, TEMPLATES
 } = require('./config');
 
 /**
@@ -24,6 +24,37 @@ const {
  *
  * الخادم هو المرجع الوحيد للحالة: المتصفح لا يقرر شيئاً، فقط يعرض ويطلب.
  */
+
+/**
+ * اللوحة بعد عائد الإدارة. العائد 96% هو متوسّط الأنماط موزوناً بأوزانها
+ * (لكل نمط عائده: «ثلاثي» 75%، «المئة» 892%):
+ *     العائد = (كروت الاسترداد 3 + متوسّط مجموع الرابحة الموزون 8.52) ÷ 12
+ * فمعامل واحد k للكروت الرابحة (≥2) في كل الأنماط يحقّق العائد المطلوب:
+ *     k = (12 × العائد − 3) ÷ 8.52
+ * والاسترداد (×1) والخاسر (×0) كما هما: لا يُعرض ولا يُدفع أقل من الرهان،
+ * والمعروض على الكرت هو المدفوع (كان الدفع مضروباً والكرت يعرض الأصل).
+ */
+const TEMPLATE_MIX = (() => {
+  const total = TEMPLATES.reduce((a, t) => a + t.weight, 0);
+  let refunds = 0, winners = 0;
+  for (const t of TEMPLATES) {
+    refunds += (t.weight / total) * t.cards.filter((c) => c === 1).length;
+    winners += (t.weight / total) * t.cards.filter((c) => c > 1).reduce((a, c) => a + c, 0);
+  }
+  return { refunds, winners, count: TEMPLATES[0].cards.length };
+})();
+
+function winnerFactor(target) {
+  const { refunds, winners, count } = TEMPLATE_MIX;
+  return Math.max(0.5, (count * target - refunds) / winners);
+}
+
+function scaleBoard(board) {
+  const target = siteConfig.getGameRtp('cards', 96.0) / 100;
+  if (!board || !Array.isArray(board.cards) || Math.abs(target - 0.96) < 1e-9) return board;
+  const k = winnerFactor(target);
+  return { ...board, cards: board.cards.map((c) => (c > 1 ? Math.floor(c * k * 100) / 100 : c)) };
+}
 
 class LuckyCards extends EventEmitter {
   constructor() {
@@ -77,7 +108,7 @@ class LuckyCards extends EventEmitter {
     // الالتزام المسبق: نولّد البذرة ونشتق اللوحة الآن، وننشر البصمة فقط.
     this.serverSeed = newServerSeed();
     this.seedHash = sha256Hex(this.serverSeed);
-    this.board = deriveBoard(this.serverSeed, this.roundId);
+    this.board = scaleBoard(deriveBoard(this.serverSeed, this.roundId));
 
     this.seats.clear();
     this.cardOwners = new Array(CARD_COUNT).fill(null);
@@ -206,9 +237,8 @@ class LuckyCards extends EventEmitter {
   assignCard(seat, i, auto) {
     const raw = this.board.cards[i];
     // سقف المضاعف على المبالغ الكبيرة — قاعدة معلنة مسبقاً في /api/config والواجهة
-    const rtpScale = siteConfig.getGameRtpScale('cards', 96.0);
-    const basePaid = cappedMultiplier(seat.stake, raw);
-    const paid = (rtpScale !== 1 && basePaid > 0) ? basePaid * rtpScale : basePaid;
+    // الكرت يحمل قيمته بعد عائد الإدارة (scaleBoard) — المعروض هو المدفوع
+    const paid = cappedMultiplier(seat.stake, raw);
 
     this.cardOwners[i] = seat.id;
     seat.cardIndex = i;
@@ -425,4 +455,7 @@ class LuckyCards extends EventEmitter {
   }
 }
 
-module.exports = new LuckyCards();
+const game = new LuckyCards();
+game.scaleBoard = scaleBoard;       // للاختبارات: عائد الإدارة على اللوحة
+game.winnerFactor = winnerFactor;
+module.exports = game;

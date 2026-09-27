@@ -246,6 +246,17 @@ function addHistoryBadge(mult) {
 let token = localStorage.getItem('ichance.token') || localStorage.getItem('ichance_token') || '';
 let isDemoMode = !token;
 
+/**
+ * المضاعفات كما يصرفها الخادم الآن (بعد عائد الإدارة) — اللوحة ترسمها كل
+ * إطار، فتحديث المصفوفة في مكانها يكفي. بلا هذا كانت اللوحة تعرض ×10 والدفع
+ * بعائد مختلف.
+ */
+function applyMultipliers(list) {
+  if (Array.isArray(list) && list.length === MULTIPLIERS.length && list.every((m) => Number.isFinite(Number(m)))) {
+    MULTIPLIERS.splice(0, MULTIPLIERS.length, ...list.map(Number));
+  }
+}
+
 async function syncWallet() {
   const banner = document.getElementById('demoBanner');
   token = localStorage.getItem('ichance.token') || localStorage.getItem('ichance_token') || '';
@@ -256,6 +267,8 @@ async function syncWallet() {
     state.balance = parseInt(localStorage.getItem('ichance_demo_balance'), 10) || 100000;
     walletBalance.textContent = formatIQD(state.balance);
     if (walletCurrency) walletCurrency.textContent = 'DEMO';
+    fetch('/api/plinko/state').then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) applyMultipliers(d.multipliers); }).catch(() => {});
     return;
   }
 
@@ -268,6 +281,7 @@ async function syncWallet() {
 
     if (res.ok) {
       const data = await res.json();
+      applyMultipliers(data.multipliers);
       if (data.loggedIn === false) {
         // الرمز غير صالح أو لاعب مجهول
         isDemoMode = true;

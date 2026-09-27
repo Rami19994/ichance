@@ -132,6 +132,13 @@ async function dropBall(player, { bet, clientSeed = null }) {
   };
 }
 
+/** المضاعفات كما تُصرف الآن (بعد عائد الإدارة) — الواجهة ترسمها هي. */
+function currentMultipliers() {
+  const rtpScale = siteConfig.getGameRtpScale('plinko', 96.28);
+  if (rtpScale === 1) return MULTIPLIERS;
+  return MULTIPLIERS.map((m) => (m > 0 ? Number((m * rtpScale).toFixed(2)) : m));
+}
+
 function stateFor(player) {
   if (!player) {
     return {
@@ -141,7 +148,7 @@ function stateFor(player) {
       currency: 'IQD',
       minStake: MIN_STAKE,
       maxStake: MAX_STAKE,
-      multipliers: MULTIPLIERS,
+      multipliers: currentMultipliers(),
       rows: ROWS
     };
   }
@@ -153,7 +160,7 @@ function stateFor(player) {
     currency: player.currency || 'IQD',
     minStake: MIN_STAKE,
     maxStake: MAX_STAKE,
-    multipliers: MULTIPLIERS,
+    multipliers: currentMultipliers(),
     rows: ROWS
   };
 }

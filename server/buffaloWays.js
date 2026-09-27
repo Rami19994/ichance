@@ -378,7 +378,12 @@ const BASE_CALIBRATION = [
 ];
 function baseScaleFor(target) {
   const t = BASE_CALIBRATION;
-  if (target <= t[0][1]) return t[0][0];
+  // تحت الجدول (الإدارة تسمح حتى 50%): امتداد خطّي من أوّل نقطتين
+  if (target <= t[0][1]) {
+    const [s0, r0] = t[0];
+    const [s1, r1] = t[1];
+    return Math.max(0.1, s0 - ((r0 - target) / (r1 - r0)) * (s1 - s0));
+  }
   if (target >= t[t.length - 1][1]) return t[t.length - 1][0];
   for (let i = 1; i < t.length; i++) {
     if (target <= t[i][1]) {

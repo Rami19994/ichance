@@ -139,7 +139,7 @@ async function throwArrow(player, { mode, bet }) {
   const arrows = [];
   for (let a = 0; a < cfg.arrows; a++) {
     const raw = landArrow(cfg.wheel);
-    const m = (rtpScale !== 1 && raw.multiplier > 0) ? Number((raw.multiplier * rtpScale).toFixed(4)) : raw.multiplier;
+    const m = (rtpScale !== 1 && raw.multiplier > 0) ? Number((raw.multiplier * rtpScale).toFixed(2)) : raw.multiplier;
     arrows.push({ ...raw, multiplier: m });
   }
 
@@ -188,7 +188,7 @@ async function gamble(player, { amount }) {
 
   const rtpScale = siteConfig.getGameRtpScale('bullseye', 96.0);
   const rawArrow = landArrow('gamble');
-  const arrowMult = (rtpScale !== 1 && rawArrow.multiplier > 0) ? Number((rawArrow.multiplier * rtpScale).toFixed(4)) : rawArrow.multiplier;
+  const arrowMult = (rtpScale !== 1 && rawArrow.multiplier > 0) ? Number((rawArrow.multiplier * rtpScale).toFixed(2)) : rawArrow.multiplier;
   const arrow = { ...rawArrow, multiplier: arrowMult };
   const win = Math.floor(stake * arrow.multiplier);
   if (win > 0) await store.gameCredit('bullseye', player, win, `${txRef}-win`);
@@ -227,9 +227,13 @@ const RTP = {
   gamble: wheelRtp(WHEELS.gamble)
 };
 
+/** القرص كما يُصرف الآن: المضاعف بعد عائد الإدارة، والقطاعات بحجمها. */
 function publicWheels() {
+  const rtpScale = siteConfig.getGameRtpScale('bullseye', 96.0);
   const out = {};
-  for (const [k, wheel] of Object.entries(WHEELS)) out[k] = wheel.map((s) => ({ m: s.m, w: s.w }));
+  for (const [k, wheel] of Object.entries(WHEELS)) {
+    out[k] = wheel.map((s) => ({ m: rtpScale !== 1 && s.m > 0 ? Number((s.m * rtpScale).toFixed(2)) : s.m, w: s.w }));
+  }
   return out;
 }
 
