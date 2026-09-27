@@ -333,6 +333,8 @@ function stateFor(player) {
 
   return {
     active: true,
+    balance: player.balance,
+    currency: player.currency || 'IQD',
     bet: session.bet,
     minesCount: session.minesCount,
     gemsCount: session.gemsCount,

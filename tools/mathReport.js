@@ -274,6 +274,27 @@ function chicken() {
   return worst;
 }
 
+// ═════════════════════════════════════════════ بافالو وايز 3600
+function buffaloWays(n = Number(process.env.BW_ROUNDS || 1500000)) {
+  const H = require('../server/buffaloWays');
+  const { run } = require('./tuneBuffaloWays.js');
+  const nb = Math.round(n / 5);
+  console.log(`
+■ بافالو وايز 3600   (محاكاة ${n.toLocaleString()} لفة + ${nb.toLocaleString()} شراء — الأدقّ: tools/tuneBuffaloWays.js)`);
+  const b = run(n, false, 20260927);
+  const s = run(nb, true, 20260928);
+  const fsValue = (s.rtp - s.baseRtp) * H.BUY_COST_X;
+  const est = b.baseRtp + b.trigger * fsValue;
+  // اللفات المجانية ثقيلة الذيل: هامش الخطأ كبير في عيّنة صغيرة، فنطبعه
+  const ci = 1.96 * s.se;
+  console.log(line('اللعب العادي (مُفكّك)', pct(est), verdict(est)));
+  console.log(line('  بلا مجانية', pct(b.baseRtp), `مجانية كل ${Math.round(1 / b.trigger)} لفة × ${fsValue.toFixed(1)}×`));
+  console.log(line('شراء العلاوة', pct(s.rtp), `± ${pct(ci)} · ${verdict(s.rtp)}`));
+  console.log(line('  المُقاس على 10 ملايين جولة', pct(H.RTP), 'انظر رأس server/buffaloWays.js'));
+  console.log(line('  السقف', `${H.MAX_WIN_X}×`, 'للجولة كاملة'));
+  return est;
+}
+
 // ═════════════════════════════════════════════ 6) معركة الدبابات
 function tanks() {
   const T = require('../public/js/tankSim.js');
@@ -305,6 +326,7 @@ const results = {
   'الألغام': mines(),
   'بولزآي X': bullseye(),
   'طريق الدجاجة': chicken(),
+  'بافالو وايز': buffaloWays(),
   'الدبابات': tanks()
 };
 

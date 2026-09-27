@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2a160b">
+<title>بافالو وايز 3600 — Buffalo Ways | LuckyArena</title>
+<meta name="description" content="بافالو وايز 3600 على LuckyArena: 3600 طريقة فوز، انهيار الرموز، مضاعف يتضاعف حتى ×1024 ولفات مجانية.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="/games/buffalo-ways/assets/bg.webp" as="image">
+<link rel="stylesheet" href="/games/buffalo-ways/game.css?v=1">
+</head>
+<body class="bw-page">
+
+<div class="bw-backdrop" aria-hidden="true"></div>
+
+<header class="bw-top">
+  <a class="bw-top__close" href="/" title="العودة للردهة" aria-label="العودة للردهة">✕</a>
+  <span class="bw-top__title">Buffalo Ways <b>3600</b></span>
+  <span class="bw-top__rotate">أدِر الهاتف عمودياً لرؤية أوضح ⟲</span>
+  <span class="bw-top__badge" id="modeBadge">تجريبي</span>
+</header>
+
+<main class="bw-stage" id="stage">
+  <div class="bw-game" id="game">
+    <div class="bw-scene" aria-hidden="true"></div>
+
+    <!-- لافتة المضاعف معلّقة بسلسلتين -->
+    <div class="bw-sign" id="sign">
+      <i class="bw-chain bw-chain--l"></i><i class="bw-chain bw-chain--r"></i>
+      <div class="bw-sign__plank">
+        <div class="bw-ladder" id="ladder" dir="ltr"><div class="bw-ladder__track" id="ladderTrack"></div></div>
+        <div class="bw-medal" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <div class="bw-ways" aria-hidden="true" dir="ltr">3600 WAYS</div>
+
+    <!-- اللوح السداسي -->
+    <div class="bw-board" id="board" dir="ltr">
+      <div class="bw-board__wood" aria-hidden="true"></div>
+      <div class="bw-reels" id="reels"></div>
+      <canvas class="bw-fx" id="fx" aria-hidden="true"></canvas>
+      <div class="bw-flymult" id="flyMult" hidden>x2</div>
+      <div class="bw-fsbadge" id="fsBadge" hidden>
+        <span>لفات مجانية</span><b id="fsLeft">10</b>
+      </div>
+    </div>
+
+    <!-- شريط الرسائل -->
+    <div class="bw-msg" id="msg">
+      <div class="bw-msg__marquee" id="marquee"><span id="marqueeText"></span></div>
+      <div class="bw-msg__win" id="msgWin" hidden><em id="msgLabel">ربح</em><b id="msgValue">0</b></div>
+    </div>
+
+    <!-- التحكم -->
+    <div class="bw-controls">
+      <button class="bw-buy" id="buyBtn" type="button">
+        <span>شراء العلاوة</span>
+        <b id="buyCost">0</b>
+      </button>
+      <button class="bw-spin" id="spinBtn" type="button" aria-label="لفّ">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <linearGradient id="bwArrow" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fff3c4"/><stop offset=".45" stop-color="#f3c14b"/><stop offset="1" stop-color="#a8651a"/>
+            </linearGradient>
+          </defs>
+          <path d="M50 18a32 32 0 0 1 29.6 19.8l-8.3 3.4A23 23 0 0 0 50 27Z" fill="url(#bwArrow)"/>
+          <path d="M74 20l8.5 22.5-23.8-3.5Z" fill="url(#bwArrow)"/>
+          <path d="M50 82a32 32 0 0 1-29.6-19.8l8.3-3.4A23 23 0 0 0 50 73Z" fill="url(#bwArrow)"/>
+          <path d="M26 80l-8.5-22.5 23.8 3.5Z" fill="url(#bwArrow)"/>
+        </svg>
+        <span class="bw-spin__auto" id="autoCount" hidden>0</span>
+      </button>
+      <span class="bw-controls__gap" aria-hidden="true"></span>
+      <div class="bw-row" dir="ltr">
+        <button class="bw-round" id="autoBtn" type="button" title="لعب تلقائي" aria-label="لعب تلقائي">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 8l6 4-6 4Z" fill="currentColor"/></svg>
+        </button>
+        <button class="bw-step" id="betDown" type="button" aria-label="إنقاص الرهان">−</button>
+        <div class="bw-bet"><b id="betValue">0</b></div>
+        <button class="bw-step" id="betUp" type="button" aria-label="زيادة الرهان">+</button>
+        <button class="bw-round" id="turboBtn" type="button" title="لعب سريع" aria-label="لعب سريع">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 5 13.5h6L9.5 22 19 9.8h-6.2Z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- شريط الحالة -->
+    <div class="bw-status" dir="ltr">
+      <span class="bw-status__clock" id="clock">00:00</span>
+      <span class="bw-status__bal" dir="rtl"><em>الرصيد</em> <b id="balance" dir="ltr">0</b> <i id="currency">IQD</i></span>
+      <button class="bw-status__btn" id="soundBtn" type="button" aria-label="الصوت">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4Z M16 8.5a5 5 0 0 1 0 7 M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="bw-status__btn" id="menuBtn" type="button" aria-label="القائمة">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <!-- ======================== النوافذ ======================== -->
+
+    <div class="bw-overlay bw-loader" id="loader">
+      <img class="bw-loader__art" src="/assets/thumb_buffalo.jpg" alt="Buffalo Ways 3600">
+      <div class="bw-loader__bar"><i id="loadBar"></i></div>
+      <button class="bw-btn bw-btn--gold" id="startBtn" type="button" hidden>اضغط للبدء</button>
+      <p class="bw-loader__note" id="loadNote">جارٍ التحميل…</p>
+    </div>
+
+    <div class="bw-overlay bw-bigwin" id="bigWin" hidden>
+      <div class="bw-bigwin__title" id="bigWinTitle">ربح كبير</div>
+      <div class="bw-bigwin__value" id="bigWinValue">0</div>
+      <div class="bw-bigwin__hint">اضغط للمتابعة</div>
+    </div>
+
+    <div class="bw-overlay bw-fs" id="fsIntro" hidden>
+      <div class="bw-panel">
+        <div class="bw-panel__kicker">مبروك!</div>
+        <div class="bw-panel__big"><b id="fsIntroCount">10</b> لفات مجانية</div>
+        <p class="bw-panel__text">المضاعف يبدأ من <b>×4</b> ويتضاعف مع كل انهيار — والرموز الذهبية أكثر.</p>
+        <button class="bw-btn bw-btn--gold" id="fsStart" type="button">ابدأ</button>
+      </div>
+    </div>
+
+    <div class="bw-overlay bw-fs" id="fsOutro" hidden>
+      <div class="bw-panel">
+        <div class="bw-panel__kicker">انتهت اللفات المجانية</div>
+        <div class="bw-panel__label">إجمالي الربح</div>
+        <div class="bw-panel__big"><b id="fsOutroWin">0</b></div>
+        <button class="bw-btn bw-btn--gold" id="fsDone" type="button">متابعة</button>
+      </div>
+    </div>
+
+    <div class="bw-overlay" id="buyConfirm" hidden>
+      <div class="bw-panel">
+        <div class="bw-panel__kicker">شراء العلاوة</div>
+        <p class="bw-panel__text">احصل مباشرة على <b>10 لفات مجانية</b> أو أكثر مقابل</p>
+        <div class="bw-panel__big"><b id="buyConfirmCost">0</b></div>
+        <div class="bw-panel__row">
+          <button class="bw-btn" data-close type="button">إلغاء</button>
+          <button class="bw-btn bw-btn--gold" id="buyYes" type="button">شراء</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bw-overlay" id="autoMenu" hidden>
+      <div class="bw-panel">
+        <div class="bw-panel__kicker">لعب تلقائي</div>
+        <div class="bw-chips" id="autoChips">
+          <button type="button" data-n="10">10</button>
+          <button type="button" data-n="25">25</button>
+          <button type="button" data-n="50">50</button>
+          <button type="button" data-n="100">100</button>
+        </div>
+        <p class="bw-panel__text bw-panel__text--small">يتوقف عند اللفات المجانية أو عند نفاد الرصيد.</p>
+        <button class="bw-btn" data-close type="button">إغلاق</button>
+      </div>
+    </div>
+
+    <div class="bw-overlay bw-info" id="infoModal" hidden>
+      <div class="bw-panel bw-panel--scroll">
+        <button class="bw-panel__x" data-close type="button" aria-label="إغلاق">✕</button>
+        <div class="bw-panel__kicker">معلومات اللعبة</div>
+        <div class="bw-toggles">
+          <label><input type="checkbox" id="optMusic" checked> الموسيقى</label>
+          <label><input type="checkbox" id="optSfx" checked> المؤثرات</label>
+        </div>
+        <h3>جدول الدفع <small>(للطريقة الواحدة، برهانك الحالي)</small></h3>
+        <div class="bw-pays" id="payTable"></div>
+        <h3>طريقة اللعب</h3>
+        <ul class="bw-rules" id="rules"></ul>
+      </div>
+    </div>
+
+    <div class="bw-toast" id="toast" hidden></div>
+  </div>
+</main>
+
+<script src="/games/buffalo-ways/audio.js?v=1"></script>
+<script src="/games/buffalo-ways/game.js?v=1"></script>
+</body>
+</html>

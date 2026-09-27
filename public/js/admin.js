@@ -406,7 +406,8 @@ const GAME_META = {
   mines: { name: 'مناجم الحظ', emoji: '💣', rtp: 97.0 },
   plinko: { name: 'بلينكو', emoji: '🔻', rtp: 96.28 },
   bullseye: { name: 'بولزآي X', emoji: '🎯', rtp: 96.0 },
-  chicken: { name: 'طريق الدجاجة', emoji: '🐔', rtp: 96.0 }
+  chicken: { name: 'طريق الدجاجة', emoji: '🐔', rtp: 96.0 },
+  'buffalo-ways': { name: 'بافالو وايز 3600', emoji: '🦬', rtp: 96.0 }
 };
 
 function renderGames(d) {

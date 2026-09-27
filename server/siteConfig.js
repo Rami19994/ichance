@@ -30,7 +30,8 @@ const GAMES = {
   mines: { key: 'mines', name: 'مناجم الحظ', href: '/mines' },
   plinko: { key: 'plinko', name: 'بلينكو', href: '/plinko' },
   bullseye: { key: 'bullseye', name: 'بولزآي X', href: '/bullseye' },
-  chicken: { key: 'chicken', name: 'طريق الدجاجة', href: '/chicken-road' }
+  chicken: { key: 'chicken', name: 'طريق الدجاجة', href: '/chicken-road' },
+  'buffalo-ways': { key: 'buffalo-ways', name: 'بافالو وايز 3600', href: '/buffalo-ways' }
 };
 
 const DEFAULT_GAMES = Object.fromEntries(Object.keys(GAMES).map((k) => [k, true]));

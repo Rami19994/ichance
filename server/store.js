@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { WALLET, SERVER } = require('./config');
 const { merge3, clone } = require('./merge3');
 const roundArchive = require('./roundLog');
+const countries = require('./countries');
 
 /**
  * تخزين بسيط للاعبين في ملف JSON.
@@ -50,7 +51,7 @@ const ledger = {
   real: emptyBucket(),
   bot: emptyBucket(),
   // ربحية كل لعبة على حدة — بدونها لا يعرف المالك أي لعبة تكسب وأيها تخسر
-  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket(), chicken: emptyBucket() },
+  games: { cards: emptyBucket(), slots: emptyBucket(), tank: emptyBucket(), 'neon-slots': emptyBucket(), mines: emptyBucket(), plinko: emptyBucket(), bullseye: emptyBucket(), chicken: emptyBucket(), 'buffalo-ways': emptyBucket() },
   // شراء الميزة صفقة واحدة بمبلغ يعادل مئات الدورات. لو خُلط مع الدورات
   // العادية في عدّاد واحد لقفز "متوسط الرهان" وصار التقرير مضلّلاً.
   slotBuys: { count: 0, wagered: 0 },
@@ -58,7 +59,7 @@ const ledger = {
   since: Date.now()
 };
 
-const STAT_FIELDS = ['stats', 'slotStats', 'neonStats', 'tankStats', 'minesStats', 'plinkoStats', 'bullseyeStats', 'chickenStats'];
+const STAT_FIELDS = ['stats', 'slotStats', 'neonStats', 'tankStats', 'minesStats', 'plinkoStats', 'bullseyeStats', 'chickenStats', 'buffaloStats'];
 
 /** دفتر بصيغة قديمة جداً (مسطّح بلا real/bot) يُقرأ كدلو البشر. */
 function upgradeLedger(L) {
@@ -581,6 +582,60 @@ function recordChicken(player, { bet, win, multiplier, difficulty, steps }) {
 }
 
 /**
+ * جولة بافالو وايز 3600 (لفة، أو شراء علاوة مع لفاتها المجانية) — تُسجَّل
+ * جولةً واحدة: الرهان كاملاً والربح كاملاً.
+ */
+function recordBuffaloWays(player, { bet, win, buy = false, freeSpins = 0, multiplier = 0 }) {
+  ledger.real.wagered += bet;
+  ledger.real.paid += win;
+  ledger.real.bets += 1;
+  ledger.real.rounds += 1;
+
+  if (!ledger.games['buffalo-ways']) ledger.games['buffalo-ways'] = emptyBucket();
+  const g = ledger.games['buffalo-ways'];
+  g.wagered += bet;
+  g.paid += win;
+  g.bets += 1;
+  g.rounds += 1;
+
+  if (!player.buffaloStats) player.buffaloStats = { spins: 0, buys: 0, freeSpins: 0, wagered: 0, won: 0, best: 0 };
+  const st = player.buffaloStats;
+  st.spins = (st.spins || 0) + 1;
+  if (buy) st.buys = (st.buys || 0) + 1;
+  st.freeSpins = (st.freeSpins || 0) + freeSpins;
+  st.wagered = (st.wagered || 0) + bet;
+  st.won = (st.won || 0) + win;
+  if (win > (st.best || 0)) st.best = win;
+
+  updatePlayerTotalStats(player, bet, win);
+
+  const name = buy
+    ? `بافالو وايز — شراء علاوة · ${freeSpins} لفة مجانية`
+    : (freeSpins ? `بافالو وايز — لفة + ${freeSpins} لفة مجانية` : 'بافالو وايز 3600');
+  const now = Date.now();
+  recordRoundLog({
+    roundId: `buffalo-${now.toString(36).toUpperCase()}`,
+    ts: now,
+    endedAt: now,
+    game: 'buffalo-ways',
+    patternName: name,
+    templateName: name,
+    cards: [],
+    seats: [{
+      id: player.id, stake: bet, cardIndex: 0, cardValue: multiplier,
+      net: win - bet, multiplier, isBot: false
+    }],
+    house: {
+      real: { wagered: bet, paid: win, profit: bet - win, bets: 1 },
+      bot: { wagered: 0, paid: 0, profit: 0, bets: 0 },
+      total: { wagered: bet, paid: win, profit: bet - win, bets: 1 }
+    }
+  });
+
+  persistSoon();
+}
+
+/**
  * جولة منتهية: إلى السجلّ الدائم (صفّ لا يُحذف — roundLog.js)، وإلى قائمة
  * الذاكرة القصيرة التي يعرضها تاريخ كروت الحظ.
  */
@@ -704,6 +759,7 @@ function extractPlayerStats() {
       plinkoStats: p.plinkoStats,
       bullseyeStats: p.bullseyeStats,
       chickenStats: p.chickenStats,
+      buffaloStats: p.buffaloStats,
       slotStats: p.slotStats
     };
   }
@@ -972,6 +1028,9 @@ function attachAccount(row, { quiet = false } = {}) {
   player.accountId = row.id;
   player.username = row.username;
   player.cashierId = row.cashier_id || null;
+  // عملة اللاعب ودولته من حسابه (يرثهما من كاشيره) — كل لعبة تعرض عملته
+  if (row.currency) player.currency = row.currency;
+  if (row.country) player.country = row.country;
 
   // الرصيد: القاعدة هي الدفتر، فنأخذ رصيدها صعوداً ونزولاً — إلّا إن كان
   // للاعب فروق لعب لم يؤكّد الدفتر كتابتها بعد، فالذاكرة حينها أحدث.
@@ -1308,6 +1367,9 @@ function publicProfile(player) {
     id: player.id,
     username: player.username || null,
     balance: player.balance,
+    currency: player.currency || 'IQD',
+    currencySymbol: (countries.get(player.country) || {}).symbol || null,
+    country: player.country || null,
     stats: player.stats
   };
 }
@@ -1321,7 +1383,7 @@ if (flushTimer.unref) flushTimer.unref();
 module.exports = {
   createPlayer, byToken, forgetToken, byId, adjustBalance, gameDebit, gameCredit, recordRound, attachAccount,
   canUseFaucet, useFaucet, leaderboard, publicProfile, flush, DATA_FILE,
-  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, ledgerSummary,
+  recordLedger, recordSlot, recordTank, recordNeonSlots, recordMines, recordPlinko, recordBullseye, recordChicken, recordBuffaloWays, ledgerSummary,
   tankDifficultyLedger: () => ledger.tankByDifficulty || {}, recordRoundLog, rounds, roundHistory, allPlayers, playerCount: () => players.size,
   syncWithDb, saveToDb, ensureDbLoaded, isDirty: () => dirty || hasUnsaved()
 };

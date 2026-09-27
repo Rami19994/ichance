@@ -49,6 +49,23 @@ const GAMES = [
     desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 150 ضعف رهانك.'
   },
   {
+    id: 'buffalo-ways',
+    title: 'بافالو وايز 3600 — Buffalo Ways',
+    cat: 'slots',
+    cats: ['slots'],
+    rtpBadge: 'BUFFALO WAYS',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/buffalo-ways',
+    thumb: '/assets/thumb_buffalo.jpg',
+    tag: '3600 طريقة • مضاعف حتى ×1024',
+    badge: 'NEW • 3600 WAYS',
+    badgeClass: 'badge-tag--hot',
+    desc: 'سلوت البراري الأمريكية: 3600 طريقة فوز، رموز تنفجر وتسقط بدلها أخرى، ومضاعف يتضاعف مع كل انهيار حتى ×1024. الرموز الذهبية تصير WILD، و3 سكاتر تفتح اللفات المجانية.'
+  },
+  {
     id: 'chicken',
     title: 'طريق الدجاجة — Chicken Road',
     cat: 'crash',

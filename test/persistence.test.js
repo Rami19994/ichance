@@ -253,3 +253,13 @@ test('قاعدة لا يطابق فيها مرشّح updated_at: الحفظ يك
   sim.casNeverMatches = false;
   assert.equal(storeValue().ledger.real.wagered, 5100);
 });
+
+test('عملة اللاعب ودولته من حسابه تصل لكل لعبة (لا «IQD» ثابتة)', () => {
+  const A = instance();
+  const p = A.attachAccount({ id: 'acc_sy', display_id: 'SY0001', play_token: 'tok-sy', balance: 700, currency: 'SYP', country: 'SY' });
+  const prof = A.publicProfile(p);
+  assert.equal(prof.currency, 'SYP');
+  assert.equal(prof.country, 'SY');
+  assert.equal(prof.currencySymbol, 'ل.س');
+  assert.equal(require('../server/bullseyeGame').stateFor(p).currency, 'SYP');
+});

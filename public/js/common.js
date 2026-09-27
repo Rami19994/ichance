@@ -172,6 +172,7 @@ const NAV_SECTIONS = [
   {
     items: [
       { id: 'home', label: 'الرئيسية', icon: 'casino', href: '/' },
+      { id: 'buffalo-ways', label: 'بافالو وايز 3600', icon: 'slots', href: '/buffalo-ways', live: true },
       { id: 'lucky-cards', label: 'كروت الحظ', icon: 'cards', href: '/lucky-cards', live: true },
       { id: 'slots', label: 'صيّاد الجوائز', icon: 'slots', href: '/bounty-hunter', live: true },
       { id: 'tank', label: 'معركة الدبابات', icon: 'dice', href: '/battle-tanks', live: true }
@@ -243,9 +244,9 @@ function renderTopbar() {
     </div>
 
     <div class="wallet" id="wallet" hidden>
-      <span class="wallet__coin">$</span>
+      <span class="wallet__coin" id="walletCoin">$</span>
       <span>
-        <span class="wallet__label">الرصيد الحقيقي ($)</span>
+        <span class="wallet__label" id="walletLabel">الرصيد الحقيقي</span>
         <span class="wallet__amount" id="walletAmount">0</span>
       </span>
       <button type="button" class="wallet__deposit-btn" id="topbarDepositBtn" title="شحن الرصيد">+ إيداع</button>
@@ -329,6 +330,16 @@ function renderWallet(player) {
 
   if (player) {
     if (wallet) wallet.hidden = false;
+    // عملة اللاعب من حسابه (دولة كاشيره) — لا «$» ثابتة
+    const cur = player.currency || 'IQD';
+    const coin = document.getElementById('walletCoin');
+    if (coin) {
+      coin.textContent = player.currencySymbol || cur;
+      coin.style.fontSize = (coin.textContent.length > 1) ? '9px' : '';
+    }
+    const label = document.getElementById('walletLabel');
+    if (label) label.textContent = `الرصيد الحقيقي (${cur})`;
+    document.querySelectorAll('[data-player-currency]').forEach((n) => { n.textContent = cur; });
     if (chip) { chip.hidden = false; chip.textContent = `ID: ${player.id}`; }
     if (avatar) { avatar.hidden = false; avatar.textContent = player.id.slice(0, 2); }
     if (logoutBtn) logoutBtn.hidden = false;
