@@ -50,16 +50,6 @@
       <div class="rc-msg" id="msg"><span id="msgText">حظاً طيباً!</span></div>
     </div>
 
-    <!-- زر اللف -->
-    <button class="rc-spin" id="spinBtn" type="button" aria-label="لفّ">
-      <svg viewBox="0 0 100 100" aria-hidden="true" class="rc-spin__icon">
-        <path d="M18 46 C30 26 42 16 50 12 C58 16 70 26 82 46 C66 50 34 50 18 46 Z" fill="#fff"/>
-        <path d="M34 54 C34 70 42 80 50 80 C58 80 66 70 66 54" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-      </svg>
-      <svg viewBox="0 0 100 100" aria-hidden="true" class="rc-spin__stop"><rect x="30" y="30" width="40" height="40" rx="6" fill="none" stroke="#fff" stroke-width="7"/></svg>
-      <span class="rc-spin__auto" id="autoCount" hidden>0</span>
-    </button>
-
     <!-- الشريط السفلي -->
     <div class="rc-bar">
       <button class="rc-ico rc-ico--menu" id="menuBtn" type="button" aria-label="القائمة">
@@ -91,9 +81,19 @@
       </button>
     </div>
 
+    <!-- زر اللف (يأتي بعد الشريط ليكون فوقه دائماً) -->
+    <button class="rc-spin" id="spinBtn" type="button" aria-label="لفّ">
+      <svg viewBox="0 0 100 100" aria-hidden="true" class="rc-spin__icon">
+        <path d="M18 46 C30 26 42 16 50 12 C58 16 70 26 82 46 C66 50 34 50 18 46 Z" fill="#fff"/>
+        <path d="M34 54 C34 70 42 80 50 80 C58 80 66 70 66 54" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+      <svg viewBox="0 0 100 100" aria-hidden="true" class="rc-spin__stop"><rect x="30" y="30" width="40" height="40" rx="6" fill="none" stroke="#fff" stroke-width="7"/></svg>
+      <span class="rc-spin__auto" id="autoCount" hidden>0</span>
+    </button>
+
     <div class="rc-foot">
       <span class="rc-foot__brand" dir="ltr"><b>LUCKY</b>ARENA</span>
-      <span class="rc-foot__name">Kung Fu Raccoon <i id="modeBadge">وضع تجريبي</i></span>
+      <span class="rc-foot__name">Master Raccoon <i id="modeBadge">وضع تجريبي</i></span>
       <span class="rc-foot__pays" id="footPays"></span>
       <span class="rc-foot__round" dir="ltr"><span id="roundId">#—</span> <span id="clock">00:00</span></span>
     </div>

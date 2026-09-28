@@ -676,7 +676,14 @@
   }
 
   // ─────────────────────────────────────────────────────── الأحداث
-  function onSpinPress() {
+  let lastSpinTime = 0;
+  function onSpinPress(e) {
+    if (e && e.type === 'touchend' && e.cancelable) {
+      e.preventDefault();
+    }
+    const now = Date.now();
+    if (now - lastSpinTime < 250) return;
+    lastSpinTime = now;
     A.init();
     if (S.auto !== 0) { stopAuto(); return; }
     if (S.busy) return;
@@ -684,6 +691,7 @@
   }
   const anyOverlay = () => [...document.querySelectorAll('.rc-overlay')].some((o) => !o.hidden);
   els.spin.addEventListener('click', onSpinPress);
+  els.spin.addEventListener('touchend', onSpinPress, { passive: false });
   document.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && S.started && !e.repeat && document.activeElement.tagName !== 'INPUT') {
       e.preventDefault();
@@ -804,12 +812,15 @@
     [{ t: 'x', v: 2 }, { t: 'c', v: bet() * 2 }, { t: 'c', v: bet() * 3 }].forEach((b, i) => setBox(i, b));
     $('loadNote').textContent = S.demo ? 'وضع تجريبي برصيد وهمي — سجّل دخولك للّعب برصيدك' : `أهلاً ${S.username || ''} — رصيدك جاهز`;
     $('startBtn').hidden = false;
-    $('startBtn').onclick = () => {
+    const onStart = (e) => {
+      if (e && e.type === 'touchend' && e.cancelable) e.preventDefault();
       $('loader').hidden = true;
       S.started = true;
       A.start();
       layout();
     };
+    $('startBtn').onclick = onStart;
+    $('startBtn').addEventListener('touchend', onStart, { passive: false });
   }
 
   boot();
