@@ -59,7 +59,7 @@ const GAMES = [
     live: true,
     realGame: true,
     href: '/matador',
-    thumb: '/assets/thumb_matador.jpg',
+    thumb: '/assets/thumb_matador.webp',
     tag: '243 طريقة • 4 جوائز جاكبوت',
     badge: 'NEW • JACKPOT',
     badgeClass: 'badge-tag--hot',

@@ -20,14 +20,14 @@ img { display: block; }
 
 .mt-bg {
   position: fixed; inset: 0;
-  background: #2a1107 url('/games/matador/assets/bg.jpg') center center / cover no-repeat;
+  background: #2a1107 url('/games/matador/assets/bg.webp') center center / cover no-repeat;
   filter: blur(14px) brightness(0.62);
   transform: scale(1.08);
 }
 
 .mt-stage__bg {
   position: absolute; left: 0; top: 0; width: 1376px; height: 768px;
-  background: url('/games/matador/assets/bg.jpg') 0 0 / 1376px 768px no-repeat;
+  background: url('/games/matador/assets/bg.webp') 0 0 / 1376px 768px no-repeat;
   pointer-events: none;
   z-index: 0;
 }
@@ -48,7 +48,7 @@ img { display: block; }
 
 /* ─────────────────────────────────────────── الجاكبوت */
 .mt-jp {
-  top: 10px; width: 180px; height: 36px;
+  top: 10px; width: 214px; height: 36px;
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(65, 45, 30, 0.9) 0%, rgba(25, 18, 12, 0.95) 100%);
   border: 1.5px solid #d4af37;
@@ -68,11 +68,13 @@ img { display: block; }
   text-shadow: 0 2px 0 rgba(0,0,0,.45); white-space: nowrap; overflow: hidden;
 }
 .mt-jp img { position: absolute; right: -5px; top: -5px; width: 44px; height: 44px; }
+.mt-jp b.is-long { font-size: 15.5px; }
+.mt-jp b.is-xlong { font-size: 13px; }
 .mt-jp.is-hit { animation: mtJpHit .5s ease-in-out 6 alternate; }
 @keyframes mtJpHit { to { transform: scale(1.08); } }
 .is-land .mt-jp--mini { left: 55px; }
-.is-land .mt-jp--minor { left: 245px; }
-.is-land .mt-jp--major { left: auto; right: 245px; }
+.is-land .mt-jp--minor { left: 282px; }
+.is-land .mt-jp--major { left: auto; right: 282px; }
 .is-land .mt-jp--grand { left: auto; right: 55px; }
 
 /* ─────────────────────────────────────────── الثور والشعار والشراء */
@@ -128,11 +130,9 @@ img { display: block; }
 .mt-sym { position: absolute; inset: 4px; display: flex; align-items: center; justify-content: center; }
 .mt-sym > img.mt-sym__art {
   max-width: 95%; max-height: 95%; object-fit: contain;
-  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.5));
 }
 .mt-cell.is-gold .mt-sym > .mt-sym__frame {
   position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); z-index: 2; pointer-events: none;
-  filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.75));
 }
 .mt-cell.is-gold .mt-sym > .mt-sym__art { transform: scale(0.88); }
 .mt-tag { display: none; }
@@ -190,7 +190,6 @@ img { display: block; }
   border-color: #fff6c8;
   box-shadow: 0 0 30px rgba(255, 216, 79, 0.8), 0 6px 20px rgba(0,0,0,0.6);
   transform: scale(1.05);
-  animation: mtMsgWinGlow .8s ease-in-out infinite alternate;
 }
 .mt-msg.is-win-active b {
   color: #630505;
@@ -381,49 +380,59 @@ img { display: block; }
 }
 .mt-home svg { width: 20px; height: 20px; }
 
-/* ─────────────────────────────────────────── العمودي (هاتف) */
-.is-port .mt-home { left: 14px; top: 16px; width: 52px; height: 52px; }
-.is-port .mt-jp { width: 400px; height: 50px; }
+/* ─────────────────────────────────────────── العمودي (هاتف)
+   الإطار الحجري جزء من صورة الخلفية (1376×768): الإطار بين x=170 وx=1206،
+   فتُصغَّر الخلفية واللوح بالمعامل نفسه (900/1036) ويُزاحان ليملأ الإطار
+   عرض الهاتف تماماً، وتبقى البكرات فوق خاناتها المرسومة. */
+.is-port .mt-stage__bg {
+  left: -147.7px; top: 420px; width: 1195.3px; height: 667.2px;
+  background-size: 1195.3px 667.2px; background-position: 0 0;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 3%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 3%, #000 90%, transparent 100%);
+}
+.is-port .mt-board { transform: translate(-147.7px, 420px) scale(.868726); transform-origin: 0 0; }
+.is-port .mt-msg { left: 318px; width: 740px; top: 652px; height: 72px; border-radius: 36px; font-size: 40px; }
+.is-port .mt-msg b, .is-port .mt-msg.is-win-active b { font-size: 44px; }
+.is-port .mt-scroll { font-size: 26px; }
+.is-port .mt-home { left: 12px; top: 16px; width: 56px; height: 56px; }
+.is-port .mt-home svg { width: 28px; height: 28px; }
+.is-port .mt-jp { width: 396px; height: 50px; border-radius: 25px; padding: 0 44px 0 16px; }
 .is-port .mt-jp--mini { left: 80px; top: 14px; }
-.is-port .mt-jp--minor { left: 488px; top: 14px; }
+.is-port .mt-jp--minor { left: 490px; top: 14px; }
 .is-port .mt-jp--major { left: 80px; top: 74px; }
-.is-port .mt-jp--grand { left: 488px; top: 74px; }
-.is-port .mt-jp b { font-size: 27px; }
-.is-port .mt-bull { left: -4px; top: 150px; width: 262px; }
-.is-port .mt-logo { left: 262px; top: 134px; width: 376px; height: 228px; }
-.is-port .mt-logo__top { top: 42px; font-size: 44px; }
-.is-port .mt-logo__main { top: 106px; font-size: 68px; }
-.is-port .mt-buy { left: 668px; top: 190px; width: 216px; height: 137px; }
-.is-port .mt-buy span { top: 38px; font-size: 40px; }
-.is-port .mt-board { left: 13px; top: 356px; transform: scale(.93); }
-.is-port .mt-msg { font-size: 30px; height: 56px; top: 698px; }
-.is-port .mt-msg b { font-size: 34px; }
-.is-port .mt-spin { left: 360px; top: 1100px; width: 180px; height: 180px; }
-.is-port .mt-bar { left: 0; top: 1100px; width: 900px; height: 440px; background: none; }
-.is-port .mt-ico { width: 76px; height: 76px; }
-.is-port .mt-ico svg { width: 38px; height: 38px; }
-.is-port .mt-ico--turbo { left: 110px; top: 52px; }
-.is-port .mt-ico--auto { left: 222px; top: 52px; }
-.is-port .mt-ico--repeat { left: 602px; top: 52px; }
-.is-port .mt-ico--sound { left: 714px; top: 52px; }
-.is-port .mt-arrow--prev { left: 18px; top: 208px; width: 52px; height: 80px; }
-.is-port .mt-arrow--next { left: 830px; top: 208px; width: 52px; height: 80px; }
-.is-port .mt-arrow svg { width: 40px; height: 40px; }
-.is-port .mt-chips { left: 76px; top: 206px; width: 748px; height: 84px; gap: 14px; }
-.is-port .mt-chip b { font-size: 28px; }
-.is-port .mt-chip em { font-size: 18px; }
-.is-port .mt-pill { height: 84px; border-radius: 42px; }
-.is-port .mt-pill em { font-size: 20px; }
-.is-port .mt-pill b { font-size: 32px; }
-.is-port .mt-pill--bal { left: 110px; top: 312px; width: 330px; }
-.is-port .mt-pill--win { left: 460px; top: 312px; width: 330px; }
-.is-port .mt-ico--menu { left: 14px; top: 316px; }
-.is-port .mt-ico--info { left: 810px; top: 316px; }
-.is-port .mt-foot { top: 1556px; width: 900px; height: 44px; font-size: 20px; padding: 0 22px; }
-.is-port .mt-foot__brand { font-size: 20px; }
-.is-port .mt-foot__name { display: none; }
-.is-port .mt-toast { top: 150px; font-size: 30px; }
-.is-port .mt-panel { width: 800px; }
+.is-port .mt-jp--grand { left: 490px; top: 74px; }
+.is-port .mt-jp em { font-size: 15px; }
+.is-port .mt-jp b { font-size: 28px; }
+.is-port .mt-jp b.is-long { font-size: 24px; }
+.is-port .mt-jp b.is-xlong { font-size: 20px; }
+.is-port .mt-jp img { width: 58px; height: 58px; top: -4px; }
+.is-port .mt-bull { left: 6px; top: 138px; width: 262px; }
+.is-port .mt-logo { left: 300px; right: auto; top: 128px; width: 300px; }
+.is-port .mt-buy { left: 660px; right: auto; top: 176px; width: 218px; }
+.is-port .mt-spin { left: 355px; right: auto; top: 1108px; width: 190px; height: 190px; }
+.is-port .mt-bar { left: 0; top: 1100px; width: 900px; height: 500px; background: none; }
+.is-port .mt-ico { width: 84px; height: 84px; }
+.is-port .mt-ico svg { width: 40px; height: 40px; }
+.is-port .mt-ico--turbo { left: 110px; top: 60px; }
+.is-port .mt-ico--auto { left: 222px; top: 60px; }
+.is-port .mt-ico--repeat { left: 594px; top: 60px; }
+.is-port .mt-ico--sound { left: 706px; top: 60px; }
+.is-port .mt-arrow--prev { left: 10px; top: 222px; width: 56px; height: 88px; }
+.is-port .mt-arrow--next { left: 834px; top: 222px; width: 56px; height: 88px; }
+.is-port .mt-arrow svg { width: 44px; height: 44px; }
+.is-port .mt-chips { left: 70px; top: 222px; width: 760px; height: 88px; gap: 14px; }
+.is-port .mt-chip { border-radius: 16px; }
+.is-port .mt-chip b { font-size: 30px; }
+.is-port .mt-chip em { font-size: 19px; }
+.is-port .mt-pill { height: 88px; border-radius: 44px; }
+.is-port .mt-pill em { font-size: 21px; }
+.is-port .mt-pill b { font-size: 34px; }
+.is-port .mt-pill--bal { left: 116px; top: 334px; width: 326px; }
+.is-port .mt-pill--win { left: 458px; top: 334px; width: 326px; }
+.is-port .mt-ico--menu { left: 14px; top: 336px; }
+.is-port .mt-ico--info { left: 802px; top: 336px; }
+.is-port .mt-toast { top: 150px; font-size: 32px; }
+.is-port .mt-panel { width: 820px; }
 .is-port .mt-panel__text { font-size: 30px; }
 .is-port .mt-btn { font-size: 32px; padding: 16px 40px; }
 

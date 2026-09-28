@@ -13,6 +13,10 @@
   const CELL_W = 171, CELL_H = 162.3; // خانة البكرة بوحدات اللوح
   const REELS_X = 261, REELS_Y = 163;  // موضع البكرات داخل اللوح
   const ASSET = '/games/matador/assets/';
+  // صورة الماراكاس المولَّدة كانت نسخة مطابقة من الكاستانيت (رمزان بدفع مختلف
+  // لا يُميَّز أحدهما عن الآخر) — للماراكاس رسمه المتّجه حتى تُولَّد صورته
+  const PORT_BOARD_K = 900 / 1036;   // العمودي: عرض الإطار (1036) يملأ عرض الهاتف
+  const symSrc = (s) => `${ASSET}sym-${s}.${s === 'maracas' ? 'svg' : 'webp'}`;
   const SYMS = ['hat', 'guitar', 'maracas', 'castanets', 'fan', 'hornRed', 'hornBlue', 'hornPurple', 'hornGreen'];
   const NAMES = {
     hat: 'القبعة', guitar: 'الجيتار', maracas: 'الماراكاس', castanets: 'الكاستانيت', fan: 'المروحة',
@@ -114,8 +118,8 @@
   function symbolHtml(x) {
     const s = x.s;
     let h = '';
-    if (x.g) h += `<img class="mt-sym__frame" src="${ASSET}frame-gold.png" alt="" draggable="false">`;
-    h += `<img class="mt-sym__art" src="${ASSET}sym-${s}.png" alt="" draggable="false">`;
+    if (x.g) h += `<img class="mt-sym__frame" src="${ASSET}frame-gold.webp" alt="" draggable="false">`;
+    h += `<img class="mt-sym__art" src="${symSrc(s)}" alt="" draggable="false">`;
     if (x.g && x.m) h += `<span class="mt-badge">${x.m}X</span>`;
     return h;
   }
@@ -216,11 +220,11 @@
   // ─────────────────────────────────────────────────────── الجزيئات
   const fx = { ctx: els.fx.getContext('2d'), parts: [], raf: 0, s: 1 };
   function sizeFx() {
-    const boardK = S.port ? 0.93 : 1;
+    const boardK = S.port ? PORT_BOARD_K : 1;
     const s = Math.min(2, Math.max(0.5, S.scale * boardK * (window.devicePixelRatio || 1)));
     fx.s = s;
-    els.fx.width = Math.round(940 * s);
-    els.fx.height = Math.round(780 * s);
+    els.fx.width = Math.round(1376 * s);
+    els.fx.height = Math.round(768 * s);
   }
   const cellCenter = (c, r) => ({ x: REELS_X + c * CELL_W + CELL_W / 2, y: REELS_Y + r * CELL_H + CELL_H / 2 });
 
@@ -245,7 +249,7 @@
       if (fx.parts.length < 70) {
         for (let i = 0; i < 2; i++) {
           fx.parts.push({
-            x: 40 + Math.random() * 860, y: -30, vx: (Math.random() - 0.5) * 3, vy: 6 + Math.random() * 6,
+            x: 40 + Math.random() * 1296, y: -30, vx: (Math.random() - 0.5) * 3, vy: 6 + Math.random() * 6,
             life: 1, decay: 0.012, r: 14 + Math.random() * 8, rot: Math.random() * 6, vr: 0.12 + Math.random() * 0.2, kind: 'coin'
           });
         }
@@ -731,7 +735,12 @@
   function paintJackpots() {
     for (const j of S.jackpots) {
       const pill = document.querySelector(`.mt-jp[data-jp="${j.key}"] [data-v]`);
-      if (pill) pill.textContent = money(bet() * j.x);
+      if (!pill) continue;
+      const t = money(bet() * j.x);
+      pill.textContent = t;
+      // قيم الجاكبوت الطويلة (رهان كبير) تُصغَّر لتبقى كاملة داخل الشارة
+      pill.classList.toggle('is-long', t.length > 11 && t.length <= 13);
+      pill.classList.toggle('is-xlong', t.length > 13);
     }
   }
   function paintMode() {
@@ -756,7 +765,7 @@
     const b = bet();
     $('payTable').innerHTML = SYMS.map((s) => {
       const rows = (S.paytable[s] || []).map(([n, p]) => `<li><b>${n}×</b> ${nf.format(p * b)}</li>`).join('');
-      return `<div class="mt-pay"><img src="${ASSET}sym-${s}.svg" alt="${NAMES[s]}"><ul>${rows}</ul></div>`;
+      return `<div class="mt-pay"><img src="${symSrc(s)}" alt="${NAMES[s]}"><ul>${rows}</ul></div>`;
     }).join('');
     $('jpTable').innerHTML = JP_ORDER.map((k) => {
       const j = S.jackpots.find((x) => x.key === k) || { x: 0 };
@@ -870,9 +879,8 @@
 
   // ─────────────────────────────────────────────────────── الإقلاع
   function preload() {
-    const names = [...SYMS, 'wild', 'scatter'].map((s) => `sym-${s}.png`)
-      .concat(['frame-gold.png', 'bull.png', 'logo-art.png', 'buy.png', 'bg.jpg']);
-    const urls = names.map((n) => ASSET + n);
+    const urls = [...SYMS, 'wild', 'scatter'].map(symSrc)
+      .concat(['frame-gold.webp', 'bull.webp', 'logo-art.webp', 'buy.webp', 'bg.webp'].map((n) => ASSET + n));
     let done = 0;
     const bar = $('loadBar');
     const step = () => { done++; bar.style.width = `${Math.round((done / (urls.length + 1)) * 100)}%`; };
