@@ -174,6 +174,38 @@
     S.cells = Array.from({ length: NREELS }, () => []);
   }
 
+  /**
+   * الدوران يبدأ لحظة الضغط، لا بعد ردّ الخادم: الرموز الحالية تسقط فوراً ثم
+   * تتدفّق رموز عشوائية سريعة حتى تصل النتيجة (كان اللوح يقف ساكناً نصف ثانية
+   * أو أكثر — زمن الخادم والقاعدة — قبل أن يتحرّك شيء).
+   */
+  function startPrespin() {
+    const saved = S.cells.map((col) => col.map((c) => ({ s: c.s, g: c.g, m: c.m })));
+    let stop = false;
+    A.sfx.spin();
+    const run = (async () => {
+      await dropOut();
+      while (!stop) await streamOnce();
+    })();
+    return { saved, async finish() { stop = true; await run; } };
+  }
+
+  /** دفعة واحدة من الرموز العشوائية تعبر كل عمود من الأعلى إلى الأسفل. */
+  function streamOnce() {
+    const jobs = [];
+    const grid = randomGrid();
+    grid.forEach((col, c) => col.forEach((x, r) => {
+      const cell = makeCell({ s: x.s });
+      cell.el.classList.add('is-stream');
+      const from = `translate3d(${c * CELL_W}px,${(r - ROWS) * CELL_H}px,0)`;
+      const to = `translate3d(${c * CELL_W}px,${(r + ROWS) * CELL_H}px,0)`;
+      cell.el.style.transform = to;
+      els.reels.appendChild(cell.el);
+      jobs.push(play(cell.el, [{ transform: from }, { transform: to }], { duration: 230, delay: c * 22, easing: 'linear' }).then(() => cell.el.remove()));
+    }));
+    return Promise.all(jobs);
+  }
+
   /** الشبكة الجديدة تسقط من الأعلى بارتداد، عموداً بعد عمود. */
   async function dropIn(grid) {
     let scat = 0;
@@ -487,9 +519,13 @@
   }
 
   // ─────────────────────────────────────────────────────── لفة كاملة
-  async function animateSpin(spin, { runningStart = 0, floor = 0, fs = false } = {}) {
-    A.sfx.spin();
-    await dropOut();
+  async function animateSpin(spin, { runningStart = 0, floor = 0, fs = false, pre = null } = {}) {
+    if (pre) {
+      await pre.finish();                 // اللوح يدور منذ الضغط
+    } else {
+      A.sfx.spin();
+      await dropOut();
+    }
     await dropIn(spin.grid);
     reconcile();
     let running = runningStart;
@@ -618,9 +654,14 @@
     els.winLabel.textContent = 'مكسب';
     els.lastWin.textContent = money(0);
     let res;
+    const pre = startPrespin();
     try {
       res = await api('POST', S.demo ? '/api/matador/demo' : '/api/matador/spin', { bet: b, buy });
     } catch (err) {
+      // لم تُلعب الجولة: الرموز السابقة تعود مكانها
+      await pre.finish();
+      await dropIn(pre.saved);
+      reconcile();
       setBusy(false);
       A.sfx.error();
       if (err.needsLogin) { S.demo = true; S.balance = demoBalance(); paintMode(); paintBalance(); }
@@ -634,7 +675,7 @@
       els.roundId.textContent = `#${(res.id || Math.random().toString(16).slice(2, 14)).toUpperCase()}`;
 
       // لفة عادية رابحة: لا تقلّ عن الرهان (الخادم يدفع كذلك). لفة الشراء بلا حدّ
-      await animateSpin(res.base, { floor: res.buy ? 0 : b });
+      await animateSpin(res.base, { floor: res.buy ? 0 : b, pre });
       if (res.feature) await playFeature(res.feature);
       if (res.jackpot) await jackpotWin(res.jackpot);
 

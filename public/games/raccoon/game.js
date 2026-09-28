@@ -148,13 +148,61 @@
    * تظهر النتيجة، والبكرات تقف من اليسار لليمين ومعها صناديقها. الخانات الثابتة
    * (راكون المجانية) لا تدور: تبقى فوق الشريط.
    */
-  async function spinReels(grid, boxes, held) {
+  /**
+   * البكرات تبدأ الدوران لحظة الضغط وتبقى تدور حتى يصل ردّ الخادم (كانت
+   * تقف ساكنة نصف ثانية أو أكثر — زمن الخادم والقاعدة — قبل أن تتحرّك).
+   */
+  function startPrespin() {
+    A.sfx.spin();
+    const saved = S.cells.map((col) => col.map((x) => x.s));
+    const loops = [];
+    const rolls = [];
+    for (let c = 0; c < NREELS; c++) {
+      const N = 12;
+      const cur = saved[c];
+      // الشريط يبدأ بالرموز الحالية ويعود إليها في نهاية الدورة: الحلقة بلا قفزة
+      const seq = cur.concat(Array.from({ length: N - 3 }, () => randomSym()), cur);
+      const strip = document.createElement('div');
+      strip.className = 'rc-strip';
+      strip.style.left = `${c * CW}px`;
+      strip.style.height = `${seq.length * CH}px`;
+      seq.forEach((sym, i) => {
+        const cell = makeCell(sym);
+        cell.el.style.transform = `translate3d(0,${i * CH}px,0)`;
+        strip.appendChild(cell.el);
+      });
+      S.cells[c].forEach((cell) => cell.el.remove());
+      S.cells[c] = [];
+      els.reels.insertBefore(strip, els.reels.firstChild);
+      strip.style.transform = 'translate3d(0,0,0)';
+      const anim = strip.animate([
+        { transform: `translate3d(0,${-N * CH}px,0)` },
+        { transform: 'translate3d(0,0,0)' }
+      ], { duration: N * 48, delay: c * 60, iterations: Infinity, easing: 'linear', fill: 'backwards' });
+      loops.push({ strip, anim });
+      els.boxes[c].classList.add('is-rolling');
+      rolls[c] = setInterval(() => setBox(c, randomBox()), 70);
+    }
+    return {
+      saved,
+      /** يوقف الحلقة؛ الهبوط على النتيجة يكمل من هنا. */
+      stop() {
+        loops.forEach(({ strip, anim }) => { anim.cancel(); strip.remove(); });
+        rolls.forEach((r) => clearInterval(r));
+      }
+    };
+  }
+
+  async function spinReels(grid, boxes, held, pre = null) {
     const jobs = [];
     const rolls = [];
     let wildLand = 0;
+    if (pre) pre.stop();
     for (let c = 0; c < NREELS; c++) {
-      const K = 9 + c * 4;
-      const cur = S.cells[c] ? S.cells[c].map((x) => x.s) : grid[c];
+      // بعد الدوران المسبق يكفي هبوط أقصر: البكرة تدور أصلاً منذ الضغط
+      const K = pre ? 4 + c * 3 : 9 + c * 4;
+      const had = S.cells[c] && S.cells[c].length ? S.cells[c].map((x) => x.s) : null;
+      const cur = had || Array.from({ length: ROWS }, () => randomSym());
       const seq = grid[c].concat(Array.from({ length: K }, () => randomSym()), cur);
       const strip = document.createElement('div');
       strip.className = 'rc-strip';
@@ -173,7 +221,7 @@
       els.reels.insertBefore(strip, els.reels.firstChild);
       const from = -(seq.length - 3) * CH;
       strip.style.transform = 'translate3d(0,0,0)';
-      const dur = 620 + c * 260;
+      const dur = pre ? 360 + c * 230 : 620 + c * 260;
       jobs.push(play(strip, [
         { transform: `translate3d(0,${from}px,0)`, easing: 'cubic-bezier(.35,.05,.45,1)' },
         { transform: `translate3d(0,${CH * 0.1}px,0)`, offset: 0.9, easing: 'ease-out' },
@@ -322,10 +370,10 @@
     return total;
   }
 
-  async function playSpin(spin, { held = new Set(), running = 0, label = 'مكسب' } = {}) {
-    A.sfx.spin();
+  async function playSpin(spin, { held = new Set(), running = 0, label = 'مكسب', pre = null } = {}) {
+    if (!pre) A.sfx.spin();
     els.footPays.textContent = '';
-    await spinReels(spin.grid, spin.boxes, held);
+    await spinReels(spin.grid, spin.boxes, held, pre);
     return showWin(spin, running, label);
   }
 
@@ -450,9 +498,13 @@
     els.winLabel.textContent = 'مكسب';
     els.lastWin.textContent = money(0);
     let res;
+    const pre = startPrespin();
     try {
       res = await api('POST', S.demo ? '/api/raccoon/demo' : '/api/raccoon/spin', { bet: bet(), buy, ante: !buy && S.ante });
     } catch (err) {
+      // لم تُلعب الجولة: الرموز السابقة تعود مكانها
+      pre.stop();
+      setGrid(pre.saved);
       setBusy(false);
       A.sfx.error();
       if (err.needsLogin) { S.demo = true; S.balance = demoBalance(); paintMode(); paintBalance(); }
@@ -466,14 +518,13 @@
       els.roundId.textContent = `#${(res.id || Math.random().toString(16).slice(2, 14)).toUpperCase()}`;
       if (res.base) {
         // اللفة الرابحة لا تُعرض بأقل مما دُفع — الخادم يرفعها ويدفعها كذلك
-        await playSpin(res.base);
+        await playSpin(res.base, { pre });
       }
       if (res.feature) {
         if (!res.base) {
           // الشراء: الراكون الثلاثة الثابتة تهبط أوّلاً
           const grid = randomGrid().map((col, c) => col.map((s, r) => (res.feature.start.includes(`${c},${r}`) ? 'wild' : (s === 'wild' ? 'darts' : s))));
-          A.sfx.spin();
-          await spinReels(grid, res.feature.spins[0].boxes, new Set());
+          await spinReels(grid, res.feature.spins[0].boxes, new Set(), pre);
         }
         await playFeature(res.feature);
       }

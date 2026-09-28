@@ -171,6 +171,37 @@
     S.cells = REELS.map(() => []);
   }
 
+  /**
+   * الدوران يبدأ لحظة الضغط، لا بعد ردّ الخادم: الرموز الحالية تسقط فوراً ثم
+   * تتدفّق رموز عشوائية سريعة حتى تصل النتيجة.
+   */
+  function startPrespin() {
+    const saved = S.cells.map((col) => col.map((c) => ({ s: c.s, g: c.g })));
+    let stop = false;
+    A.sfx.spin();
+    const run = (async () => {
+      await dropOut();
+      while (!stop) await streamOnce();
+    })();
+    return { saved, async finish() { stop = true; await run; } };
+  }
+
+  function streamOnce() {
+    const jobs = [];
+    randomGrid().forEach((col, c) => {
+      const h = REELS[c] * CH;
+      col.forEach((x, r) => {
+        const cell = makeCell({ s: x.s });
+        cell.el.classList.add('is-stream');
+        const to = `translate3d(0,${r * CH + h}px,0)`;
+        cell.el.style.transform = to;
+        cols[c].appendChild(cell.el);
+        jobs.push(play(cell.el, [{ transform: `translate3d(0,${r * CH - h}px,0)` }, { transform: to }], { duration: 230, delay: c * 20, easing: 'linear' }).then(() => cell.el.remove()));
+      });
+    });
+    return Promise.all(jobs);
+  }
+
   /** الشبكة الجديدة تسقط من الأعلى بارتداد، عموداً بعد عمود مع صوت الهبوط. */
   async function dropIn(grid) {
     let scat = 0;
@@ -486,10 +517,14 @@
   }
 
   // ─────────────────────────────────────────────────────── لفة كاملة
-  async function animateSpin(spin, { startMult, label, runningStart = 0, floor = 0 }) {
+  async function animateSpin(spin, { startMult, label, runningStart = 0, floor = 0, pre = null }) {
     ladderTo(startMult, false);
-    A.sfx.spin();
-    await dropOut();
+    if (pre) {
+      await pre.finish();                 // اللوح يدور منذ الضغط
+    } else {
+      A.sfx.spin();
+      await dropOut();
+    }
     await dropIn(spin.grid);
     reconcile();
     let running = runningStart;
@@ -595,9 +630,14 @@
     setBusy(true);
     showTips();
     let res;
+    const pre = startPrespin();
     try {
       res = await api('POST', S.demo ? '/api/buffalo-ways/demo' : '/api/buffalo-ways/spin', { bet: b, buy });
     } catch (err) {
+      // لم تُلعب الجولة: الرموز السابقة تعود مكانها
+      await pre.finish();
+      await dropIn(pre.saved);
+      reconcile();
       setBusy(false);
       A.sfx.error();
       if (err.needsLogin) { S.demo = true; S.balance = demoBalance(); paintMode(); paintBalance(); }
@@ -611,7 +651,7 @@
       paintBalance();
 
       // لفة عادية رابحة: لا تقلّ عن الرهان (الخادم يدفع كذلك). لفة الشراء بلا حدّ
-      const baseWin = await animateSpin(res.base, { startMult: 1, label: 'ربح', floor: res.buy ? 0 : b });
+      const baseWin = await animateSpin(res.base, { startMult: 1, label: 'ربح', floor: res.buy ? 0 : b, pre });
       let total = baseWin;
       if (res.feature) total = await playFeature(res.feature, res.base.win);
       total = res.win;

@@ -313,6 +313,7 @@ button:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; 
 
 /* حالات الفوز */
 .bw-reels.is-eval .bw-cell:not(.is-win):not(.is-scat-on) .bw-sym { opacity: .28; }
+.bw-cell.is-stream .bw-sym { transform: scaleY(1.18); opacity: .92; }
 .bw-cell.is-win { z-index: 5; }
 .bw-cell.is-win .bw-sym { animation: bwWin .7s ease-in-out infinite alternate; will-change: transform; }
 .bw-cell.is-win::after, .bw-cell.is-flash::after {
