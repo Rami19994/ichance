@@ -29,6 +29,7 @@ const bullseyeGame = require('./bullseyeGame');
 const chickenGame = require('./chickenGame');
 const buffaloWays = require('./buffaloWays');
 const matador = require('./matador');
+const raccoon = require('./raccoon');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -376,7 +377,8 @@ const ROUTE_GAME = {
   // الإيقاف يمنع جولة جديدة فقط: جولة جارية تُكمل (خطوة/جمع) فلا يُحتجز رهان
   '/api/chicken/start': 'chicken', '/api/chicken/demo-step': 'chicken',
   '/api/buffalo-ways/spin': 'buffalo-ways', '/api/buffalo-ways/demo': 'buffalo-ways',
-  '/api/matador/spin': 'matador', '/api/matador/demo': 'matador'
+  '/api/matador/spin': 'matador', '/api/matador/demo': 'matador',
+  '/api/raccoon/spin': 'raccoon', '/api/raccoon/demo': 'raccoon'
 };
 
 /** رمز الماستر منفصل عن رمز الكاشير واللاعب: ثلاثة أدوار قد تعمل على جهاز واحد. */
@@ -1245,6 +1247,33 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // ---------------------------------------------------- راكون الكونغ فو
+  if (route === '/api/raccoon/state' && req.method === 'GET') {
+    return sendJson(res, 200, raccoon.stateFor(player));
+  }
+
+  if (route === '/api/raccoon/spin' && req.method === 'POST') {
+    if (!player) return sendJson(res, 401, { error: 'سجّل الدخول للّعب', needsLogin: true });
+    if (!rateLimit(`raccoon:${player.id}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'لفات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = await raccoon.spin(player, { bet: body.bet, buy: body.buy === true, ante: body.ante === true });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
+  if (route === '/api/raccoon/demo' && req.method === 'POST') {
+    // تجربة بلا مال للزوّار — المحرّك نفسه، لا خصم ولا تسجيل
+    if (!rateLimit(`raccoon-demo:${ip}`, 30, 10_000)) {
+      return sendJson(res, 429, { error: 'لفات سريعة جداً — تمهّل قليلاً' });
+    }
+    const body = await readBody(req);
+    const result = raccoon.demo({ bet: body.bet, buy: body.buy === true, ante: body.ante === true });
+    if (!result.ok) return sendJson(res, 400, { error: result.error });
+    return sendJson(res, 200, result);
+  }
+
   // ------------------------------------------------------------------ الإدارة
   if (route === '/api/countries' && req.method === 'GET') {
     return sendJson(res, 200, { countries: countries.list() });
@@ -1751,6 +1780,7 @@ async function handleApi(req, res, url) {
         chicken: siteConfig.getGameRtp('chicken', 96.0),
         'buffalo-ways': siteConfig.getGameRtp('buffalo-ways', 96.0),
         matador: siteConfig.getGameRtp('matador', 96.0),
+        raccoon: siteConfig.getGameRtp('raccoon', 96.0),
         tank: siteConfig.getGameRtp('tank', 80.0)
       };
       return sendJson(res, 200, {
@@ -1973,6 +2003,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/chicken-road') return sendStatic(req, res, '/chicken-road.html');
   if (url.pathname === '/buffalo-ways') return sendStatic(req, res, '/buffalo-ways.html');
   if (url.pathname === '/matador') return sendStatic(req, res, '/matador.html');
+  if (url.pathname === '/raccoon') return sendStatic(req, res, '/raccoon.html');
   if (url.pathname === '/login') return sendStatic(req, res, '/login.html');
   if (url.pathname === '/cashier') return sendStatic(req, res, '/cashier.html');
   if (url.pathname === '/master') return sendStatic(req, res, '/master.html');

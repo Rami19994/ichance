@@ -172,6 +172,7 @@ const NAV_SECTIONS = [
   {
     items: [
       { id: 'home', label: 'الرئيسية', icon: 'casino', href: '/' },
+      { id: 'raccoon', label: 'راكون الكونغ فو', icon: 'slots', href: '/raccoon', live: true },
       { id: 'matador', label: 'ماتادور فييستا', icon: 'slots', href: '/matador', live: true },
       { id: 'buffalo-ways', label: 'بافالو وايز 3600', icon: 'slots', href: '/buffalo-ways', live: true },
       { id: 'lucky-cards', label: 'كروت الحظ', icon: 'cards', href: '/lucky-cards', live: true },

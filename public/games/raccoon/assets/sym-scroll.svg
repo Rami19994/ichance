@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ff6a4c"/><stop offset=".5" stop-color="#d4241c"/><stop offset="1" stop-color="#7a0c08"/>
+  </linearGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fffaf0"/><stop offset=".6" stop-color="#f3e2bf"/><stop offset="1" stop-color="#d9bb86"/>
+  </linearGradient></defs>
+  <g transform="rotate(-28 100 100)">
+    <path d="M44 62 H156 V138 H44 Z" fill="url(#paper)" stroke="#3d220c" stroke-width="3"/>
+    <path d="M60 80 H140 M60 96 H128 M60 112 H136 M60 126 H110" stroke="#b8905a" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="112" text-anchor="middle" font-family="serif" font-size="34" fill="#9a2a14" opacity=".75">福</text>
+    <rect x="30" y="54" width="16" height="92" rx="8" fill="url(#red)" stroke="#3d220c" stroke-width="3"/>
+    <rect x="154" y="54" width="16" height="92" rx="8" fill="url(#red)" stroke="#3d220c" stroke-width="3"/>
+    <rect x="27" y="46" width="22" height="12" rx="4" fill="url(#gold)" stroke="#3d220c" stroke-width="2.4"/>
+    <rect x="27" y="142" width="22" height="12" rx="4" fill="url(#gold)" stroke="#3d220c" stroke-width="2.4"/>
+    <rect x="151" y="46" width="22" height="12" rx="4" fill="url(#gold)" stroke="#3d220c" stroke-width="2.4"/>
+    <rect x="151" y="142" width="22" height="12" rx="4" fill="url(#gold)" stroke="#3d220c" stroke-width="2.4"/>
+    <path d="M162 154 C166 166 162 176 170 184" fill="none" stroke="#b3120f" stroke-width="3"/>
+    <circle cx="170" cy="186" r="6" fill="#d4241c" stroke="#3d220c" stroke-width="2"/>
+    <path d="M166 192 L170 200 L174 192" fill="#6b2a8a"/>
+  </g></svg>

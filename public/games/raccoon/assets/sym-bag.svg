@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ff6a4c"/><stop offset=".5" stop-color="#d4241c"/><stop offset="1" stop-color="#7a0c08"/>
+  </linearGradient>
+  <radialGradient id="cloth" cx=".38" cy=".35" r=".8">
+    <stop offset="0" stop-color="#ff8a6a"/><stop offset=".45" stop-color="#d4241c"/><stop offset="1" stop-color="#6e0a06"/>
+  </radialGradient></defs>
+  <ellipse cx="100" cy="182" rx="58" ry="8" fill="#6b4210" opacity=".25"/>
+  <g stroke="#3d220c" stroke-width="3" stroke-linejoin="round">
+    <path d="M70 62 C60 52 58 38 70 32 C80 38 84 44 90 40 C94 30 106 30 110 40 C116 44 120 38 130 32 C142 38 140 52 130 62 Z" fill="url(#cloth)"/>
+    <path d="M70 62 C40 76 28 112 34 142 C40 170 70 182 100 182 C130 182 160 170 166 142 C172 112 160 76 130 62 Z" fill="url(#cloth)"/>
+    <path d="M66 60 C86 70 114 70 134 60 L136 72 C114 82 86 82 64 72 Z" fill="url(#gold)"/>
+  </g>
+  <circle cx="84" cy="30" r="12" fill="url(#gold)" stroke="#3d220c" stroke-width="2.6"/><rect x="80" y="26" width="8" height="8" fill="#a8660f"/>
+  <circle cx="112" cy="26" r="12" fill="url(#gold)" stroke="#3d220c" stroke-width="2.6"/><rect x="108" y="22" width="8" height="8" fill="#a8660f"/>
+  <path d="M46 110 C52 90 68 80 84 76" fill="none" stroke="#ffb09a" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+  <path d="M48 150 C60 140 70 150 62 160 M152 150 C140 140 130 150 138 160" fill="none" stroke="#ffd84f" stroke-width="3.4" stroke-linecap="round"/>
+  <g transform="translate(100 128) rotate(45)"><rect x="-26" y="-26" width="52" height="52" rx="5" fill="url(#gold)" stroke="#3d220c" stroke-width="2.6"/></g>
+  <text x="100" y="142" text-anchor="middle" font-family="serif" font-size="38" font-weight="700" fill="#b3120f">金</text></svg>

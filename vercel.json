@@ -82,6 +82,10 @@
       "destination": "/matador.html"
     },
     {
+      "source": "/raccoon",
+      "destination": "/raccoon.html"
+    },
+    {
       "source": "/master",
       "destination": "/master.html"
     },

@@ -315,6 +315,25 @@ function matadorFiesta(n = 30000) {
   return est;
 }
 
+// ═════════════════════════════════════════════ 5d) راكون الكونغ فو
+function kungFuRaccoon(n = Number(process.env.RC_ROUNDS || 600000)) {
+  const H = require('../server/raccoon');
+  const { run } = require('./tuneRaccoon.js');
+  const nb = Math.round(n / 10);
+  console.log(`
+■ راكون الكونغ فو   (محاكاة ${n.toLocaleString()} لفة لكل وضع + ${nb.toLocaleString()} شراء — الأدقّ: tools/tuneRaccoon.js)`);
+  const b = run(n, 'base', 20260928);
+  const a = run(n, 'ante', 20260929);
+  const s = run(nb, 'buy', 20260930);
+  // اللفات المجانية ثقيلة الذيل: هامش الخطأ كبير في عيّنة صغيرة، فنطبعه
+  console.log(line('اللعب العادي', pct(b.rtp), `± ${pct(1.96 * b.se)} · ${verdict(b.rtp)}`));
+  console.log(line('  لفات + مجانية + جاكبوت', `${pct(b.baseRtp)} + ${pct(b.fsRtp)} + ${pct(b.jpRtp)}`, `مجانية كل ${Math.round(1 / b.trigger)} لفة`));
+  console.log(line(`فرصة ×2 (${H.ANTE_COST_X}×)`, pct(a.rtp), `± ${pct(1.96 * a.se)} · مجانية كل ${Math.round(1 / a.trigger)} لفة`));
+  console.log(line(`الشراء (${H.BUY_COST_X}×)`, pct(s.rtp), `± ${pct(1.96 * s.se)} · ${verdict(s.rtp)}`));
+  console.log(line('  المُقاس على 8 ملايين جولة', pct(H.RTP), 'انظر رأس server/raccoon.js'));
+  return b.rtp;
+}
+
 // ═════════════════════════════════════════════ 6) معركة الدبابات
 function tanks() {
   const T = require('../public/js/tankSim.js');
@@ -348,6 +367,7 @@ const results = {
   'طريق الدجاجة': chicken(),
   'بافالو وايز': buffaloWays(),
   'ماتادور فييستا': matadorFiesta(),
+  'راكون الكونغ فو': kungFuRaccoon(),
   'الدبابات': tanks()
 };
 

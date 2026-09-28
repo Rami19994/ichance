@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1f7a64">
+<title>راكون الكونغ فو — Kung Fu Raccoon | LuckyArena</title>
+<meta name="description" content="راكون الكونغ فو على LuckyArena: شبكة 3×3 بخمسة خطوط، صناديق جوائز ومضاعفات فوق البكرات، لفات مجانية بالراكون الثابت وأربع جوائز جاكبوت.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="/games/raccoon/assets/bg.svg" as="image">
+<link rel="stylesheet" href="/games/raccoon/game.css?v=1">
+</head>
+<body class="rc-page">
+
+<div class="rc-bg" aria-hidden="true"></div>
+
+<main class="rc-viewport">
+  <div class="rc-stage is-land" id="stage">
+
+    <!-- الجاكبوت -->
+    <div class="rc-jp rc-jp--mini" data-jp="mini"><em>MINI</em><b data-v>0.00</b><img src="/games/matador/assets/gem-mini.svg" alt=""></div>
+    <div class="rc-jp rc-jp--minor" data-jp="minor"><em>MINOR</em><b data-v>0.00</b><img src="/games/matador/assets/gem-minor.svg" alt=""></div>
+    <div class="rc-jp rc-jp--major" data-jp="major"><em>MAJOR</em><b data-v>0.00</b><img src="/games/matador/assets/gem-major.svg" alt=""></div>
+    <div class="rc-jp rc-jp--grand" data-jp="grand"><em>GRAND</em><b data-v>0.00</b><img src="/games/matador/assets/gem-grand.svg" alt=""></div>
+
+    <!-- الراكون المعلّم -->
+    <div class="rc-hero" id="hero"><img src="/games/raccoon/assets/raccoon.svg" alt="" draggable="false"></div>
+
+    <!-- الشعار والشراء وفرصة ×2 -->
+    <div class="rc-logo" aria-label="Kung Fu Raccoon">
+      <span class="rc-logo__top" data-t="KUNG FU" dir="ltr">KUNG FU</span>
+      <span class="rc-logo__main" data-t="RACCOON" dir="ltr">RACCOON</span>
+    </div>
+    <button class="rc-buy" id="buyBtn" type="button"><span>ميزة<br>الشراء</span></button>
+    <button class="rc-chance" id="chanceBtn" type="button" aria-pressed="false">
+      <span class="rc-chance__sw" id="chanceSw">OFF</span>
+      <span class="rc-chance__lbl">فرصة<br><b dir="ltr">X2</b></span>
+    </button>
+
+    <!-- البوّابة واللوح -->
+    <div class="rc-board" id="board" dir="ltr">
+      <img class="rc-gate" src="/games/raccoon/assets/gate.svg" alt="" draggable="false">
+      <div class="rc-box" data-box="0"><img class="rc-box__coin" src="/games/raccoon/assets/coin.svg" alt=""><b>2X</b></div>
+      <div class="rc-box" data-box="1"><img class="rc-box__coin" src="/games/raccoon/assets/coin.svg" alt=""><b>0.00</b></div>
+      <div class="rc-box" data-box="2"><img class="rc-box__coin" src="/games/raccoon/assets/coin.svg" alt=""><b>0.00</b></div>
+      <div class="rc-reels" id="reels"></div>
+      <canvas class="rc-fx" id="fx" aria-hidden="true"></canvas>
+      <div class="rc-msg" id="msg"><span id="msgText">حظاً طيباً!</span></div>
+    </div>
+
+    <!-- زر اللف -->
+    <button class="rc-spin" id="spinBtn" type="button" aria-label="لفّ">
+      <svg viewBox="0 0 100 100" aria-hidden="true" class="rc-spin__icon">
+        <path d="M18 46 C30 26 42 16 50 12 C58 16 70 26 82 46 C66 50 34 50 18 46 Z" fill="#fff"/>
+        <path d="M34 54 C34 70 42 80 50 80 C58 80 66 70 66 54" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+      <svg viewBox="0 0 100 100" aria-hidden="true" class="rc-spin__stop"><rect x="30" y="30" width="40" height="40" rx="6" fill="none" stroke="#fff" stroke-width="7"/></svg>
+      <span class="rc-spin__auto" id="autoCount" hidden>0</span>
+    </button>
+
+    <!-- الشريط السفلي -->
+    <div class="rc-bar">
+      <button class="rc-ico rc-ico--menu" id="menuBtn" type="button" aria-label="القائمة">
+        <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="rc-ico rc-ico--info" id="infoBtn" type="button" aria-label="معلومات">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="6.5" r="1.7" fill="currentColor"/><path d="M12 10.5v8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+      </button>
+      <button class="rc-ico rc-ico--sound" id="soundBtn" type="button" aria-label="الصوت">
+        <svg viewBox="0 0 24 24"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4Z M16 8.5a5 5 0 0 1 0 7 M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="rc-pill rc-pill--bal"><em>الرصيد</em><b id="balance">0.00</b></div>
+      <button class="rc-arrow rc-arrow--prev" id="betPrev" type="button" aria-label="رهانات أقل">
+        <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="rc-chips" id="chips" dir="ltr"></div>
+      <button class="rc-arrow rc-arrow--next" id="betNext" type="button" aria-label="رهانات أعلى">
+        <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="rc-pill rc-pill--win"><em id="winLabel">آخر مكسب</em><b id="lastWin">0.00</b></div>
+      <button class="rc-ico rc-ico--auto" id="autoBtn" type="button" aria-label="لعب تلقائي">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 9.5c0-1 1-2 3.5-2s3.5 1 3.5 2M9 16c1-2 2-3 3-3s2 1 3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="rc-ico rc-ico--turbo" id="turboBtn" type="button" aria-label="لعب سريع">
+        <svg viewBox="0 0 24 24"><path d="M13.5 2 5 13.5h6L9.5 22 19 9.8h-6.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="rc-ico rc-ico--repeat" id="repeatBtn" type="button" aria-label="لفّات متتالية">
+        <svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 0 1-12 5M5 12a7 7 0 0 1 12-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M17 3v4h-4M7 21v-4h4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="rc-foot">
+      <span class="rc-foot__brand" dir="ltr"><b>LUCKY</b>ARENA</span>
+      <span class="rc-foot__name">Kung Fu Raccoon <i id="modeBadge">وضع تجريبي</i></span>
+      <span class="rc-foot__pays" id="footPays"></span>
+      <span class="rc-foot__round" dir="ltr"><span id="roundId">#—</span> <span id="clock">00:00</span></span>
+    </div>
+
+    <a class="rc-home" href="/" title="العودة للردهة" aria-label="العودة للردهة">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </a>
+
+    <!-- ======================== النوافذ ======================== -->
+    <div class="rc-overlay rc-loader" id="loader">
+      <img class="rc-loader__art" src="/assets/thumb_raccoon.svg" alt="Kung Fu Raccoon">
+      <div class="rc-loader__bar"><i id="loadBar"></i></div>
+      <button class="rc-btn rc-btn--gold" id="startBtn" type="button" hidden>اضغط للبدء</button>
+      <p class="rc-loader__note" id="loadNote">جارٍ التحميل…</p>
+    </div>
+
+    <div class="rc-overlay rc-bigwin" id="bigWin" hidden>
+      <i class="rc-bigwin__rays"></i>
+      <div class="rc-bigwin__title" id="bigWinTitle">ربح كبير</div>
+      <div class="rc-bigwin__value" id="bigWinValue">0.00</div>
+      <div class="rc-bigwin__hint">اضغط للمتابعة</div>
+    </div>
+
+    <div class="rc-overlay rc-bigwin" id="jpWin" hidden>
+      <i class="rc-bigwin__rays"></i>
+      <img class="rc-jpwin__gem" id="jpGem" src="/games/matador/assets/gem-mini.svg" alt="">
+      <div class="rc-bigwin__title"><span dir="ltr">JACKPOT</span> <b id="jpName" dir="ltr">MINI</b></div>
+      <div class="rc-bigwin__value" id="jpValue">0.00</div>
+      <div class="rc-bigwin__hint">اضغط للمتابعة</div>
+    </div>
+
+    <div class="rc-overlay" id="fsIntro" hidden>
+      <div class="rc-panel">
+        <img class="rc-panel__art" src="/games/raccoon/assets/sym-wild.svg" alt="">
+        <div class="rc-panel__kicker">مبروك!</div>
+        <div class="rc-panel__big"><b id="fsIntroCount">8</b> لفات مجانية</div>
+        <p class="rc-panel__text">كل راكون يظهر <b>يبقى ثابتاً في مكانه</b> حتى نهاية اللفات المجانية.</p>
+        <button class="rc-btn rc-btn--gold" id="fsStart" type="button">ابدأ</button>
+      </div>
+    </div>
+
+    <div class="rc-overlay" id="fsOutro" hidden>
+      <div class="rc-panel">
+        <div class="rc-panel__kicker">انتهت اللفات المجانية</div>
+        <div class="rc-panel__label">إجمالي الربح</div>
+        <div class="rc-panel__big"><b id="fsOutroWin">0.00</b></div>
+        <button class="rc-btn rc-btn--gold" id="fsDone" type="button">متابعة</button>
+      </div>
+    </div>
+
+    <div class="rc-overlay" id="buyConfirm" hidden>
+      <div class="rc-panel">
+        <div class="rc-panel__kicker">ميزة الشراء</div>
+        <p class="rc-panel__text">ادخل مباشرة إلى <b>8 لفات مجانية</b> تبدأ بـ <b>3 راكون ثابتة</b> مقابل</p>
+        <div class="rc-panel__big"><b id="buyConfirmCost">0.00</b></div>
+        <div class="rc-panel__row">
+          <button class="rc-btn" data-close type="button">إلغاء</button>
+          <button class="rc-btn rc-btn--gold" id="buyYes" type="button">شراء</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rc-overlay" id="autoMenu" hidden>
+      <div class="rc-panel">
+        <div class="rc-panel__kicker">لعب تلقائي</div>
+        <div class="rc-chipsel" id="autoChips">
+          <button type="button" data-n="10">10</button>
+          <button type="button" data-n="25">25</button>
+          <button type="button" data-n="50">50</button>
+          <button type="button" data-n="100">100</button>
+        </div>
+        <p class="rc-panel__text rc-panel__text--small">يتوقف عند اللفات المجانية أو الجاكبوت أو نفاد الرصيد.</p>
+        <button class="rc-btn" data-close type="button">إغلاق</button>
+      </div>
+    </div>
+
+    <div class="rc-overlay rc-info" id="infoModal" hidden>
+      <div class="rc-panel rc-panel--scroll">
+        <button class="rc-panel__x" data-close type="button" aria-label="إغلاق">✕</button>
+        <div class="rc-panel__kicker">معلومات اللعبة</div>
+        <div class="rc-toggles">
+          <label><input type="checkbox" id="optMusic" checked> الموسيقى</label>
+          <label><input type="checkbox" id="optSfx" checked> المؤثرات</label>
+        </div>
+        <h3>جدول الدفع <small>(3 على خط، برهانك الحالي)</small></h3>
+        <div class="rc-pays" id="payTable"></div>
+        <h3>خطوط الدفع</h3>
+        <div class="rc-lines" id="linesTable"></div>
+        <h3>الجاكبوت</h3>
+        <div class="rc-jptable" id="jpTable"></div>
+        <h3>طريقة اللعب</h3>
+        <ul class="rc-rules" id="rules"></ul>
+      </div>
+    </div>
+
+    <div class="rc-toast" id="toast" hidden></div>
+  </div>
+</main>
+
+<script src="/games/raccoon/audio.js?v=1"></script>
+<script src="/games/raccoon/game.js?v=1"></script>
+</body>
+</html>

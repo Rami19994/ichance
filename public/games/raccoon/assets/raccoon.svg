@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 480"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ff6a4c"/><stop offset=".5" stop-color="#d4241c"/><stop offset="1" stop-color="#7a0c08"/>
+  </linearGradient>
+  <radialGradient id="fur" cx=".45" cy=".3" r=".8">
+    <stop offset="0" stop-color="#c9ccd3"/><stop offset=".55" stop-color="#8d9098"/><stop offset="1" stop-color="#55575e"/>
+  </radialGradient>
+  <linearGradient id="robe" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff4a8"/><stop offset=".45" stop-color="#f6c330"/><stop offset="1" stop-color="#b8770a"/>
+  </linearGradient>
+  <linearGradient id="robeDark" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#e7a91c"/><stop offset="1" stop-color="#9a5e06"/>
+  </linearGradient>
+  <radialGradient id="shadow" cx=".5" cy=".5" r=".5">
+    <stop offset="0" stop-color="#2a2a20" stop-opacity=".45"/><stop offset="1" stop-color="#2a2a20" stop-opacity="0"/>
+  </radialGradient></defs>
+  <ellipse cx="150" cy="468" rx="110" ry="16" fill="url(#shadow)"/>
+  <path d="M86 330 C40 330 16 300 22 262 C26 240 44 232 58 238 C44 256 48 290 90 300 Z" fill="url(#fur)" stroke="#3d220c" stroke-width="3"/><path d="M30 250 L50 244" stroke="#34353a" stroke-width="9" stroke-linecap="round"/><path d="M24 272 L48 270" stroke="#34353a" stroke-width="9" stroke-linecap="round"/><path d="M30 296 L56 290" stroke="#34353a" stroke-width="9" stroke-linecap="round"/><path d="M46 316 L70 304" stroke="#34353a" stroke-width="9" stroke-linecap="round"/>
+  <!-- السيف خلف الظهر -->
+  <path d="M206 170 L250 110" stroke="#5a3a1a" stroke-width="10" stroke-linecap="round"/>
+  <path d="M244 118 L262 92" stroke="url(#gold)" stroke-width="8" stroke-linecap="round"/>
+  <!-- الساقان والحذاء -->
+  <path d="M112 400 L108 452 H140 L142 404 Z" fill="url(#robeDark)" stroke="#3d220c" stroke-width="3"/>
+  <path d="M160 404 L162 452 H194 L190 400 Z" fill="url(#robeDark)" stroke="#3d220c" stroke-width="3"/>
+  <path d="M98 452 C98 440 144 440 146 452 L146 462 H96 Z" fill="#2a1a10" stroke="#3d220c" stroke-width="3"/>
+  <path d="M156 452 C158 440 204 440 204 452 L206 462 H156 Z" fill="#2a1a10" stroke="#3d220c" stroke-width="3"/>
+  <!-- الرداء -->
+  <path d="M86 240 C80 300 80 360 96 412 C130 424 174 424 208 412 C224 360 222 300 216 240 C196 222 106 222 86 240 Z" fill="url(#robe)" stroke="#3d220c" stroke-width="3.5"/>
+  <path d="M152 236 L136 412 M152 236 C170 280 176 340 174 412" fill="none" stroke="#b8770a" stroke-width="3"/>
+  <path d="M96 330 C130 342 174 342 208 330 L208 352 C174 364 130 364 96 352 Z" fill="url(#red)" stroke="#3d220c" stroke-width="3"/>
+  <path d="M150 352 C146 376 140 394 132 408 L144 410 C152 392 156 376 158 354 Z" fill="url(#red)" stroke="#3d220c" stroke-width="2.4"/>
+  <path d="M110 300 C120 290 132 292 138 300 M168 300 C176 290 190 292 196 302" fill="none" stroke="#e6a91a" stroke-width="3" opacity=".8"/>
+  <!-- الذراعان المتشابكتان -->
+  <path d="M86 256 C70 276 76 306 110 312 C140 316 170 312 196 304 C230 294 232 262 214 248 C200 276 170 284 140 284 C114 284 96 276 86 256 Z" fill="url(#robe)" stroke="#3d220c" stroke-width="3.5"/>
+  <path d="M104 296 C130 302 170 300 196 290" fill="none" stroke="#b8770a" stroke-width="3"/>
+  <ellipse cx="112" cy="296" rx="14" ry="11" fill="url(#fur)" stroke="#3d220c" stroke-width="2.6"/>
+  <ellipse cx="196" cy="288" rx="14" ry="11" fill="url(#fur)" stroke="#3d220c" stroke-width="2.6"/>
+  <!-- الياقة -->
+  <path d="M112 226 L152 262 L192 226" fill="none" stroke="#d4241c" stroke-width="8"/>
+  <!-- الرأس -->
+  <g transform="translate(152 176) scale(1.18)">
+    <path d="M-62 -6 C-78 -30 -70 -58 -52 -62 C-40 -48 -36 -34 -34 -22 Z" fill="#7d7f86" stroke="#3d220c" stroke-width="2.6"/>
+    <path d="M62 -6 C78 -30 70 -58 52 -62 C40 -48 36 -34 34 -22 Z" fill="#7d7f86" stroke="#3d220c" stroke-width="2.6"/>
+    <path d="M-50 -30 C-58 -44 -56 -52 -52 -54" fill="none" stroke="#e8a0a0" stroke-width="4" stroke-linecap="round"/>
+    <path d="M0 -40 C44 -40 70 -14 70 18 C70 50 40 70 0 70 C-40 70 -70 50 -70 18 C-70 -14 -44 -40 0 -40 Z" fill="url(#fur)" stroke="#3d220c" stroke-width="2.6"/>
+    <path d="M-58 8 C-44 -8 -18 -6 -6 10 C-14 24 -40 30 -58 20 Z" fill="#2b2a30"/>
+    <path d="M58 8 C44 -8 18 -6 6 10 C14 24 40 30 58 20 Z" fill="#2b2a30"/>
+    <path d="M-44 12 C-38 6 -28 6 -22 12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <path d="M44 12 C38 6 28 6 22 12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <path d="M-28 30 C-20 20 20 20 28 30 C30 50 16 62 0 62 C-16 62 -30 50 -28 30 Z" fill="#f4efe6"/>
+    <ellipse cx="0" cy="30" rx="10" ry="7" fill="#1b1a1e"/>
+    <path d="M-2 40 C-10 48 -30 48 -44 58 M2 40 C10 48 30 48 44 58" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M-8 44 C-4 48 4 48 8 44" fill="none" stroke="#3d220c" stroke-width="2.6" stroke-linecap="round"/>
+    <!-- القبعة المخروطية الحمراء -->
+    <path d="M-84 -18 C-60 -60 -20 -86 0 -96 C20 -86 60 -60 84 -18 C60 -8 -60 -8 -84 -18 Z" fill="url(#red)" stroke="#3d220c" stroke-width="2.6"/>
+    <path d="M-60 -34 C-30 -28 30 -28 60 -34 M-40 -58 C-20 -52 20 -52 40 -58" fill="none" stroke="#ff9a7a" stroke-width="2.4" opacity=".7"/>
+    <path d="M0 -96 V-20 M-30 -80 L-50 -22 M30 -80 L50 -22" stroke="#9a1a12" stroke-width="2" opacity=".6"/>
+    <path d="M-84 -18 C-60 -8 60 -8 84 -18" fill="none" stroke="url(#gold)" stroke-width="5"/>
+    <circle cx="0" cy="-96" r="7" fill="url(#gold)" stroke="#3d220c" stroke-width="2"/>
+  </g>
+  <!-- الشاربان الطويلان -->
+  <path d="M146 228 C130 246 122 264 126 290 M158 228 C174 246 182 264 178 290" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/></svg>

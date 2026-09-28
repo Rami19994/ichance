@@ -110,6 +110,15 @@ const GAMES = {
     categoryName: 'سلوتس',
     defaultRtp: 96.0,
     emoji: '🐂'
+  },
+  raccoon: {
+    key: 'raccoon',
+    name: 'راكون الكونغ فو',
+    href: '/raccoon',
+    category: 'slots',
+    categoryName: 'سلوتس',
+    defaultRtp: 96.0,
+    emoji: '🦝'
   }
 };
 

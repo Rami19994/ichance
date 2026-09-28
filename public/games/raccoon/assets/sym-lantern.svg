@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".3" stop-color="#ffd84f"/>
+    <stop offset=".62" stop-color="#e3a322"/><stop offset="1" stop-color="#96580d"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#f7c63c"/><stop offset="1" stop-color="#a8660f"/>
+  </linearGradient>
+  <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ff6a4c"/><stop offset=".5" stop-color="#d4241c"/><stop offset="1" stop-color="#7a0c08"/>
+  </linearGradient>
+  <radialGradient id="silk" cx=".38" cy=".35" r=".8">
+    <stop offset="0" stop-color="#f6c2ff"/><stop offset=".45" stop-color="#a23ad0"/><stop offset="1" stop-color="#4a0c6e"/>
+  </radialGradient></defs>
+  <path d="M100 6 V30" stroke="#a8660f" stroke-width="4"/>
+  <g stroke="#3d220c" stroke-width="3" stroke-linejoin="round">
+    <path d="M100 44 C150 44 170 76 170 104 C170 134 150 162 100 162 C50 162 30 134 30 104 C30 76 50 44 100 44 Z" fill="url(#silk)"/>
+    <path d="M70 30 H130 L134 50 H66 Z" fill="url(#gold)"/>
+    <path d="M66 156 H134 L130 174 H70 Z" fill="url(#gold)"/>
+  </g>
+  <path d="M81 50 C48.699999999999996 80 48.699999999999996 130 81 158" fill="none" stroke="#e4a8ff" stroke-width="2.2" opacity=".6"/><path d="M90 50 C73 80 73 130 90 158" fill="none" stroke="#e4a8ff" stroke-width="2.2" opacity=".6"/><path d="M100 50 C100 80 100 130 100 158" fill="none" stroke="#e4a8ff" stroke-width="2.2" opacity=".6"/><path d="M110 50 C127 80 127 130 110 158" fill="none" stroke="#e4a8ff" stroke-width="2.2" opacity=".6"/><path d="M119 50 C151.3 80 151.3 130 119 158" fill="none" stroke="#e4a8ff" stroke-width="2.2" opacity=".6"/>
+  <path d="M52 86 C60 64 78 54 96 52" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".5"/>
+  <circle cx="100" cy="104" r="20" fill="url(#gold)" stroke="#3d220c" stroke-width="2.4"/>
+  <path d="M92 98 C96 92 104 92 108 98 C104 104 96 104 92 98 Z M92 110 C96 116 104 116 108 110" fill="none" stroke="#8a4f0c" stroke-width="2.4"/>
+  <g stroke="#6b2a8a" stroke-width="1.5"><path d="M100 174 V186" stroke="#a8660f" stroke-width="3"/>
+    <path d="M92 184 H108 L112 198 H88 Z" fill="#c054e8"/></g>
+  <path d="M40 120 C24 130 20 150 30 170 C34 150 42 140 50 134" fill="#9a30c8" stroke="#4a0c6e" stroke-width="2"/></svg>

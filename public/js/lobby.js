@@ -49,6 +49,23 @@ const GAMES = [
     desc: 'لعبة بلينكو الأصلية عالية المخاطرة! أسقط الكرة وشاهدها تتنقل بين العوائق لتربح مضاعفات تصل إلى 150 ضعف رهانك.'
   },
   {
+    id: 'raccoon',
+    title: 'راكون الكونغ فو — Kung Fu Raccoon',
+    cat: 'slots',
+    cats: ['slots'],
+    rtpBadge: 'KUNG FU RACCOON',
+    provider: 'LuckyArena Originals',
+    providerKey: 'luckyarena',
+    live: true,
+    realGame: true,
+    href: '/raccoon',
+    thumb: '/assets/thumb_raccoon.svg',
+    tag: '3×3 • 5 خطوط • صناديق جوائز',
+    badge: 'NEW • JACKPOT',
+    badgeClass: 'badge-tag--hot',
+    desc: 'سلوت المعبد الصيني: شبكة 3×3 بخمسة خطوط، وفوق كل بكرة صندوق فيه مضاعف أو جائزة نقدية يجمعه الراكون WILD حين يفوز. 3 راكون تفتح 8 لفات مجانية يبقى فيها كل راكون ثابتاً، و«فرصة ×2» تضاعف فرصتها. وأربع جوائز جاكبوت حتى 1000 ضعف الرهان.'
+  },
+  {
     id: 'matador',
     title: 'ماتادور فييستا — Matador Fiesta',
     cat: 'slots',
