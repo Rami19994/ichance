@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#1f7a64">
-<title>راكون الكونغ فو — Kung Fu Raccoon | LuckyArena</title>
-<meta name="description" content="راكون الكونغ فو على LuckyArena: شبكة 3×3 بخمسة خطوط، صناديق جوائز ومضاعفات فوق البكرات، لفات مجانية بالراكون الثابت وأربع جوائز جاكبوت.">
+<title>ماستر راكون — Master Raccoon | LuckyArena</title>
+<meta name="description" content="ماستر راكون على LuckyArena: شبكة 3×3 بخمسة خطوط، صناديق جوائز ومضاعفات فوق البكرات، لفات مجانية بالراكون الثابت وأربع جوائز جاكبوت.">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
-<link rel="preload" href="/games/raccoon/assets/bg.svg" as="image">
-<link rel="stylesheet" href="/games/raccoon/game.css?v=2">
+<link rel="preload" href="/games/raccoon/assets/bg.jpg" as="image">
+<link rel="stylesheet" href="/games/raccoon/game.css?v=3">
 </head>
 <body class="rc-page">
 
@@ -27,12 +27,11 @@
     <div class="rc-jp rc-jp--grand" data-jp="grand"><em>GRAND</em><b data-v>0.00</b><img src="/games/matador/assets/gem-grand.svg" alt=""></div>
 
     <!-- الراكون المعلّم -->
-    <div class="rc-hero" id="hero"><img src="/games/raccoon/assets/raccoon.svg" alt="" draggable="false"></div>
+    <div class="rc-hero" id="hero"><img src="/games/raccoon/assets/raccoon.png" alt="Master Raccoon" draggable="false"></div>
 
     <!-- الشعار والشراء وفرصة ×2 -->
-    <div class="rc-logo" aria-label="Kung Fu Raccoon">
-      <span class="rc-logo__top" data-t="KUNG FU" dir="ltr">KUNG FU</span>
-      <span class="rc-logo__main" data-t="RACCOON" dir="ltr">RACCOON</span>
+    <div class="rc-logo" aria-label="Master Raccoon">
+      <img src="/games/raccoon/assets/logo.png" alt="Master Raccoon" class="rc-logo__img" draggable="false">
     </div>
     <button class="rc-buy" id="buyBtn" type="button"><span>ميزة<br>الشراء</span></button>
     <button class="rc-chance" id="chanceBtn" type="button" aria-pressed="false">
@@ -42,10 +41,10 @@
 
     <!-- البوّابة واللوح -->
     <div class="rc-board" id="board" dir="ltr">
-      <img class="rc-gate" src="/games/raccoon/assets/gate.svg" alt="" draggable="false">
-      <div class="rc-box" data-box="0"><img class="rc-box__coin" src="/games/raccoon/assets/coin.svg" alt=""><b>2X</b></div>
-      <div class="rc-box" data-box="1"><img class="rc-box__coin" src="/games/raccoon/assets/coin.svg" alt=""><b>0.00</b></div>
-      <div class="rc-box" data-box="2"><img class="rc-box__coin" src="/games/raccoon/assets/coin.svg" alt=""><b>0.00</b></div>
+      <img class="rc-gate" src="/games/raccoon/assets/gate.png" alt="" draggable="false">
+      <div class="rc-box" data-box="0"><img class="rc-box__coin" src="/games/raccoon/assets/coin.png" alt=""><b>2X</b></div>
+      <div class="rc-box" data-box="1"><img class="rc-box__coin" src="/games/raccoon/assets/coin.png" alt=""><b>0.00</b></div>
+      <div class="rc-box" data-box="2"><img class="rc-box__coin" src="/games/raccoon/assets/coin.png" alt=""><b>0.00</b></div>
       <div class="rc-reels" id="reels"></div>
       <canvas class="rc-fx" id="fx" aria-hidden="true"></canvas>
       <div class="rc-msg" id="msg"><span id="msgText">حظاً طيباً!</span></div>
@@ -105,7 +104,7 @@
 
     <!-- ======================== النوافذ ======================== -->
     <div class="rc-overlay rc-loader" id="loader">
-      <img class="rc-loader__art" src="/assets/thumb_raccoon.svg" alt="Kung Fu Raccoon">
+      <img class="rc-loader__art" src="/assets/thumb_raccoon.webp" alt="Master Raccoon">
       <div class="rc-loader__bar"><i id="loadBar"></i></div>
       <button class="rc-btn rc-btn--gold" id="startBtn" type="button" hidden>اضغط للبدء</button>
       <p class="rc-loader__note" id="loadNote">جارٍ التحميل…</p>
@@ -128,7 +127,7 @@
 
     <div class="rc-overlay" id="fsIntro" hidden>
       <div class="rc-panel">
-        <img class="rc-panel__art" src="/games/raccoon/assets/sym-wild.svg" alt="">
+        <img class="rc-panel__art" src="/games/raccoon/assets/sym-wild.png" alt="">
         <div class="rc-panel__kicker">مبروك!</div>
         <div class="rc-panel__big"><b id="fsIntroCount">8</b> لفات مجانية</div>
         <p class="rc-panel__text">كل راكون يظهر <b>يبقى ثابتاً في مكانه</b> حتى نهاية اللفات المجانية.</p>

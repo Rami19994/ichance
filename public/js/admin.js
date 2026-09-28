@@ -409,7 +409,7 @@ const GAME_META = {
   chicken: { name: 'طريق الدجاجة', emoji: '🐔', rtp: 96.0 },
   'buffalo-ways': { name: 'بافالو وايز 3600', emoji: '🦬', rtp: 96.0 },
   matador: { name: 'ماتادور فييستا', emoji: '🐂', rtp: 96.0 },
-  raccoon: { name: 'راكون الكونغ فو', emoji: '🦝', rtp: 96.0 }
+  raccoon: { name: 'ماستر راكون', emoji: '🦝', rtp: 96.0 }
 };
 
 function renderGames(d) {

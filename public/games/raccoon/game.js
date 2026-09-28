@@ -105,7 +105,7 @@
   function makeCell(s) {
     const el = document.createElement('div');
     el.className = 'rc-cell' + (s === 'wild' ? ' is-wild' : '');
-    el.innerHTML = `<i class="rc-cell__glow"></i><img src="${ASSET}sym-${s}.svg" alt="" draggable="false"><img class="rc-cell__frame" src="${ASSET}win-frame.svg" alt="">`;
+    el.innerHTML = `<i class="rc-cell__glow"></i><img src="${ASSET}sym-${s}.png" alt="" draggable="false"><img class="rc-cell__frame" src="${ASSET}win-frame.png" alt="">`;
     return { el, s };
   }
   function setGrid(grid) {
@@ -649,7 +649,7 @@
   function paintPaytable() {
     if (!S.paytable) return;
     const b = bet();
-    $('payTable').innerHTML = SYMS.map((s) => `<div class="rc-pay"><img src="${ASSET}sym-${s}.svg" alt="${NAMES[s]}"><b>${nf.format((S.paytable[s] || 0) * b)}</b></div>`).join('');
+    $('payTable').innerHTML = SYMS.map((s) => `<div class="rc-pay"><img src="${ASSET}sym-${s}.png" alt="${NAMES[s]}"><b>${nf.format((S.paytable[s] || 0) * b)}</b></div>`).join('');
     $('linesTable').innerHTML = S.lines.map((rows) => {
       let cells = '';
       for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) cells += `<i class="${rows[c] === r ? 'on' : ''}"></i>`;
@@ -749,7 +749,7 @@
 
   // ─────────────────────────────────────────────────────── الإقلاع
   function preload() {
-    const urls = SYMS.map((s) => `${ASSET}sym-${s}.svg`).concat(['gate.svg', 'raccoon.svg', 'bg.svg', 'coin.svg', 'win-frame.svg'].map((n) => ASSET + n));
+    const urls = SYMS.map((s) => `${ASSET}sym-${s}.png`).concat(['gate.png', 'raccoon.png', 'bg.jpg', 'coin.png', 'win-frame.png', 'logo.png'].map((n) => ASSET + n));
     let done = 0;
     const bar = $('loadBar');
     const step = () => { done++; bar.style.width = `${Math.round((done / (urls.length + 1)) * 100)}%`; };
